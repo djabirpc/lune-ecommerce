@@ -106,6 +106,9 @@ export function OrderDetailPage() {
           <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Paiement</h2>
           <p className="text-sm">{order.paymentMethod} — {order.paymentStatus}</p>
           <p className="text-sm">Sous-total : {formatPrice(order.subtotal)}</p>
+          {order.discountTotal > 0 && (
+            <p className="text-sm text-green-700">Réduction : −{formatPrice(order.discountTotal)}</p>
+          )}
           <p className="text-sm">Livraison : {formatPrice(order.shippingCost)}</p>
           <p className="text-sm font-medium">Total : {formatPrice(order.total)}</p>
         </div>
@@ -224,6 +227,20 @@ export function OrderDetailPage() {
                     Prochain appel : {new Date(attempt.nextCallAtUtc).toLocaleString('fr-FR')}
                   </p>
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {order.appliedPromotions.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Promotions appliquées</h2>
+          <div className="flex flex-col divide-y divide-black/5 rounded-lg border border-black/10 bg-white text-sm">
+            {order.appliedPromotions.map((p) => (
+              <div key={p.id} className="flex items-center justify-between px-4 py-2">
+                <span>{p.promotionName}</span>
+                <span className="text-green-700">−{formatPrice(p.discountAmount)}</span>
               </div>
             ))}
           </div>

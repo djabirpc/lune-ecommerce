@@ -2,11 +2,13 @@ using Ecommerce.Application.Auth;
 using Ecommerce.Application.Catalog;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Orders;
+using Ecommerce.Application.Promotions;
 using Ecommerce.Infrastructure.Catalog;
 using Ecommerce.Infrastructure.Identity;
 using Ecommerce.Infrastructure.Inventory;
 using Ecommerce.Infrastructure.Orders;
 using Ecommerce.Infrastructure.Persistence;
+using Ecommerce.Infrastructure.Promotions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
+        services.AddScoped<IPromotionService, PromotionService>();
 
         return services;
     }

@@ -21,9 +21,11 @@ public class Order : Entity
 
     public decimal Subtotal { get; set; }
     public decimal ShippingCost { get; set; }
+    public decimal DiscountTotal { get; set; }
     public decimal Total { get; set; }
 
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderStatusHistory> StatusHistory { get; set; } = [];
     public ICollection<OrderCallAttempt> CallAttempts { get; set; } = [];
+    public ICollection<OrderPromotion> AppliedPromotions { get; set; } = [];
 }

@@ -135,6 +135,7 @@ export interface CreateOrderRequest {
   deliveryType: DeliveryType;
   notes: string | null;
   items: OrderItemRequest[];
+  couponCode?: string | null;
 }
 
 export interface OrderItemDto {
@@ -174,6 +175,13 @@ export interface RecordCallAttemptRequest {
   nextCallAt: string | null;
 }
 
+export interface OrderPromotionDto {
+  id: string;
+  promotionId: string | null;
+  promotionName: string;
+  discountAmount: number;
+}
+
 export interface OrderDetailDto {
   id: string;
   orderNumber: string;
@@ -190,11 +198,13 @@ export interface OrderDetailDto {
   paymentStatus: PaymentStatus;
   subtotal: number;
   shippingCost: number;
+  discountTotal: number;
   total: number;
   createdAtUtc: string;
   items: OrderItemDto[];
   statusHistory: OrderStatusHistoryDto[];
   callAttempts: OrderCallAttemptDto[];
+  appliedPromotions: OrderPromotionDto[];
 }
 
 export interface OrderSummaryDto {
@@ -238,4 +248,67 @@ export interface AuthResponse {
   refreshToken: string;
   refreshTokenExpiresAtUtc: string;
   user: CurrentUserResponse;
+}
+
+// --- Promotions ---
+
+export type PromotionType =
+  | 'ProductDiscount'
+  | 'CategoryDiscount'
+  | 'FlashSale'
+  | 'PercentageDiscount'
+  | 'FixedAmountDiscount'
+  | 'BuyXGetY'
+  | 'FreeShipping'
+  | 'Coupon';
+
+export interface PromotionDto {
+  id: string;
+  name: string;
+  description: string | null;
+  type: PromotionType;
+  percentageValue: number | null;
+  fixedAmountValue: number | null;
+  buyQuantity: number | null;
+  getQuantity: number | null;
+  hasCouponCode: boolean;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  isActive: boolean;
+  priority: number;
+}
+
+export interface PromotionDetailDto {
+  id: string;
+  name: string;
+  description: string | null;
+  type: PromotionType;
+  percentageValue: number | null;
+  fixedAmountValue: number | null;
+  buyQuantity: number | null;
+  getQuantity: number | null;
+  couponCode: string | null;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  isActive: boolean;
+  priority: number;
+  productIds: string[];
+  categoryIds: string[];
+}
+
+export interface SavePromotionRequest {
+  name: string;
+  description: string | null;
+  type: PromotionType;
+  percentageValue: number | null;
+  fixedAmountValue: number | null;
+  buyQuantity: number | null;
+  getQuantity: number | null;
+  couponCode: string | null;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  isActive: boolean;
+  priority: number;
+  productIds: string[];
+  categoryIds: string[];
 }

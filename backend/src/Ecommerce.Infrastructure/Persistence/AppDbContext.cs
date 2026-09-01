@@ -1,6 +1,7 @@
 using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Inventory;
 using Ecommerce.Domain.Orders;
+using Ecommerce.Domain.Promotions;
 using Ecommerce.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -24,6 +25,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
     public DbSet<OrderCallAttempt> OrderCallAttempts => Set<OrderCallAttempt>();
+    public DbSet<OrderPromotion> OrderPromotions => Set<OrderPromotion>();
+
+    public DbSet<Promotion> Promotions => Set<Promotion>();
+    public DbSet<PromotionProduct> PromotionProducts => Set<PromotionProduct>();
+    public DbSet<PromotionCategory> PromotionCategories => Set<PromotionCategory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -133,6 +139,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(o => o.PaymentStatus).HasConversion<string>().HasMaxLength(20);
             entity.Property(o => o.Subtotal).HasPrecision(10, 2);
             entity.Property(o => o.ShippingCost).HasPrecision(10, 2);
+            entity.Property(o => o.DiscountTotal).HasPrecision(10, 2);
             entity.Property(o => o.Total).HasPrecision(10, 2);
             entity.HasIndex(o => o.OrderNumber).IsUnique();
             entity.HasIndex(o => o.Phone);
@@ -174,6 +181,59 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasOne(a => a.Order)
                 .WithMany(o => o.CallAttempts)
                 .HasForeignKey(a => a.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrderPromotion>(entity =>
+        {
+            entity.ToTable("OrderPromotions");
+            entity.Property(p => p.PromotionName).IsRequired().HasMaxLength(200);
+            entity.Property(p => p.DiscountAmount).HasPrecision(10, 2);
+            entity.HasIndex(p => p.OrderId);
+            entity.HasOne(p => p.Order)
+                .WithMany(o => o.AppliedPromotions)
+                .HasForeignKey(p => p.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Promotion>(entity =>
+        {
+            entity.ToTable("Promotions");
+            entity.Property(p => p.Name).IsRequired().HasMaxLength(200);
+            entity.Property(p => p.Description).HasMaxLength(2000);
+            entity.Property(p => p.Type).HasConversion<string>().HasMaxLength(30);
+            entity.Property(p => p.PercentageValue).HasPrecision(5, 2);
+            entity.Property(p => p.FixedAmountValue).HasPrecision(10, 2);
+            entity.Property(p => p.CouponCode).HasMaxLength(50);
+            entity.HasIndex(p => p.CouponCode).IsUnique().HasFilter("\"CouponCode\" IS NOT NULL");
+            entity.HasIndex(p => new { p.IsActive, p.StartsAtUtc, p.EndsAtUtc });
+        });
+
+        builder.Entity<PromotionProduct>(entity =>
+        {
+            entity.ToTable("PromotionProducts");
+            entity.HasKey(pp => new { pp.PromotionId, pp.ProductId });
+            entity.HasOne(pp => pp.Promotion)
+                .WithMany(p => p.Products)
+                .HasForeignKey(pp => pp.PromotionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(pp => pp.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PromotionCategory>(entity =>
+        {
+            entity.ToTable("PromotionCategories");
+            entity.HasKey(pc => new { pc.PromotionId, pc.CategoryId });
+            entity.HasOne(pc => pc.Promotion)
+                .WithMany(p => p.Categories)
+                .HasForeignKey(pc => pc.PromotionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Category>()
+                .WithMany()
+                .HasForeignKey(pc => pc.CategoryId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

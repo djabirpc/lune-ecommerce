@@ -4,7 +4,9 @@ using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Orders.Dtos;
+using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Orders;
+using Ecommerce.Domain.Promotions;
 using Ecommerce.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -89,7 +91,17 @@ public class OrderService(
         }
 
         order.Subtotal = order.Items.Sum(i => i.LineTotal);
-        order.Total = order.Subtotal + order.ShippingCost;
+
+        var (discountTotal, shippingCost, appliedPromotions) = await CalculatePromotionsAsync(
+            order.Items, variantsById, request.CouponCode, order.ShippingCost, cancellationToken);
+
+        order.DiscountTotal = discountTotal;
+        order.ShippingCost = shippingCost;
+        order.Total = order.Subtotal - order.DiscountTotal + order.ShippingCost;
+        foreach (var appliedPromotion in appliedPromotions)
+        {
+            order.AppliedPromotions.Add(appliedPromotion);
+        }
 
         dbContext.Orders.Add(order);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -108,6 +120,7 @@ public class OrderService(
     {
         var order = await dbContext.Orders.AsNoTracking()
             .Include(o => o.Items)
+            .Include(o => o.AppliedPromotions)
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, cancellationToken);
 
         return order is null || order.Phone != phone
@@ -121,6 +134,7 @@ public class OrderService(
             .Include(o => o.Items)
             .Include(o => o.StatusHistory)
             .Include(o => o.CallAttempts)
+            .Include(o => o.AppliedPromotions)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -175,6 +189,7 @@ public class OrderService(
             .Include(o => o.Items)
             .Include(o => o.StatusHistory)
             .Include(o => o.CallAttempts)
+            .Include(o => o.AppliedPromotions)
             .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -243,6 +258,116 @@ public class OrderService(
         throw new InvalidOperationException("Impossible de générer un numéro de commande unique après plusieurs tentatives.");
     }
 
+    private async Task<(decimal DiscountTotal, decimal ShippingCost, List<OrderPromotion> AppliedPromotions)> CalculatePromotionsAsync(
+        ICollection<OrderItem> items,
+        Dictionary<Guid, ProductVariant> variantsById,
+        string? couponCode,
+        decimal shippingCost,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var productIds = items.Select(i => variantsById[i.ProductVariantId].ProductId).Distinct().ToList();
+        var categoryIds = items.Select(i => variantsById[i.ProductVariantId].Product.CategoryId).Distinct().ToList();
+
+        var candidates = await dbContext.Promotions
+            .Include(p => p.Products)
+            .Include(p => p.Categories)
+            .Where(p => p.IsActive && p.Type != PromotionType.Coupon && p.StartsAtUtc <= now && p.EndsAtUtc >= now)
+            .Where(p => (p.Products.Count == 0 && p.Categories.Count == 0)
+                || p.Products.Any(pp => productIds.Contains(pp.ProductId))
+                || p.Categories.Any(pc => categoryIds.Contains(pc.CategoryId)))
+            .ToListAsync(cancellationToken);
+
+        var appliedTotals = new Dictionary<Guid, (string Name, decimal Amount)>();
+        var discountTotal = 0m;
+
+        foreach (var item in items)
+        {
+            var variant = variantsById[item.ProductVariantId];
+            var applicable = candidates
+                .Where(p => p.Type is not (PromotionType.FreeShipping or PromotionType.BuyXGetY))
+                .Where(p => IsScopedTo(p, variant.ProductId, variant.Product.CategoryId))
+                .OrderByDescending(p => p.Priority)
+                .FirstOrDefault();
+
+            if (applicable is null)
+            {
+                continue;
+            }
+
+            var discount = ComputeDiscount(applicable, item.LineTotal);
+            if (discount <= 0)
+            {
+                continue;
+            }
+
+            discountTotal += discount;
+            Accumulate(appliedTotals, applicable.Id, applicable.Name, discount);
+        }
+
+        var freeShipping = candidates
+            .Where(p => p.Type == PromotionType.FreeShipping)
+            .Where(p => items.Any(i => IsScopedTo(p, variantsById[i.ProductVariantId].ProductId, variantsById[i.ProductVariantId].Product.CategoryId)))
+            .OrderByDescending(p => p.Priority)
+            .FirstOrDefault();
+
+        var finalShippingCost = shippingCost;
+        if (freeShipping is not null && shippingCost > 0)
+        {
+            discountTotal += shippingCost;
+            Accumulate(appliedTotals, freeShipping.Id, freeShipping.Name, shippingCost);
+            finalShippingCost = 0m;
+        }
+
+        if (!string.IsNullOrWhiteSpace(couponCode))
+        {
+            var coupon = await dbContext.Promotions
+                .Include(p => p.Products)
+                .Include(p => p.Categories)
+                .FirstOrDefaultAsync(
+                    p => p.Type == PromotionType.Coupon && p.CouponCode == couponCode
+                        && p.IsActive && p.StartsAtUtc <= now && p.EndsAtUtc >= now,
+                    cancellationToken)
+                ?? throw new ValidationAppException("Code promo invalide ou expiré.");
+
+            var couponBase = coupon.Products.Count == 0 && coupon.Categories.Count == 0
+                ? items.Sum(i => i.LineTotal)
+                : items
+                    .Where(i => IsScopedTo(coupon, variantsById[i.ProductVariantId].ProductId, variantsById[i.ProductVariantId].Product.CategoryId))
+                    .Sum(i => i.LineTotal);
+
+            var couponDiscount = ComputeDiscount(coupon, couponBase);
+            if (couponDiscount > 0)
+            {
+                discountTotal += couponDiscount;
+                Accumulate(appliedTotals, coupon.Id, coupon.Name, couponDiscount);
+            }
+        }
+
+        var appliedPromotions = appliedTotals
+            .Select(kv => new OrderPromotion { PromotionId = kv.Key, PromotionName = kv.Value.Name, DiscountAmount = kv.Value.Amount })
+            .ToList();
+
+        return (discountTotal, finalShippingCost, appliedPromotions);
+    }
+
+    private static bool IsScopedTo(Promotion promotion, Guid productId, Guid categoryId) =>
+        (promotion.Products.Count == 0 && promotion.Categories.Count == 0)
+        || promotion.Products.Any(pp => pp.ProductId == productId)
+        || promotion.Categories.Any(pc => pc.CategoryId == categoryId);
+
+    private static decimal ComputeDiscount(Promotion promotion, decimal baseAmount) =>
+        promotion.PercentageValue.HasValue
+            ? Math.Round(baseAmount * promotion.PercentageValue.Value / 100m, 2)
+            : promotion.FixedAmountValue.HasValue
+                ? Math.Min(promotion.FixedAmountValue.Value, baseAmount)
+                : 0m;
+
+    private static void Accumulate(Dictionary<Guid, (string Name, decimal Amount)> totals, Guid id, string name, decimal amount)
+    {
+        totals[id] = totals.TryGetValue(id, out var existing) ? (name, existing.Amount + amount) : (name, amount);
+    }
+
     private static OrderDetailDto ToDetailDto(Order order, bool includeHistory = false) => new(
         order.Id,
         order.OrderNumber,
@@ -259,6 +384,7 @@ public class OrderService(
         order.PaymentStatus,
         order.Subtotal,
         order.ShippingCost,
+        order.DiscountTotal,
         order.Total,
         order.CreatedAtUtc,
         order.Items
@@ -275,5 +401,8 @@ public class OrderService(
                 .OrderBy(a => a.CalledAtUtc)
                 .Select(a => new OrderCallAttemptDto(a.Id, a.AttemptNumber, a.Result, a.Notes, a.CalledAtUtc, a.NextCallAtUtc))
                 .ToList()
-            : []);
+            : [],
+        order.AppliedPromotions
+            .Select(p => new OrderPromotionDto(p.Id, p.PromotionId, p.PromotionName, p.DiscountAmount))
+            .ToList());
 }

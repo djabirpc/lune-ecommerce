@@ -28,6 +28,7 @@ export function CheckoutPage() {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
 
   const {
     register,
@@ -54,6 +55,7 @@ export function CheckoutPage() {
         ...values,
         notes: values.notes || null,
         items: items.map((item) => ({ productVariantId: item.variantId, quantity: item.quantity })),
+        couponCode: couponCode.trim() || null,
       });
       clear();
       navigate(`/order-confirmation/${order.orderNumber}`, { state: { order } });
@@ -154,6 +156,17 @@ export function CheckoutPage() {
         <div className="mt-1 flex items-center justify-between text-sm text-luna-charcoal/60">
           <span>Livraison</span>
           <span>Calculée à la préparation</span>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm font-medium">Code promo (facultatif)</label>
+          <input
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+            placeholder="CODE2024"
+            className="w-full rounded border border-black/20 px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-luna-charcoal/50">La réduction sera appliquée et affichée sur la confirmation.</p>
         </div>
       </div>
     </div>

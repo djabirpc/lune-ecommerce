@@ -18,8 +18,10 @@ public record OrderDetailDto(
     PaymentStatus PaymentStatus,
     decimal Subtotal,
     decimal ShippingCost,
+    decimal DiscountTotal,
     decimal Total,
     DateTime CreatedAtUtc,
     IReadOnlyList<OrderItemDto> Items,
     IReadOnlyList<OrderStatusHistoryDto> StatusHistory,
-    IReadOnlyList<OrderCallAttemptDto> CallAttempts);
+    IReadOnlyList<OrderCallAttemptDto> CallAttempts,
+    IReadOnlyList<OrderPromotionDto> AppliedPromotions);
