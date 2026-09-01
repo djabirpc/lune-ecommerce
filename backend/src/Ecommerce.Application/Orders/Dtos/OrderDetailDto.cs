@@ -20,4 +20,5 @@ public record OrderDetailDto(
     decimal ShippingCost,
     decimal Total,
     DateTime CreatedAtUtc,
-    IReadOnlyList<OrderItemDto> Items);
+    IReadOnlyList<OrderItemDto> Items,
+    IReadOnlyList<OrderStatusHistoryDto> StatusHistory);

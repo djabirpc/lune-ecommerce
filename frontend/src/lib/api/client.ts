@@ -1,3 +1,6 @@
+import { clearAuth, loadAuth, saveAuth } from '../auth/tokenStorage';
+import type { AuthResponse } from './types';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
 export class ApiError extends Error {
@@ -12,14 +15,56 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  });
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  const auth = loadAuth();
+  if (!auth) return false;
+
+  refreshPromise ??= (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: auth.refreshToken }),
+      });
+
+      if (!response.ok) {
+        clearAuth();
+        return false;
+      }
+
+      saveAuth((await response.json()) as AuthResponse);
+      return true;
+    } catch {
+      clearAuth();
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function request<T>(path: string, init?: RequestInit, allowRetry = true): Promise<T> {
+  const auth = loadAuth();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (auth) {
+    headers.Authorization = `Bearer ${auth.accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+
+  if (response.status === 401 && allowRetry && auth) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      return request<T>(path, init, false);
+    }
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);

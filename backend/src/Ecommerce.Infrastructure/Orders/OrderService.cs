@@ -119,10 +119,11 @@ public class OrderService(
     {
         var order = await dbContext.Orders.AsNoTracking()
             .Include(o => o.Items)
+            .Include(o => o.StatusHistory)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
-        return ToDetailDto(order);
+        return ToDetailDto(order, includeHistory: true);
     }
 
     public async Task<PagedResult<OrderSummaryDto>> GetPagedAsync(
@@ -171,6 +172,7 @@ public class OrderService(
 
         var order = await dbContext.Orders
             .Include(o => o.Items)
+            .Include(o => o.StatusHistory)
             .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -222,7 +224,7 @@ public class OrderService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ToDetailDto(order);
+        return ToDetailDto(order, includeHistory: true);
     }
 
     private async Task<string> GenerateUniqueOrderNumberAsync(CancellationToken cancellationToken)
@@ -239,7 +241,7 @@ public class OrderService(
         throw new InvalidOperationException("Impossible de générer un numéro de commande unique après plusieurs tentatives.");
     }
 
-    private static OrderDetailDto ToDetailDto(Order order) => new(
+    private static OrderDetailDto ToDetailDto(Order order, bool includeHistory = false) => new(
         order.Id,
         order.OrderNumber,
         order.Status,
@@ -259,5 +261,11 @@ public class OrderService(
         order.CreatedAtUtc,
         order.Items
             .Select(i => new OrderItemDto(i.Id, i.ProductVariantId, i.ProductName, i.Color, i.Size, i.Sku, i.UnitPrice, i.Quantity, i.LineTotal))
-            .ToList());
+            .ToList(),
+        includeHistory
+            ? order.StatusHistory
+                .OrderBy(h => h.CreatedAtUtc)
+                .Select(h => new OrderStatusHistoryDto(h.Id, h.OldStatus, h.NewStatus, h.Reason, h.CreatedAtUtc))
+                .ToList()
+            : []);
 }

@@ -13,7 +13,9 @@ import { TrackOrderPage } from '../storefront/pages/TrackOrderPage';
 import { OrdersPage as StorefrontOrdersPage } from '../storefront/pages/OrdersPage';
 import { AccountPage } from '../storefront/pages/AccountPage';
 
+import { RequireAdminAuth } from '../lib/auth/RequireAdminAuth';
 import { AdminLayout } from '../admin/layout/AdminLayout';
+import { LoginPage as AdminLoginPage } from '../admin/pages/LoginPage';
 import { DashboardPage } from '../admin/pages/DashboardPage';
 import { OrdersPage as AdminOrdersPage } from '../admin/pages/OrdersPage';
 import { OrderDetailPage } from '../admin/pages/OrderDetailPage';
@@ -46,22 +48,31 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: '/admin/login',
+    element: <AdminLoginPage />,
+  },
+  {
     path: '/admin',
-    element: <AdminLayout />,
+    element: <RequireAdminAuth />,
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'dashboard', element: <DashboardPage /> },
-      { path: 'orders', element: <AdminOrdersPage /> },
-      { path: 'orders/confirmation', element: <OrderConfirmationCenterPage /> },
-      { path: 'orders/:id', element: <OrderDetailPage /> },
-      { path: 'products', element: <ProductsPage /> },
-      { path: 'inventory', element: <InventoryPage /> },
-      { path: 'promotions', element: <AdminPromotionsPage /> },
-      { path: 'customers', element: <CustomersPage /> },
-      { path: 'shipping', element: <ShippingPage /> },
-      { path: 'marketing', element: <MarketingPage /> },
-      { path: 'users', element: <UsersPage /> },
-      { path: 'settings', element: <SettingsPage /> },
+      {
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'dashboard', element: <DashboardPage /> },
+          { path: 'orders', element: <AdminOrdersPage /> },
+          { path: 'orders/confirmation', element: <OrderConfirmationCenterPage /> },
+          { path: 'orders/:id', element: <OrderDetailPage /> },
+          { path: 'products', element: <ProductsPage /> },
+          { path: 'inventory', element: <InventoryPage /> },
+          { path: 'promotions', element: <AdminPromotionsPage /> },
+          { path: 'customers', element: <CustomersPage /> },
+          { path: 'shipping', element: <ShippingPage /> },
+          { path: 'marketing', element: <MarketingPage /> },
+          { path: 'users', element: <UsersPage /> },
+          { path: 'settings', element: <SettingsPage /> },
+        ],
+      },
     ],
   },
 ]);

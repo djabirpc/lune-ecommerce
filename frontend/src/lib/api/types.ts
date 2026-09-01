@@ -103,6 +103,14 @@ export interface OrderItemDto {
   lineTotal: number;
 }
 
+export interface OrderStatusHistoryDto {
+  id: string;
+  oldStatus: OrderStatus;
+  newStatus: OrderStatus;
+  reason: string | null;
+  createdAtUtc: string;
+}
+
 export interface OrderDetailDto {
   id: string;
   orderNumber: string;
@@ -122,4 +130,48 @@ export interface OrderDetailDto {
   total: number;
   createdAtUtc: string;
   items: OrderItemDto[];
+  statusHistory: OrderStatusHistoryDto[];
+}
+
+export interface OrderSummaryDto {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  customerFullName: string;
+  phone: string;
+  wilaya: string;
+  total: number;
+  createdAtUtc: string;
+}
+
+export interface ChangeOrderStatusRequest {
+  newStatus: OrderStatus;
+  reason: string | null;
+}
+
+// --- Auth ---
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface CurrentUserResponse {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  roles: string[];
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  accessTokenExpiresAtUtc: string;
+  refreshToken: string;
+  refreshTokenExpiresAtUtc: string;
+  user: CurrentUserResponse;
 }

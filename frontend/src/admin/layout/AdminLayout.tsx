@@ -1,4 +1,6 @@
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 
 const NAV_LINKS = [
   { to: '/admin/dashboard', label: 'Tableau de bord' },
@@ -14,6 +16,14 @@ const NAV_LINKS = [
 ];
 
 export function AdminLayout() {
+  const { user, logout } = useAdminAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate('/admin/login', { replace: true });
+  }
+
   return (
     <div className="flex min-h-screen bg-luna-cream">
       <aside className="hidden w-56 shrink-0 border-r border-black/10 bg-white p-4 sm:block">
@@ -27,9 +37,20 @@ export function AdminLayout() {
         </nav>
       </aside>
 
-      <main className="flex-1 p-6">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-black/10 bg-white px-6 py-3 text-sm">
+          <span className="text-luna-charcoal/70">
+            {user?.firstName} {user?.lastName} · {user?.roles.join(', ')}
+          </span>
+          <button type="button" onClick={handleLogout} className="text-luna-charcoal/70 underline">
+            Déconnexion
+          </button>
+        </header>
+
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
