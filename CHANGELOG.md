@@ -25,6 +25,14 @@
 - Migration `AddRefreshTokens`.
 - Testcontainers-based integration tests (`AuthEndpointsTests`, `AuthWebApplicationFactory`) exercising the full login → me → refresh (rotation) → logout → refresh-reuse-rejected flow against a real, ephemeral PostgreSQL container (requires Docker to run this test class).
 - `InitialAdmin` config section + `INITIAL_ADMIN_EMAIL`/`INITIAL_ADMIN_PASSWORD`/`INITIAL_ADMIN_FIRST_NAME`/`INITIAL_ADMIN_LAST_NAME` env vars (`.env.example`, `docker-compose.yml`); dev-only defaults added to `appsettings.Development.json` and `launchSettings.json` (`ApplyMigrationsOnStartup=true`) so `dotnet run` seeds a working admin locally.
+- **Catalog & Inventory** (CLAUDE.md sections 9–10): `Category`/`Product`/`ProductVariant`/`ProductImage` domain entities (`Ecommerce.Domain.Catalog`) and `InventoryRecord`/`InventoryTransaction`/`InventoryTransactionType` (`Ecommerce.Domain.Inventory`, all 6 transaction types: RESERVE/RELEASE/SALE/RETURN/RESTOCK/ADJUSTMENT).
+- `CategoriesController`/`ProductsController`: public `GET` (list/detail by slug, paged + category-filterable for products) and `CatalogManagers`-role-protected `POST`/`PUT` for both, plus `POST /api/products/{id}/variants`. Creating a product with variants auto-creates one `InventoryRecord` per variant and an initial `RESTOCK` transaction when quantity > 0.
+- `InventoryController` (admin-only): `GET /api/inventory/{variantId}` (current stock), `GET /api/inventory/{variantId}/transactions` (audit log), `POST /api/inventory/restock`, `POST /api/inventory/adjust`.
+- `IInventoryService.{ReserveAsync,ReleaseAsync,RecordSaleAsync,RecordReturnAsync}`: implemented and tested but not yet exposed via HTTP — ready for the upcoming Order feature to call.
+- `Ecommerce.Domain.Identity.Roles.CatalogManagers` constant (`SUPER_ADMIN,ADMIN,STOCK_MANAGER`) for `[Authorize(Roles = ...)]` on catalog/inventory endpoints.
+- Migration `AddCatalogAndInventory`.
+- FluentValidation validators for all new request DTOs, including a shared `SlugValidationRule.MustBeAValidSlug()` rule and a duplicate-SKU check across a product's variants.
+- `CatalogEndpointsTests` (Testcontainers, reuses `AuthWebApplicationFactory`): create category → create product with variant (asserts auto-created inventory) → restock → adjust → over-adjust rejected (409) → public list/detail still work → unauthenticated write rejected (401); plus a dedicated test resolving `IInventoryService` directly to prove `ReserveAsync` throws once stock is exhausted rather than going negative. Unit tests for `CreateProductRequestValidator` and `AdjustInventoryRequestValidator`.
 
 ### Changed
 - N/A (first commit-worthy state of the repository).
@@ -36,15 +44,17 @@
 ### Database
 - Migration `InitialIdentity` (`backend/src/Ecommerce.Infrastructure/Persistence/Migrations/`): creates the Identity schema only (`Users`, `Roles`, `UserRoles`, `UserClaims`, `UserLogins`, `RoleClaims`, `UserTokens`). No business tables yet.
 - Migration `AddRefreshTokens`: adds the `RefreshTokens` table (hashed token, expiry, revocation, rotation chain via `ReplacedByTokenHash`).
+- Migration `AddCatalogAndInventory`: adds `Categories`, `Products`, `ProductVariants`, `ProductImages`, `Inventory` (one row per variant, unique index on `ProductVariantId`), `InventoryTransactions`.
 
 ### API
 - `GET /health`, `GET /api/system/ping` added. No business endpoints yet.
 - `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` added.
+- `GET/POST/PUT /api/categories[/{id|slug}]`, `GET/POST/PUT /api/products[/{id|slug}]`, `POST /api/products/{id}/variants`, `GET/POST /api/inventory/...` added.
 
 ### Frontend
-- Initial storefront and admin route shells added (see PROJECT_CONTEXT.md for the full route list). No business data wired up yet. Not yet wired to the new auth endpoints.
+- Initial storefront and admin route shells added (see PROJECT_CONTEXT.md for the full route list). No business data wired up yet. Not yet wired to the new auth or catalog endpoints.
 
 ### Notes
-- This is a foundation-only bootstrap: no Products, Orders, COD, Yalidine, or ZR Express logic was implemented, per explicit scope for this step.
-- Full backend test suite (`dotnet test` from `backend/`) passes: 15/15 tests (9 Application.Tests, 6 Api.Tests — the latter now requires Docker for the Testcontainers-based auth tests).
-- Full stack verified end-to-end via `docker compose up` (postgres healthy, backend healthy + migrated, frontend serving both `/` and `/admin`, CORS confirmed working from `http://localhost:5173`, and a real login/me/refresh/logout cycle exercised via curl against the containerized backend with the seeded SUPER_ADMIN account).
+- This started as a foundation-only bootstrap (no Products, Orders, COD, Yalidine, or ZR Express) and has since grown authentication and a Products/Categories/Inventory catalog; Orders/Cart/COD/Yalidine/ZR Express/Promotions/Marketing remain out of scope.
+- Full backend test suite (`dotnet test` from `backend/`) passes: 29/29 tests (19 Application.Tests, 10 Api.Tests — the latter requires Docker for the Testcontainers-based auth/catalog tests).
+- Full stack verified end-to-end via `docker compose up` (postgres healthy, backend healthy + migrated, frontend serving both `/` and `/admin`, CORS confirmed working from `http://localhost:5173`; a real login/me/refresh/logout cycle and a real category→product→restock→adjust→oversell-rejected cycle were both exercised via curl against the containerized backend).

@@ -35,10 +35,10 @@ Infrastructure:
 Backend follows a 4-project modular architecture under `backend/src/`:
 
 ```text
-Ecommerce.Domain          — framework-agnostic entities/constants (Entity base class, Roles)
-Ecommerce.Application     — use cases, DTOs, validators, Auth interfaces (IAuthService/ITokenService), AppException hierarchy
-Ecommerce.Infrastructure  — EF Core, Identity (ApplicationUser/ApplicationRole/RefreshToken), AppDbContext, AuthService/TokenService, IdentitySeeder, AddInfrastructure()
-Ecommerce.Api             — controllers (incl. AuthController), Program.cs composition root, Swagger, JWT, health checks, global exception middleware
+Ecommerce.Domain          — framework-agnostic entities/constants (Entity base class, Roles, Catalog/*, Inventory/*)
+Ecommerce.Application     — use cases, DTOs, validators, service interfaces (IAuthService/ITokenService/ICategoryService/IProductService/IInventoryService), AppException hierarchy
+Ecommerce.Infrastructure  — EF Core, Identity (ApplicationUser/ApplicationRole/RefreshToken), Catalog/Inventory service implementations, AppDbContext, IdentitySeeder, AddInfrastructure()
+Ecommerce.Api             — controllers (Auth/Categories/Products/Inventory), Program.cs composition root, Swagger, JWT, health checks, global exception middleware
 ```
 
 Auth-related namespaces worth knowing:
@@ -47,11 +47,18 @@ Auth-related namespaces worth knowing:
 - `Ecommerce.Infrastructure.Identity` — `ApplicationUser`, `ApplicationRole`, `RefreshToken`, `TokenService`, `AuthService`
 - `Ecommerce.Infrastructure.Persistence.IdentitySeeder` — seeds roles + optional bootstrap SUPER_ADMIN, called from `Program.cs` alongside the dev-only auto-migration
 
+Catalog/Inventory namespaces worth knowing:
+- `Ecommerce.Domain.Catalog` — `Category`, `Product`, `ProductVariant`, `ProductImage` (plain entities, no framework dependency)
+- `Ecommerce.Domain.Inventory` — `InventoryRecord` (named to avoid a type-equals-namespace clash with `Ecommerce.Domain.Inventory`), `InventoryTransaction`, `InventoryTransactionType` enum (Reserve/Release/Sale/Return/Restock/Adjustment, matches CLAUDE.md section 10 exactly, stored as string in DB)
+- `Ecommerce.Application.Catalog` / `Ecommerce.Application.Inventory` — `ICategoryService`/`IProductService`/`IInventoryService`, DTOs, FluentValidation validators (including a shared `SlugValidationRule.MustBeAValidSlug()` extension)
+- `Ecommerce.Infrastructure.Catalog.{CategoryService,ProductService}` / `Ecommerce.Infrastructure.Inventory.InventoryService` — EF Core-backed implementations. `InventoryService` uses `ExecuteUpdateAsync` with a guard predicate in the `Where` clause (e.g. `AvailableQuantity >= quantity`) for every stock mutation — this is an atomic, race-condition-safe SQL `UPDATE ... WHERE` (no read-then-write), which is how "never allow overselling" (CLAUDE.md section 10) is actually enforced under concurrent requests. If you add new stock-mutating logic, follow this exact pattern rather than loading the entity and saving it back.
+- `Ecommerce.Domain.Identity.Roles.CatalogManagers` — comma-joined `SUPER_ADMIN,ADMIN,STOCK_MANAGER` constant for `[Authorize(Roles = ...)]` on catalog/inventory write endpoints
+
 Solution file is `backend/Ecommerce.slnx` (new XML solution format used by .NET 10 SDK tooling — NOT `.sln`; keep this in mind when referencing it from Dockerfiles or scripts).
 
 Tests live under `backend/tests/`:
-- `Ecommerce.Application.Tests` (xUnit, references Domain/Application) — includes `Auth/LoginRequestValidatorTests`, `Auth/RefreshTokenRequestValidatorTests`
-- `Ecommerce.Api.Tests` (xUnit + `Microsoft.AspNetCore.Mvc.Testing`) — `HealthCheckTests` (lenient, no real DB needed) and `AuthEndpointsTests` (uses `AuthWebApplicationFactory`, which spins up a real ephemeral Postgres via **Testcontainers** — this test class requires Docker to be running; `dotnet test` will fail/hang without it)
+- `Ecommerce.Application.Tests` (xUnit, references Domain/Application) — includes `Auth/*ValidatorTests`, `Catalog/CreateProductRequestValidatorTests`, `Inventory/AdjustInventoryRequestValidatorTests`
+- `Ecommerce.Api.Tests` (xUnit + `Microsoft.AspNetCore.Mvc.Testing`) — `HealthCheckTests` (lenient, no real DB needed), `AuthEndpointsTests`, and `CatalogEndpointsTests` (the latter two both use `AuthWebApplicationFactory`, which spins up a real ephemeral Postgres via **Testcontainers** and seeds a SUPER_ADMIN — reused across features since any admin-protected endpoint needs that same seeded user; requires Docker to be running, `dotnet test` will fail/hang without it). `CatalogEndpointsTests` includes a test that resolves `IInventoryService` directly from `factory.Services` to exercise `ReserveAsync`/`ReleaseAsync` (not exposed via HTTP yet) and assert the oversell guard throws `ConflictAppException`.
 
 Frontend is a single Vite app with two route trees sharing one React app (`frontend/src/app/router.tsx`):
 
@@ -66,7 +73,7 @@ frontend/src/
 
 ## Implemented Features
 
-Business features (Products, Orders, COD, Yalidine, ZR Express, Promotions, Marketing) are intentionally not started.
+Order-related business features (Cart, COD checkout, Order workflow, Yalidine, ZR Express, Promotions, Marketing) are intentionally not started. Products/Categories/Inventory now exist (see below).
 
 What IS implemented:
 - Monorepo structure (`backend/`, `frontend/`)
@@ -81,16 +88,18 @@ What IS implemented:
 - CORS configured via `Cors:AllowedOrigins` config (env var `Cors__AllowedOrigins__0` in docker-compose)
 - Frontend storefront/admin route shells with separate layouts/navigation, all pages are placeholders — **not yet wired to the auth endpoints** (no login page, no token storage/refresh logic in the frontend yet)
 - Docker Compose stack (postgres + backend + frontend) verified working end-to-end, including automatic EF Core migration + identity seeding on backend startup (dev only, gated by `ApplyMigrationsOnStartup` config key, not `ASPNETCORE_ENVIRONMENT`). Full login → me → refresh → logout cycle verified via curl against the containerized backend.
+- **Catalog**: `Category`, `Product`, `ProductVariant` (color/size/SKU, mandatory per CLAUDE.md section 9 — stock is never tracked at product level), `ProductImage`. Public read endpoints (list/detail by slug) + admin write endpoints (`CatalogManagers` role: SUPER_ADMIN/ADMIN/STOCK_MANAGER). Creating a product with variants auto-creates one `InventoryRecord` per variant and logs an initial `RESTOCK` transaction if the initial quantity is > 0.
+- **Inventory**: `InventoryRecord` (Available/Reserved/Sold/Returned/Damaged quantities per variant) + `InventoryTransaction` audit log (all 6 CLAUDE.md section 10 transaction types modeled). `Restock`/`Adjust` exposed via `POST /api/inventory/{restock,adjust}` (admin only). `Reserve`/`Release`/`RecordSale`/`RecordReturn` implemented and tested at the service level but **not yet exposed via HTTP** — they're ready for the Order feature to call. All stock mutations use EF Core's `ExecuteUpdateAsync` with a guard predicate (atomic `UPDATE ... WHERE available >= quantity`), which is what actually prevents overselling under concurrent requests — verified by a test that reserves all stock then asserts a second reservation throws `ConflictAppException` rather than going negative.
 
 ## Current Feature
 
-None in progress. Authentication foundation is complete; awaiting direction on the next feature (see Next Recommended Steps — Products/Categories is the natural next step).
+None in progress. Catalog + Inventory foundation is complete; next up is Cart/COD Checkout/Order (see Next Recommended Steps).
 
 ## Last Completed Work
 
-2026-09-01 — Authentication feature: JWT login/refresh/logout/me, refresh token rotation with hashed storage, role + bootstrap SUPER_ADMIN seeding, standardized `{success,error}` API error responses, and Testcontainers-backed integration tests for the full auth flow. Also fixed a real bug uncovered by those tests: several places (`AddInfrastructure`, health check registration, JWT bearer setup) read `IConfiguration` eagerly before `WebApplicationBuilder.Build()`, silently ignoring configuration composed later (test overrides, and potentially any late-bound config source in a real deployment) — fixed by resolving configuration lazily via DI everywhere. Full details in `CHANGELOG.md` under `[2026-09-01]`.
+2026-09-01 — Catalog & Inventory feature: `Category`/`Product`/`ProductVariant`/`ProductImage` domain model, `InventoryRecord`/`InventoryTransaction` with all 6 CLAUDE.md transaction types, public read + admin write REST endpoints, atomic (`ExecuteUpdateAsync`-based) stock mutations that provably never oversell under concurrency, and FluentValidation + Testcontainers integration test coverage (including a direct oversell-prevention test against `IInventoryService.ReserveAsync`). Migration `AddCatalogAndInventory`. Full details in `CHANGELOG.md` under `[2026-09-01]`.
 
-Previous milestone (same date): full technical bootstrap of the Luna platform (monorepo scaffold, backend/frontend skeletons, Docker Compose stack, documentation set) — see `CHANGELOG.md` for the original bullet list.
+Earlier same-date milestones: authentication (JWT login/refresh/logout/me, role + bootstrap SUPER_ADMIN seeding, standardized error responses — and a real eager-`IConfiguration`-read bug fixed along the way), and the original technical bootstrap (monorepo scaffold, backend/frontend skeletons, Docker Compose stack). See `CHANGELOG.md` for full bullet lists of each.
 
 ## Database
 
@@ -102,9 +111,17 @@ Entities that currently exist (Identity only, via `AppDbContext : IdentityDbCont
 - Standard Identity join tables: `UserRoles`, `UserClaims`, `UserLogins`, `RoleClaims`, `UserTokens`
 - `RefreshToken` (`RefreshTokens` table) — `UserId`, `TokenHash` (SHA-256, unique), `ExpiresAtUtc`, `RevokedAtUtc`, `ReplacedByTokenHash`; `IsActive` computed as not-revoked-and-not-expired
 
-Migrations: `backend/src/Ecommerce.Infrastructure/Persistence/Migrations/` — `InitialIdentity`, `AddRefreshTokens` (both applied and verified against a live Postgres container).
+Catalog & Inventory entities (`Ecommerce.Domain.Catalog` / `Ecommerce.Domain.Inventory`):
+- `Category` (`Categories` table) — `Name`, `Slug` (unique), `Description`, `IsActive`, `DisplayOrder`
+- `Product` (`Products` table) — `CategoryId` (FK, `Restrict` on delete), `Name`, `Slug` (unique), `Description`, `Price` (numeric(10,2)), `IsActive`
+- `ProductVariant` (`ProductVariants` table) — `ProductId` (FK, `Cascade`), `Color`, `Size`, `Sku` (unique across the whole catalog), `PriceOverride` (nullable numeric(10,2)), `IsActive`
+- `ProductImage` (`ProductImages` table) — `ProductId` (FK, `Cascade`), `Url`, `AltText`, `DisplayOrder`, `IsPrimary`
+- `InventoryRecord` (`Inventory` table) — one row per `ProductVariantId` (unique index, FK `Cascade`), `AvailableQuantity`/`ReservedQuantity`/`SoldQuantity`/`ReturnedQuantity`/`DamagedQuantity`
+- `InventoryTransaction` (`InventoryTransactions` table) — `ProductVariantId` (FK `Restrict` — history must survive even if a variant is later restricted from deletion), `Type` (string-converted enum: RESERVE/RELEASE/SALE/RETURN/RESTOCK/ADJUSTMENT), `Quantity`, `Reason`
 
-Planned entities (not yet created — see CLAUDE.md section 33 template / original scope notes): Customer, CustomerAddress, Category, Product, ProductVariant, ProductImage, Inventory, InventoryTransaction, Cart, CartItem, Order, OrderItem, OrderStatusHistory, OrderCallAttempt, Promotion, Shipment, TrackingEvent, ShippingRate, MarketingEvent, AuditLog.
+Migrations: `backend/src/Ecommerce.Infrastructure/Persistence/Migrations/` — `InitialIdentity`, `AddRefreshTokens`, `AddCatalogAndInventory` (all applied and verified against a live Postgres container).
+
+Planned entities (not yet created): Customer, CustomerAddress, Cart, CartItem, Order, OrderItem, OrderStatusHistory, OrderCallAttempt, Promotion, Shipment, TrackingEvent, ShippingRate, MarketingEvent, AuditLog.
 
 `dotnet-ef` is installed as a **local tool** (see `backend/dotnet-tools.json`, pinned to 9.0.19 to match the EF Core package version — the SDK's global `dotnet-ef` would default to 10.x and can misbehave against 9.x packages). Run it as `dotnet tool run dotnet-ef ...` or `dotnet ef ...` from `backend/` (local tools are on PATH within a restored tool manifest context).
 
@@ -121,9 +138,14 @@ Endpoints that exist today:
 - `POST /api/auth/logout` — `{ refreshToken }` → `204`; revokes the token (idempotent, no error if already revoked/unknown).
 - `GET /api/auth/me` — `[Authorize]`, reads claims from the validated JWT, returns `CurrentUserResponse`.
 
-Errors follow `{ success: false, error: { code, message } }` (CLAUDE.md section 27) — codes seen so far: `UNAUTHORIZED`, `VALIDATION_ERROR`, `INTERNAL_ERROR` (see `Ecommerce.Application.Common.Exceptions.AppException` for the full set including `NOT_FOUND`/`CONFLICT`, not yet used by any endpoint).
+Catalog (public reads, `CatalogManagers` role = SUPER_ADMIN/ADMIN/STOCK_MANAGER for writes):
+- `GET /api/categories` / `GET /api/categories/{slug}` — public; `POST /api/categories` / `PUT /api/categories/{id}` — admin
+- `GET /api/products?category={slug}&page=&pageSize=` (paged, active only) / `GET /api/products/{slug}` (full detail incl. variants + live stock) — public; `POST /api/products` (with initial variants) / `PUT /api/products/{id}` / `POST /api/products/{id}/variants` — admin
+- `GET /api/inventory/{variantId}` / `GET /api/inventory/{variantId}/transactions` / `POST /api/inventory/restock` / `POST /api/inventory/adjust` — admin only (whole controller is `[Authorize(Roles = Roles.CatalogManagers)]`)
 
-No business endpoints yet.
+Errors follow `{ success: false, error: { code, message } }` (CLAUDE.md section 27) — codes seen so far: `UNAUTHORIZED`, `VALIDATION_ERROR`, `INTERNAL_ERROR`, `NOT_FOUND`, `CONFLICT` (see `Ecommerce.Application.Common.Exceptions.AppException` for the full set).
+
+No Cart/Order endpoints yet.
 
 No shipping provider integrations exist yet (Yalidine/ZR Express are explicitly out of scope for this step per CLAUDE.md section 16/17 — do not invent endpoints).
 
@@ -172,8 +194,8 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 4. ~~Configure PostgreSQL.~~ ✅
 5. ~~Configure Docker.~~ ✅
 6. ~~Implement authentication (login/refresh endpoints, role seeding).~~ ✅ — login/refresh/logout/me implemented and tested; still pending: frontend login UI/token storage, and an admin-facing user-management endpoint (currently the only way to create staff accounts is the `InitialAdmin` bootstrap seed — no `POST /api/admin/users` yet).
-7. Implement products/categories.
-8. Implement inventory.
+7. ~~Implement products/categories.~~ ✅
+8. ~~Implement inventory.~~ ✅ — Restock/Adjust exposed via API; Reserve/Release/Sale/Return implemented and tested at service level, wiring to HTTP deferred to the Order feature that will actually call them.
 9. Implement storefront (real data, not placeholders).
 10. Implement COD checkout.
 11. Implement order workflow.
@@ -190,7 +212,7 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 
 1. The project is a custom e-commerce platform and must not depend on Shopify or WooCommerce.
 2. COD is the primary payment method.
-3. Inventory is managed at product-variant level (not yet built).
+3. ~~Inventory is managed at product-variant level (not yet built).~~ Built: one `InventoryRecord` per `ProductVariant`, never at `Product` level.
 4. Shipping providers are accessed through `IShippingProvider` (not yet built).
 5. Mobile-first design is mandatory (Tailwind v4 chosen partly for its low-overhead setup; no desktop-first patterns introduced).
 6. The backend is the source of truth for business logic.
@@ -201,11 +223,14 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 11. Refresh tokens are opaque random strings stored **hashed** (SHA-256) server-side, never plaintext — same rationale as password hashing. Rotation on every refresh (old token revoked and linked to its replacement) so token reuse after refresh is detectable/rejected.
 12. No public self-registration endpoint. Guest checkout means customers never need accounts (CLAUDE.md section 11); staff/admin accounts (the only users of this Identity system so far) are provisioned via the `InitialAdmin` bootstrap seed for now. A proper admin-side user-management endpoint is deferred to the `/admin/users` feature (CLAUDE.md section 22/23), not built as part of core auth.
 13. All `IConfiguration` reads in service-registration code must be lazy (resolved via DI at first use), never eager local-variable reads — see Known Issues for the bug this caused and the fix pattern to follow for all future config-dependent registrations (`AddDbContext`, health checks, options binding, etc.).
+14. Overselling is prevented at the database-query level, not in application code: every `InventoryService` stock mutation is a single `ExecuteUpdateAsync` call whose `Where` clause encodes the invariant (e.g. `AvailableQuantity >= quantity`) so the guard and the write happen atomically in one SQL statement. Loading the entity, checking a condition in C#, then calling `SaveChangesAsync` would have a race window under concurrent requests — deliberately avoided.
+15. `InventoryTransaction.Quantity` is always a positive magnitude for Reserve/Release/Sale/Return/Restock (the bucket transition is implied by `Type`), but can be **negative** for Adjustment (a manual correction can go either direction) — this is the one type where the sign is meaningful and must be preserved for the audit trail.
+16. `Reserve`/`Release`/`RecordSale`/`RecordReturn` on `IInventoryService` are implemented and unit/integration-tested now, but intentionally have no HTTP endpoint yet — there is no real caller (Cart/Order) for them yet, and CLAUDE.md section 44 discourages building unused public API surface. They're ready for the Order feature to call directly.
+17. Product `Slug` and `ProductVariant` `Sku` are supplied by the admin/caller (validated via a shared regex rule), not auto-generated from the name — kept simple for this pass; revisit if UX feedback asks for auto-slugging.
 
 ## Next Recommended Steps
 
-1. Design and implement the Product/Category/ProductVariant domain model (CLAUDE.md section 9) plus the corresponding EF Core migration — this unblocks both storefront product pages and admin product management. This is the natural next step now that auth exists to protect the future admin-only product endpoints.
-2. Design the Inventory model (CLAUDE.md section 10) alongside Products, since variant-level stock must exist before Cart/Order work can safely reserve stock.
-3. Once Products + Inventory exist, tackle Cart → COD Checkout → Order creation with stock reservation (CLAUDE.md sections 11–12), including the `Create order → Reserve stock → Cancel → Release stock` and `Create order → ... → Deliver` test scenarios required by CLAUDE.md section 29.
-4. Smaller, can be done anytime: wire the frontend to the new auth endpoints (login page, token storage/refresh interceptor in `apiClient`) — currently the API works but nothing in `frontend/` calls it yet.
-5. Smaller, can be done anytime: add role-based `[Authorize(Roles = ...)]` guards once the first admin-only endpoint exists (Products/Orders), using the `Ecommerce.Domain.Identity.Roles` constants.
+1. Cart → COD Checkout → Order creation with stock reservation (CLAUDE.md sections 11–12). `IInventoryService.ReserveAsync`/`ReleaseAsync`/`RecordSaleAsync` already exist and are tested — the Order feature should call them, not reimplement stock logic. Required test scenarios per CLAUDE.md section 29: `Create order → Reserve stock → Cancel → Release stock` and `Create order → Reserve stock → Confirm → Prepare → Ship → Deliver`.
+2. Cart entity/endpoints will likely be needed first (or built alongside Order, as guest checkout means Cart may just be client-side + a checkout-time order creation — decide this when picking up the feature).
+3. Smaller, can be done anytime: wire the frontend to the new auth + catalog endpoints (login page, token storage/refresh interceptor in `apiClient`, product listing/detail pages replacing `PagePlaceholder`) — currently both APIs work but nothing in `frontend/` calls them yet.
+4. Smaller, can be done anytime: admin product/category/inventory management UI in `/admin` (currently placeholder pages) now that the backend endpoints exist.

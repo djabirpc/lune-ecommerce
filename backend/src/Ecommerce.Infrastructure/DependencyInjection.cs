@@ -1,5 +1,9 @@
 using Ecommerce.Application.Auth;
+using Ecommerce.Application.Catalog;
+using Ecommerce.Application.Inventory;
+using Ecommerce.Infrastructure.Catalog;
 using Ecommerce.Infrastructure.Identity;
+using Ecommerce.Infrastructure.Inventory;
 using Ecommerce.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +37,9 @@ public static class DependencyInjection
 
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IInventoryService, InventoryService>();
 
         return services;
     }
