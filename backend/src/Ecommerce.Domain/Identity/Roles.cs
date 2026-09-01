@@ -1,0 +1,23 @@
+namespace Ecommerce.Domain.Identity;
+
+public static class Roles
+{
+    public const string SuperAdmin = "SUPER_ADMIN";
+    public const string Admin = "ADMIN";
+    public const string OrderManager = "ORDER_MANAGER";
+    public const string ConfirmationAgent = "CONFIRMATION_AGENT";
+    public const string StockManager = "STOCK_MANAGER";
+    public const string MarketingManager = "MARKETING_MANAGER";
+    public const string Viewer = "VIEWER";
+
+    public static readonly string[] All =
+    [
+        SuperAdmin,
+        Admin,
+        OrderManager,
+        ConfirmationAgent,
+        StockManager,
+        MarketingManager,
+        Viewer
+    ];
+}

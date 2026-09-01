@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-luna-cream: #faf7f2;
+  --color-luna-black: #16151a;
+  --color-luna-charcoal: #2c2b30;
+  --color-luna-accent: #e8837a;
+}
+
+body {
+  @apply bg-white text-luna-black antialiased;
+}
