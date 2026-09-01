@@ -9,6 +9,7 @@ public interface IProductService
         string? categorySlug,
         int page,
         int pageSize,
+        bool includeInactive = false,
         CancellationToken cancellationToken = default);
 
     Task<ProductDetailDto> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);

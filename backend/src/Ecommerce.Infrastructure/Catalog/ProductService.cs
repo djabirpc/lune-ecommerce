@@ -20,6 +20,7 @@ public class ProductService(
         string? categorySlug,
         int page,
         int pageSize,
+        bool includeInactive = false,
         CancellationToken cancellationToken = default)
     {
         page = page < 1 ? 1 : page;
@@ -28,7 +29,12 @@ public class ProductService(
         var query = dbContext.Products.AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.Images)
-            .Where(p => p.IsActive);
+            .AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(p => p.IsActive);
+        }
 
         if (!string.IsNullOrWhiteSpace(categorySlug))
         {

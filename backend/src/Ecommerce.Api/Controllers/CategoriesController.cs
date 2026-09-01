@@ -12,9 +12,11 @@ public class CategoriesController(ICategoryService categoryService) : Controller
 {
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IReadOnlyList<CategoryDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<CategoryDto>>> GetAll(
+        [FromQuery] bool includeInactive = false,
+        CancellationToken cancellationToken = default)
     {
-        var categories = await categoryService.GetAllAsync(includeInactive: false, cancellationToken);
+        var categories = await categoryService.GetAllAsync(includeInactive, cancellationToken);
         return Ok(categories);
     }
 

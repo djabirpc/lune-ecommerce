@@ -56,6 +56,52 @@ export interface PagedResult<T> {
   totalCount: number;
 }
 
+export interface CreateCategoryRequest {
+  name: string;
+  slug: string;
+  description: string | null;
+  displayOrder: number;
+}
+
+export interface CreateProductVariantRequest {
+  color: string;
+  size: string;
+  sku: string;
+  priceOverride: number | null;
+  initialQuantity: number;
+}
+
+export interface CreateProductRequest {
+  categoryId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price: number;
+  variants: CreateProductVariantRequest[];
+}
+
+export interface InventoryDto {
+  productVariantId: string;
+  sku: string;
+  availableQuantity: number;
+  reservedQuantity: number;
+  soldQuantity: number;
+  returnedQuantity: number;
+  damagedQuantity: number;
+}
+
+export interface RestockRequest {
+  productVariantId: string;
+  quantity: number;
+  reason: string | null;
+}
+
+export interface AdjustInventoryRequest {
+  productVariantId: string;
+  quantityDelta: number;
+  reason: string;
+}
+
 export type DeliveryType = 'HomeDelivery' | 'StopDesk';
 
 export type OrderStatus =

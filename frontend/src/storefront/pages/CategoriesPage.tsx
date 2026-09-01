@@ -6,7 +6,7 @@ import { catalogApi } from '../../lib/api/catalog';
 export function CategoriesPage() {
   const { data: categories, isLoading, isError } = useQuery({
     queryKey: ['categories'],
-    queryFn: catalogApi.getCategories,
+    queryFn: () => catalogApi.getCategories(),
   });
 
   if (isLoading) {

@@ -17,9 +17,10 @@ public class ProductsController(IProductService productService) : ControllerBase
         [FromQuery] string? category,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeInactive = false,
         CancellationToken cancellationToken = default)
     {
-        var result = await productService.GetPagedAsync(category, page, pageSize, cancellationToken);
+        var result = await productService.GetPagedAsync(category, page, pageSize, includeInactive, cancellationToken);
         return Ok(result);
     }
 
