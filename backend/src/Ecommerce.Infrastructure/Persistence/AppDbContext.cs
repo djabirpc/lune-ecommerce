@@ -8,6 +8,8 @@ namespace Ecommerce.Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>(options)
 {
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -19,5 +21,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins");
         builder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaims");
         builder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
+
+        builder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("RefreshTokens");
+            entity.HasKey(rt => rt.Id);
+            entity.Property(rt => rt.TokenHash).IsRequired().HasMaxLength(256);
+            entity.HasIndex(rt => rt.TokenHash).IsUnique();
+            entity.HasIndex(rt => rt.UserId);
+        });
     }
 }

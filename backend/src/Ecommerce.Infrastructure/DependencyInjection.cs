@@ -1,3 +1,4 @@
+using Ecommerce.Application.Auth;
 using Ecommerce.Infrastructure.Identity;
 using Ecommerce.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -11,11 +12,13 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+        services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+        {
+            var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString);
+        });
 
         services
             .AddIdentityCore<ApplicationUser>(options =>
@@ -27,6 +30,9 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<AppDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders();
+
+        services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }

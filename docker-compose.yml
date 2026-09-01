@@ -32,6 +32,10 @@ services:
       Jwt__AccessTokenExpiryMinutes: ${JWT_ACCESS_TOKEN_EXPIRY_MINUTES:-60}
       Jwt__RefreshTokenExpiryDays: ${JWT_REFRESH_TOKEN_EXPIRY_DAYS:-7}
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      InitialAdmin__Email: ${INITIAL_ADMIN_EMAIL:-}
+      InitialAdmin__Password: ${INITIAL_ADMIN_PASSWORD:-}
+      InitialAdmin__FirstName: ${INITIAL_ADMIN_FIRST_NAME:-}
+      InitialAdmin__LastName: ${INITIAL_ADMIN_LAST_NAME:-}
     ports:
       - "${BACKEND_PORT:-5000}:8080"
     healthcheck:

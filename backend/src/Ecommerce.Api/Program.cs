@@ -1,4 +1,5 @@
 using System.Text;
+using Ecommerce.Api.Middleware;
 using Ecommerce.Application;
 using Ecommerce.Application.Common;
 using Ecommerce.Infrastructure;
@@ -6,6 +7,7 @@ using Ecommerce.Infrastructure.Persistence;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
@@ -20,18 +22,14 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 builder.Services.AddControllers();
 
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Key), "Jwt:Key is not configured. Set it via environment variable Jwt__Key.")
+    .ValidateOnStart();
+builder.Services.Configure<InitialAdminOptions>(builder.Configuration.GetSection(InitialAdminOptions.SectionName));
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
-var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
-    ?? throw new InvalidOperationException("Jwt configuration section is missing.");
-
-if (string.IsNullOrWhiteSpace(jwtOptions.Key))
-{
-    throw new InvalidOperationException("Jwt:Key is not configured. Set it via environment variable Jwt__Key.");
-}
 
 builder.Services
     .AddAuthentication(options =>
@@ -39,9 +37,14 @@ builder.Services
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     })
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((bearerOptions, jwtOptionsAccessor) =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        var jwtOptions = jwtOptionsAccessor.Value;
+
+        bearerOptions.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -91,13 +94,15 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
-
 builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString, name: "postgresql");
+    .AddNpgSql(
+        sp => sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured."),
+        name: "postgresql");
 
 var app = builder.Build();
+
+app.UseAppExceptionHandling();
 
 if (app.Environment.IsDevelopment())
 {
@@ -110,6 +115,7 @@ if (builder.Configuration.GetValue<bool>("ApplyMigrationsOnStartup"))
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
+    await IdentitySeeder.SeedAsync(scope.ServiceProvider);
 }
 
 app.UseSerilogRequestLogging();
