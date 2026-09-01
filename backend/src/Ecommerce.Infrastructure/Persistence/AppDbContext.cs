@@ -1,5 +1,6 @@
 using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Inventory;
+using Ecommerce.Domain.Orders;
 using Ecommerce.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -18,6 +19,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<InventoryRecord> Inventory => Set<InventoryRecord>();
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
+
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -108,6 +113,55 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany()
                 .HasForeignKey(t => t.ProductVariantId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Order>(entity =>
+        {
+            entity.ToTable("Orders");
+            entity.Property(o => o.OrderNumber).IsRequired().HasMaxLength(20);
+            entity.Property(o => o.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(o => o.FirstName).IsRequired().HasMaxLength(100);
+            entity.Property(o => o.LastName).IsRequired().HasMaxLength(100);
+            entity.Property(o => o.Phone).IsRequired().HasMaxLength(20);
+            entity.Property(o => o.Wilaya).IsRequired().HasMaxLength(100);
+            entity.Property(o => o.Commune).IsRequired().HasMaxLength(100);
+            entity.Property(o => o.Address).IsRequired().HasMaxLength(500);
+            entity.Property(o => o.DeliveryType).HasConversion<string>().HasMaxLength(20);
+            entity.Property(o => o.Notes).HasMaxLength(1000);
+            entity.Property(o => o.PaymentMethod).IsRequired().HasMaxLength(20);
+            entity.Property(o => o.PaymentStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(o => o.Subtotal).HasPrecision(10, 2);
+            entity.Property(o => o.ShippingCost).HasPrecision(10, 2);
+            entity.Property(o => o.Total).HasPrecision(10, 2);
+            entity.HasIndex(o => o.OrderNumber).IsUnique();
+            entity.HasIndex(o => o.Phone);
+        });
+
+        builder.Entity<OrderItem>(entity =>
+        {
+            entity.ToTable("OrderItems");
+            entity.Property(i => i.ProductName).IsRequired().HasMaxLength(200);
+            entity.Property(i => i.Color).IsRequired().HasMaxLength(100);
+            entity.Property(i => i.Size).IsRequired().HasMaxLength(50);
+            entity.Property(i => i.Sku).IsRequired().HasMaxLength(64);
+            entity.Property(i => i.UnitPrice).HasPrecision(10, 2);
+            entity.Property(i => i.LineTotal).HasPrecision(10, 2);
+            entity.HasOne(i => i.Order)
+                .WithMany(o => o.Items)
+                .HasForeignKey(i => i.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrderStatusHistory>(entity =>
+        {
+            entity.ToTable("OrderStatusHistories");
+            entity.Property(h => h.OldStatus).HasConversion<string>().HasMaxLength(30);
+            entity.Property(h => h.NewStatus).HasConversion<string>().HasMaxLength(30);
+            entity.Property(h => h.Reason).HasMaxLength(500);
+            entity.HasOne(h => h.Order)
+                .WithMany(o => o.StatusHistory)
+                .HasForeignKey(h => h.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

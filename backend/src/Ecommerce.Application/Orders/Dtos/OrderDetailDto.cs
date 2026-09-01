@@ -1,0 +1,23 @@
+using Ecommerce.Domain.Orders;
+
+namespace Ecommerce.Application.Orders.Dtos;
+
+public record OrderDetailDto(
+    Guid Id,
+    string OrderNumber,
+    OrderStatus Status,
+    string FirstName,
+    string LastName,
+    string Phone,
+    string Wilaya,
+    string Commune,
+    string Address,
+    DeliveryType DeliveryType,
+    string? Notes,
+    string PaymentMethod,
+    PaymentStatus PaymentStatus,
+    decimal Subtotal,
+    decimal ShippingCost,
+    decimal Total,
+    DateTime CreatedAtUtc,
+    IReadOnlyList<OrderItemDto> Items);

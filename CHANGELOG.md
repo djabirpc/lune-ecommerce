@@ -33,6 +33,12 @@
 - Migration `AddCatalogAndInventory`.
 - FluentValidation validators for all new request DTOs, including a shared `SlugValidationRule.MustBeAValidSlug()` rule and a duplicate-SKU check across a product's variants.
 - `CatalogEndpointsTests` (Testcontainers, reuses `AuthWebApplicationFactory`): create category → create product with variant (asserts auto-created inventory) → restock → adjust → over-adjust rejected (409) → public list/detail still work → unauthenticated write rejected (401); plus a dedicated test resolving `IInventoryService` directly to prove `ReserveAsync` throws once stock is exhausted rather than going negative. Unit tests for `CreateProductRequestValidator` and `AdjustInventoryRequestValidator`.
+- **Orders & COD checkout** (CLAUDE.md sections 11–12): `Order`/`OrderItem`/`OrderStatusHistory` domain entities (`Ecommerce.Domain.Orders`), `OrderStatus`/`DeliveryType`/`PaymentStatus` enums. `IOrderService`/`OrderService`: `CreateAsync` snapshots price/name per line (never trusts client-supplied prices), reserves stock for every line inside one DB transaction (all-or-nothing — a single out-of-stock item fails and rolls back the whole order and every prior reservation), and generates a human-readable unique order number (`LUNA-YYMMDD-NNNN`). `ChangeStatusAsync` enforces a hardcoded valid-transitions map (CLAUDE.md section 12: no arbitrary status changes) and triggers the matching `IInventoryService` call: `Cancelled`/`Refused` → `ReleaseAsync`, `Delivered` → `RecordSaleAsync` + `PaymentStatus = Collected`, `Returned` → `RecordReturnAsync`. Every transition is recorded in `OrderStatusHistory`.
+- `OrdersController`: `POST /api/orders` (public, guest checkout), `GET /api/orders/track?orderNumber=&phone=` (public, phone-verified guest tracking — prevents order-number enumeration), `GET /api/orders` / `GET /api/orders/{id}` / `POST /api/orders/{id}/status` (`OrderManagers` role: SUPER_ADMIN/ADMIN/ORDER_MANAGER/CONFIRMATION_AGENT).
+- `Ecommerce.Domain.Identity.Roles.OrderManagers` constant.
+- Global `JsonStringEnumConverter` added to the MVC JSON options (`Program.cs`) so API enums serialize as PascalCase strings (e.g. `"PendingConfirmation"`) instead of raw numbers.
+- Migration `AddOrders`.
+- `OrderWorkflowTests` (Testcontainers): the two exact scenarios required by CLAUDE.md section 29 (`Create order → Reserve stock → Cancel → Release stock`; `Create order → Reserve stock → Confirm → Prepare → Ship → Deliver`, verifying `PaymentStatus` becomes `Collected` and stock moves to Sold on delivery), an invalid-transition-rejected (409) case, a multi-item-checkout-with-one-out-of-stock-item rollback case, and guest tracking with correct/incorrect phone. `CreateOrderRequestValidatorTests` (Algerian phone format, duplicate variant lines, empty items).
 
 ### Changed
 - N/A (first commit-worthy state of the repository).
@@ -45,16 +51,18 @@
 - Migration `InitialIdentity` (`backend/src/Ecommerce.Infrastructure/Persistence/Migrations/`): creates the Identity schema only (`Users`, `Roles`, `UserRoles`, `UserClaims`, `UserLogins`, `RoleClaims`, `UserTokens`). No business tables yet.
 - Migration `AddRefreshTokens`: adds the `RefreshTokens` table (hashed token, expiry, revocation, rotation chain via `ReplacedByTokenHash`).
 - Migration `AddCatalogAndInventory`: adds `Categories`, `Products`, `ProductVariants`, `ProductImages`, `Inventory` (one row per variant, unique index on `ProductVariantId`), `InventoryTransactions`.
+- Migration `AddOrders`: adds `Orders`, `OrderItems`, `OrderStatusHistories`.
 
 ### API
 - `GET /health`, `GET /api/system/ping` added. No business endpoints yet.
 - `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` added.
 - `GET/POST/PUT /api/categories[/{id|slug}]`, `GET/POST/PUT /api/products[/{id|slug}]`, `POST /api/products/{id}/variants`, `GET/POST /api/inventory/...` added.
+- `POST /api/orders`, `GET /api/orders/track`, `GET /api/orders[/{id}]`, `POST /api/orders/{id}/status` added.
 
 ### Frontend
-- Initial storefront and admin route shells added (see PROJECT_CONTEXT.md for the full route list). No business data wired up yet. Not yet wired to the new auth or catalog endpoints.
+- Initial storefront and admin route shells added (see PROJECT_CONTEXT.md for the full route list). No business data wired up yet. Not yet wired to the new auth, catalog, or order endpoints — this is now the primary gap (backend feature-complete for auth/catalog/COD-order-workflow, frontend still all placeholders).
 
 ### Notes
-- This started as a foundation-only bootstrap (no Products, Orders, COD, Yalidine, or ZR Express) and has since grown authentication and a Products/Categories/Inventory catalog; Orders/Cart/COD/Yalidine/ZR Express/Promotions/Marketing remain out of scope.
-- Full backend test suite (`dotnet test` from `backend/`) passes: 29/29 tests (19 Application.Tests, 10 Api.Tests — the latter requires Docker for the Testcontainers-based auth/catalog tests).
-- Full stack verified end-to-end via `docker compose up` (postgres healthy, backend healthy + migrated, frontend serving both `/` and `/admin`, CORS confirmed working from `http://localhost:5173`; a real login/me/refresh/logout cycle and a real category→product→restock→adjust→oversell-rejected cycle were both exercised via curl against the containerized backend).
+- This started as a foundation-only bootstrap (no Products, Orders, COD, Yalidine, or ZR Express) and now has authentication, a Products/Categories/Inventory catalog, and a full COD order workflow with stock reservation; Cart (deliberately not built — see PROJECT_CONTEXT.md Important Decisions), Yalidine/ZR Express/Promotions/Marketing remain out of scope.
+- Full backend test suite (`dotnet test` from `backend/`) passes: 43/43 tests (28 Application.Tests, 15 Api.Tests — the latter requires Docker for the Testcontainers-based auth/catalog/order tests).
+- Full stack verified end-to-end via `docker compose up` (postgres healthy, backend healthy + migrated, frontend serving both `/` and `/admin`, CORS confirmed working from `http://localhost:5173`); a real login/me/refresh/logout cycle, a real category→product→restock→adjust→oversell-rejected cycle, and a real guest-checkout→inventory-reserved→track→cancel→inventory-released cycle were all exercised via curl against the containerized backend.

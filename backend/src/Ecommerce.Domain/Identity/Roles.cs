@@ -23,4 +23,7 @@ public static class Roles
 
     /// <summary>Roles allowed to manage the product/inventory catalog, as a comma-separated list for [Authorize(Roles = ...)].</summary>
     public const string CatalogManagers = $"{SuperAdmin},{Admin},{StockManager}";
+
+    /// <summary>Roles allowed to view/manage orders, as a comma-separated list for [Authorize(Roles = ...)].</summary>
+    public const string OrderManagers = $"{SuperAdmin},{Admin},{OrderManager},{ConfirmationAgent}";
 }

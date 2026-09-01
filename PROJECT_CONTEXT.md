@@ -35,10 +35,10 @@ Infrastructure:
 Backend follows a 4-project modular architecture under `backend/src/`:
 
 ```text
-Ecommerce.Domain          — framework-agnostic entities/constants (Entity base class, Roles, Catalog/*, Inventory/*)
-Ecommerce.Application     — use cases, DTOs, validators, service interfaces (IAuthService/ITokenService/ICategoryService/IProductService/IInventoryService), AppException hierarchy
-Ecommerce.Infrastructure  — EF Core, Identity (ApplicationUser/ApplicationRole/RefreshToken), Catalog/Inventory service implementations, AppDbContext, IdentitySeeder, AddInfrastructure()
-Ecommerce.Api             — controllers (Auth/Categories/Products/Inventory), Program.cs composition root, Swagger, JWT, health checks, global exception middleware
+Ecommerce.Domain          — framework-agnostic entities/constants (Entity base class, Roles, Catalog/*, Inventory/*, Orders/*)
+Ecommerce.Application     — use cases, DTOs, validators, service interfaces (IAuthService/ITokenService/ICategoryService/IProductService/IInventoryService/IOrderService), AppException hierarchy
+Ecommerce.Infrastructure  — EF Core, Identity (ApplicationUser/ApplicationRole/RefreshToken), Catalog/Inventory/Orders service implementations, AppDbContext, IdentitySeeder, AddInfrastructure()
+Ecommerce.Api             — controllers (Auth/Categories/Products/Inventory/Orders), Program.cs composition root, Swagger, JWT, health checks, global exception middleware
 ```
 
 Auth-related namespaces worth knowing:
@@ -54,11 +54,17 @@ Catalog/Inventory namespaces worth knowing:
 - `Ecommerce.Infrastructure.Catalog.{CategoryService,ProductService}` / `Ecommerce.Infrastructure.Inventory.InventoryService` — EF Core-backed implementations. `InventoryService` uses `ExecuteUpdateAsync` with a guard predicate in the `Where` clause (e.g. `AvailableQuantity >= quantity`) for every stock mutation — this is an atomic, race-condition-safe SQL `UPDATE ... WHERE` (no read-then-write), which is how "never allow overselling" (CLAUDE.md section 10) is actually enforced under concurrent requests. If you add new stock-mutating logic, follow this exact pattern rather than loading the entity and saving it back.
 - `Ecommerce.Domain.Identity.Roles.CatalogManagers` — comma-joined `SUPER_ADMIN,ADMIN,STOCK_MANAGER` constant for `[Authorize(Roles = ...)]` on catalog/inventory write endpoints
 
+Orders namespaces worth knowing:
+- `Ecommerce.Domain.Orders` — `Order`, `OrderItem` (price/name **snapshotted** at order time, never re-read from the product later), `OrderStatusHistory`, `OrderStatus`/`DeliveryType`/`PaymentStatus` enums
+- `Ecommerce.Application.Orders.IOrderService` / `Ecommerce.Infrastructure.Orders.OrderService` — `CreateAsync` (validates → reserves stock for every line inside one DB transaction, all-or-nothing) and `ChangeStatusAsync` (validates the transition against a hardcoded `AllowedTransitions` map before doing anything, then applies the matching inventory side effect: `Cancelled`/`Refused` → `ReleaseAsync`, `Delivered` → `RecordSaleAsync` + `PaymentStatus = Collected`, `Returned` → `RecordReturnAsync`, everything else is a no-op on inventory)
+- `Ecommerce.Domain.Identity.Roles.OrderManagers` — `SUPER_ADMIN,ADMIN,ORDER_MANAGER,CONFIRMATION_AGENT` for order admin endpoints
+- Program.cs registers a global `JsonStringEnumConverter` on the MVC JSON options, so `OrderStatus`/`DeliveryType`/`PaymentStatus` (and any future API-facing enum) (de)serialize as PascalCase strings (e.g. `"PendingConfirmation"`), matching the CLAUDE.md section 45 code-naming example — **not** the SCREAMING_SNAKE_CASE used in the workflow diagram in section 12, which is diagram notation, not a literal contract. Test HTTP clients must configure a matching `JsonSerializerOptions` with the same converter (see `OrderWorkflowTests.JsonOptions`) — `HttpContent.ReadFromJsonAsync`/`PostAsJsonAsync` use the .NET default options otherwise and will throw trying to parse a string into an enum.
+
 Solution file is `backend/Ecommerce.slnx` (new XML solution format used by .NET 10 SDK tooling — NOT `.sln`; keep this in mind when referencing it from Dockerfiles or scripts).
 
 Tests live under `backend/tests/`:
-- `Ecommerce.Application.Tests` (xUnit, references Domain/Application) — includes `Auth/*ValidatorTests`, `Catalog/CreateProductRequestValidatorTests`, `Inventory/AdjustInventoryRequestValidatorTests`
-- `Ecommerce.Api.Tests` (xUnit + `Microsoft.AspNetCore.Mvc.Testing`) — `HealthCheckTests` (lenient, no real DB needed), `AuthEndpointsTests`, and `CatalogEndpointsTests` (the latter two both use `AuthWebApplicationFactory`, which spins up a real ephemeral Postgres via **Testcontainers** and seeds a SUPER_ADMIN — reused across features since any admin-protected endpoint needs that same seeded user; requires Docker to be running, `dotnet test` will fail/hang without it). `CatalogEndpointsTests` includes a test that resolves `IInventoryService` directly from `factory.Services` to exercise `ReserveAsync`/`ReleaseAsync` (not exposed via HTTP yet) and assert the oversell guard throws `ConflictAppException`.
+- `Ecommerce.Application.Tests` (xUnit, references Domain/Application) — includes `Auth/*ValidatorTests`, `Catalog/CreateProductRequestValidatorTests`, `Inventory/AdjustInventoryRequestValidatorTests`, `Orders/CreateOrderRequestValidatorTests`
+- `Ecommerce.Api.Tests` (xUnit + `Microsoft.AspNetCore.Mvc.Testing`) — `HealthCheckTests` (lenient, no real DB needed), `AuthEndpointsTests`, `CatalogEndpointsTests`, and `OrderWorkflowTests` (all three feature test classes share `AuthWebApplicationFactory`, which spins up a real ephemeral Postgres via **Testcontainers** and seeds a SUPER_ADMIN — requires Docker to be running, `dotnet test` will fail/hang without it). `CatalogEndpointsTests` includes a test that resolves `IInventoryService` directly from `factory.Services` to exercise `ReserveAsync`/`ReleaseAsync` (not exposed via HTTP yet) and assert the oversell guard throws `ConflictAppException`. `OrderWorkflowTests` covers the two exact scenarios required by CLAUDE.md section 29 (`Create order → Reserve stock → Cancel → Release stock` and `Create order → Reserve stock → Confirm → Prepare → Ship → Deliver`), an invalid-transition-rejected case, a guest phone-verified tracking case, and a multi-item checkout where one item is out of stock — asserting the **whole order** (and the other item's reservation) rolls back, not just the failing line.
 
 Frontend is a single Vite app with two route trees sharing one React app (`frontend/src/app/router.tsx`):
 
@@ -73,7 +79,7 @@ frontend/src/
 
 ## Implemented Features
 
-Order-related business features (Cart, COD checkout, Order workflow, Yalidine, ZR Express, Promotions, Marketing) are intentionally not started. Products/Categories/Inventory now exist (see below).
+Yalidine, ZR Express, Promotions, and Marketing are intentionally not started. Auth, Products/Categories/Inventory, and now COD Orders exist (see below). No server-side Cart — checkout is a single-step guest submission (see Important Decisions).
 
 What IS implemented:
 - Monorepo structure (`backend/`, `frontend/`)
@@ -89,17 +95,18 @@ What IS implemented:
 - Frontend storefront/admin route shells with separate layouts/navigation, all pages are placeholders — **not yet wired to the auth endpoints** (no login page, no token storage/refresh logic in the frontend yet)
 - Docker Compose stack (postgres + backend + frontend) verified working end-to-end, including automatic EF Core migration + identity seeding on backend startup (dev only, gated by `ApplyMigrationsOnStartup` config key, not `ASPNETCORE_ENVIRONMENT`). Full login → me → refresh → logout cycle verified via curl against the containerized backend.
 - **Catalog**: `Category`, `Product`, `ProductVariant` (color/size/SKU, mandatory per CLAUDE.md section 9 — stock is never tracked at product level), `ProductImage`. Public read endpoints (list/detail by slug) + admin write endpoints (`CatalogManagers` role: SUPER_ADMIN/ADMIN/STOCK_MANAGER). Creating a product with variants auto-creates one `InventoryRecord` per variant and logs an initial `RESTOCK` transaction if the initial quantity is > 0.
-- **Inventory**: `InventoryRecord` (Available/Reserved/Sold/Returned/Damaged quantities per variant) + `InventoryTransaction` audit log (all 6 CLAUDE.md section 10 transaction types modeled). `Restock`/`Adjust` exposed via `POST /api/inventory/{restock,adjust}` (admin only). `Reserve`/`Release`/`RecordSale`/`RecordReturn` implemented and tested at the service level but **not yet exposed via HTTP** — they're ready for the Order feature to call. All stock mutations use EF Core's `ExecuteUpdateAsync` with a guard predicate (atomic `UPDATE ... WHERE available >= quantity`), which is what actually prevents overselling under concurrent requests — verified by a test that reserves all stock then asserts a second reservation throws `ConflictAppException` rather than going negative.
+- **Inventory**: `InventoryRecord` (Available/Reserved/Sold/Returned/Damaged quantities per variant) + `InventoryTransaction` audit log (all 6 CLAUDE.md section 10 transaction types modeled). `Restock`/`Adjust` exposed via `POST /api/inventory/{restock,adjust}` (admin only). `Reserve`/`Release`/`RecordSale`/`RecordReturn` implemented and tested at the service level, and **now actually called** by the Order feature below. All stock mutations use EF Core's `ExecuteUpdateAsync` with a guard predicate (atomic `UPDATE ... WHERE available >= quantity`), which is what actually prevents overselling under concurrent requests.
+- **Orders / COD checkout**: `POST /api/orders` (guest, public) validates the request, snapshots each variant's current price (never trusts a client-supplied price, per CLAUDE.md section 41), and reserves stock for every line **inside a single DB transaction** — if any line is out of stock, the entire order (and every reservation already made for earlier lines) rolls back, no partial order is ever created. `GET /api/orders/track?orderNumber=&phone=` lets a guest check status without an account, requiring the phone to match (prevents order-number enumeration). Admin: `GET /api/orders` (paged, filterable by status), `GET /api/orders/{id}`, `POST /api/orders/{id}/status` — the last one enforces a hardcoded state-transition map (CLAUDE.md section 12: *"Do not allow arbitrary status changes"*) and triggers the matching inventory effect (release on Cancelled/Refused, finalize-as-sold on Delivered, record-return on Returned). Every transition is appended to `OrderStatusHistory` (old/new status, acting user if any, reason). Order numbers are human-readable (`LUNA-YYMMDD-NNNN`) with a uniqueness retry loop, not a real invoice sequence yet.
 
 ## Current Feature
 
-None in progress. Catalog + Inventory foundation is complete; next up is Cart/COD Checkout/Order (see Next Recommended Steps).
+None in progress. Auth, Catalog, Inventory, and core Order/COD workflow are complete. Next up: wiring the frontend to these APIs, or the admin confirmation-center workflow (`OrderCallAttempt`, deferred — see Important Decisions) — see Next Recommended Steps.
 
 ## Last Completed Work
 
-2026-09-01 — Catalog & Inventory feature: `Category`/`Product`/`ProductVariant`/`ProductImage` domain model, `InventoryRecord`/`InventoryTransaction` with all 6 CLAUDE.md transaction types, public read + admin write REST endpoints, atomic (`ExecuteUpdateAsync`-based) stock mutations that provably never oversell under concurrency, and FluentValidation + Testcontainers integration test coverage (including a direct oversell-prevention test against `IInventoryService.ReserveAsync`). Migration `AddCatalogAndInventory`. Full details in `CHANGELOG.md` under `[2026-09-01]`.
+2026-09-01 — Orders & COD checkout feature: `Order`/`OrderItem`/`OrderStatusHistory` domain model, a hardcoded order-status transition map enforcing CLAUDE.md section 12's valid-transitions-only rule, and full integration between order status changes and the previously-built (but until-now-unused) `IInventoryService.{Reserve,Release,RecordSale,RecordReturn}Async`. Guest checkout (no account) and phone-verified guest order tracking. Both CLAUDE.md section 29-mandated test scenarios pass end-to-end against a real Postgres via Testcontainers, plus a test proving multi-item checkout rolls back entirely (not per-line) when any item is out of stock. Added a global `JsonStringEnumConverter` so status/enum fields serialize as readable strings. Migration `AddOrders`. Full details in `CHANGELOG.md` under `[2026-09-01]`.
 
-Earlier same-date milestones: authentication (JWT login/refresh/logout/me, role + bootstrap SUPER_ADMIN seeding, standardized error responses — and a real eager-`IConfiguration`-read bug fixed along the way), and the original technical bootstrap (monorepo scaffold, backend/frontend skeletons, Docker Compose stack). See `CHANGELOG.md` for full bullet lists of each.
+Earlier same-date milestones: Catalog & Inventory (`Category`/`Product`/`ProductVariant`/`ProductImage`, `InventoryRecord`/`InventoryTransaction`, atomic never-oversell stock mutations), authentication (JWT login/refresh/logout/me, role + bootstrap SUPER_ADMIN seeding, standardized error responses — and a real eager-`IConfiguration`-read bug fixed along the way), and the original technical bootstrap (monorepo scaffold, backend/frontend skeletons, Docker Compose stack). See `CHANGELOG.md` for full bullet lists of each.
 
 ## Database
 
@@ -119,9 +126,14 @@ Catalog & Inventory entities (`Ecommerce.Domain.Catalog` / `Ecommerce.Domain.Inv
 - `InventoryRecord` (`Inventory` table) — one row per `ProductVariantId` (unique index, FK `Cascade`), `AvailableQuantity`/`ReservedQuantity`/`SoldQuantity`/`ReturnedQuantity`/`DamagedQuantity`
 - `InventoryTransaction` (`InventoryTransactions` table) — `ProductVariantId` (FK `Restrict` — history must survive even if a variant is later restricted from deletion), `Type` (string-converted enum: RESERVE/RELEASE/SALE/RETURN/RESTOCK/ADJUSTMENT), `Quantity`, `Reason`
 
-Migrations: `backend/src/Ecommerce.Infrastructure/Persistence/Migrations/` — `InitialIdentity`, `AddRefreshTokens`, `AddCatalogAndInventory` (all applied and verified against a live Postgres container).
+Order entities (`Ecommerce.Domain.Orders`):
+- `Order` (`Orders` table) — `OrderNumber` (unique, `LUNA-YYMMDD-NNNN`), `Status` (string-converted enum), customer/delivery fields (`FirstName`/`LastName`/`Phone`/`Wilaya`/`Commune`/`Address`/`DeliveryType`/`Notes`), `PaymentMethod` (fixed `"COD"`), `PaymentStatus`, `Subtotal`/`ShippingCost`/`Total` (all numeric(10,2); `ShippingCost` is currently always 0 — no shipping/carrier integration yet)
+- `OrderItem` (`OrderItems` table) — `OrderId` (FK `Cascade`), `ProductVariantId` (no FK constraint — items must survive even if the catalog changes later), **snapshotted** `ProductName`/`Color`/`Size`/`Sku`/`UnitPrice` (never re-read from the live product) plus `Quantity`/`LineTotal`
+- `OrderStatusHistory` (`OrderStatusHistories` table) — `OrderId` (FK `Cascade`), `OldStatus`/`NewStatus` (string-converted enums), `ChangedByUserId` (nullable Guid — null for system/guest-triggered creation), `Reason`
 
-Planned entities (not yet created): Customer, CustomerAddress, Cart, CartItem, Order, OrderItem, OrderStatusHistory, OrderCallAttempt, Promotion, Shipment, TrackingEvent, ShippingRate, MarketingEvent, AuditLog.
+Migrations: `backend/src/Ecommerce.Infrastructure/Persistence/Migrations/` — `InitialIdentity`, `AddRefreshTokens`, `AddCatalogAndInventory`, `AddOrders` (all applied and verified against a live Postgres container).
+
+Planned entities (not yet created): Customer, CustomerAddress, OrderCallAttempt (confirmation-center call log, deferred — see Important Decisions), Promotion, Shipment, TrackingEvent, ShippingRate, MarketingEvent, AuditLog. No Cart/CartItem entity is planned — see Important Decisions.
 
 `dotnet-ef` is installed as a **local tool** (see `backend/dotnet-tools.json`, pinned to 9.0.19 to match the EF Core package version — the SDK's global `dotnet-ef` would default to 10.x and can misbehave against 9.x packages). Run it as `dotnet tool run dotnet-ef ...` or `dotnet ef ...` from `backend/` (local tools are on PATH within a restored tool manifest context).
 
@@ -143,9 +155,13 @@ Catalog (public reads, `CatalogManagers` role = SUPER_ADMIN/ADMIN/STOCK_MANAGER 
 - `GET /api/products?category={slug}&page=&pageSize=` (paged, active only) / `GET /api/products/{slug}` (full detail incl. variants + live stock) — public; `POST /api/products` (with initial variants) / `PUT /api/products/{id}` / `POST /api/products/{id}/variants` — admin
 - `GET /api/inventory/{variantId}` / `GET /api/inventory/{variantId}/transactions` / `POST /api/inventory/restock` / `POST /api/inventory/adjust` — admin only (whole controller is `[Authorize(Roles = Roles.CatalogManagers)]`)
 
-Errors follow `{ success: false, error: { code, message } }` (CLAUDE.md section 27) — codes seen so far: `UNAUTHORIZED`, `VALIDATION_ERROR`, `INTERNAL_ERROR`, `NOT_FOUND`, `CONFLICT` (see `Ecommerce.Application.Common.Exceptions.AppException` for the full set).
+Orders (guest checkout is public; admin endpoints need `OrderManagers` role = SUPER_ADMIN/ADMIN/ORDER_MANAGER/CONFIRMATION_AGENT):
+- `POST /api/orders` — public, creates a COD order from `{ firstName, lastName, phone, wilaya, commune, address, deliveryType, notes?, items: [{ productVariantId, quantity }] }`. `409 CONFLICT` (not `400`) if any item is out of stock — the whole order fails atomically.
+- `GET /api/orders/track?orderNumber=&phone=` — public, guest order lookup; `404` unless both match (no order-number enumeration).
+- `GET /api/orders?status=&page=&pageSize=`, `GET /api/orders/{id}` — admin.
+- `POST /api/orders/{id}/status` — admin, `{ newStatus, reason? }`. `409 CONFLICT` if the transition isn't in the allowed map for the order's current status.
 
-No Cart/Order endpoints yet.
+Errors follow `{ success: false, error: { code, message } }` (CLAUDE.md section 27) — codes seen so far: `UNAUTHORIZED`, `VALIDATION_ERROR`, `INTERNAL_ERROR`, `NOT_FOUND`, `CONFLICT` (see `Ecommerce.Application.Common.Exceptions.AppException` for the full set).
 
 No shipping provider integrations exist yet (Yalidine/ZR Express are explicitly out of scope for this step per CLAUDE.md section 16/17 — do not invent endpoints).
 
@@ -170,7 +186,9 @@ All pages except `HomePage` currently render `<PagePlaceholder />`. `HomePage` h
 
 ## COD Workflow
 
-Not implemented yet. Order state machine, `OrderStatusHistory`, `OrderCallAttempt`, and the confirmation workflow described in CLAUDE.md sections 12–13 are all pending — no `Order` entity exists.
+Implemented: `Order`/`OrderItem`/`OrderStatusHistory`, the full CLAUDE.md section 12 status machine (`PendingConfirmation → Confirmed → Preparing → ReadyToShip → Shipped → OutForDelivery → Delivered`, plus `Cancelled`/`CustomerUnreachable`/`DeliveryFailed`/`Refused`/`Returned`), and every transition recorded in `OrderStatusHistory`. Payment is COD-only (`PaymentStatus` moves `Pending → Collected` on `Delivered`).
+
+**Not implemented**: the CLAUDE.md section 13 confirmation-center workflow — `OrderCallAttempt` entity, "schedule callback", call-attempt logging. An admin can currently move an order to `Confirmed`/`CustomerUnreachable`/`Cancelled` directly, but there's no structured record of *why* (which phone attempt, agent notes). Deferred deliberately — see Important Decisions.
 
 ## Marketing
 
@@ -197,8 +215,8 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 7. ~~Implement products/categories.~~ ✅
 8. ~~Implement inventory.~~ ✅ — Restock/Adjust exposed via API; Reserve/Release/Sale/Return implemented and tested at service level, wiring to HTTP deferred to the Order feature that will actually call them.
 9. Implement storefront (real data, not placeholders).
-10. Implement COD checkout.
-11. Implement order workflow.
+10. ~~Implement COD checkout.~~ ✅
+11. ~~Implement order workflow.~~ ✅ — core state machine + inventory integration done; confirmation-center (`OrderCallAttempt`) deferred, see Important Decisions.
 12. Implement admin (real data, not placeholders).
 13. Implement promotions.
 14. Implement shipping abstraction (`IShippingProvider` + `FakeShippingProvider`).
@@ -227,10 +245,17 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 15. `InventoryTransaction.Quantity` is always a positive magnitude for Reserve/Release/Sale/Return/Restock (the bucket transition is implied by `Type`), but can be **negative** for Adjustment (a manual correction can go either direction) — this is the one type where the sign is meaningful and must be preserved for the audit trail.
 16. `Reserve`/`Release`/`RecordSale`/`RecordReturn` on `IInventoryService` are implemented and unit/integration-tested now, but intentionally have no HTTP endpoint yet — there is no real caller (Cart/Order) for them yet, and CLAUDE.md section 44 discourages building unused public API surface. They're ready for the Order feature to call directly.
 17. Product `Slug` and `ProductVariant` `Sku` are supplied by the admin/caller (validated via a shared regex rule), not auto-generated from the name — kept simple for this pass; revisit if UX feedback asks for auto-slugging.
+18. **No server-side Cart/CartItem entity.** Since guest checkout is mandatory and there are no customer accounts (CLAUDE.md section 11), there is no logged-in customer to sync a cart across devices for — persisting it server-side would add a full CRUD surface for zero real benefit right now. The frontend cart lives in browser state (e.g. localStorage) and is submitted as a flat `items: [{ productVariantId, quantity }]` list directly to `POST /api/orders` at checkout. Revisit only if a real requirement emerges (e.g. cart abandonment recovery emails).
+19. `OrderCallAttempt` / confirmation-center workflow (CLAUDE.md section 13) is deliberately deferred. The core order state machine already supports moving an order to `Confirmed`/`CustomerUnreachable`/`Cancelled`; what's missing is the structured *call log* (attempt number, agent, result, next callback time) that the admin confirmation-center UI would need. Building it now, before there's an admin UI to consume it, would be exactly the kind of unused-surface CLAUDE.md section 44 warns against.
+20. Order status transitions are enforced via a hardcoded `Dictionary<OrderStatus, OrderStatus[]>` in `OrderService`, not a database-driven workflow engine — intentionally simple and exhaustive (12 states, ~20 edges), matches CLAUDE.md's explicit list of states, and is trivial to unit-test. Revisit only if the workflow needs to become configurable per-tenant or per-carrier.
+21. `Order.ShippingCost` is hardcoded to 0 — there is no shipping-cost calculation yet since `IShippingProvider` doesn't exist. `Order.Total` will need recalculating once shipping rates are wired up; this is a known gap, not an oversight.
+22. `OrderItem.ProductVariantId` has no FK constraint to `ProductVariants` (unlike `InventoryTransaction`, which does). Order history must remain intact and queryable even if a product/variant is later deleted from the catalog — the snapshot fields (`ProductName`, `Sku`, etc.) are what matters for a placed order, not a live join to the catalog.
 
 ## Next Recommended Steps
 
-1. Cart → COD Checkout → Order creation with stock reservation (CLAUDE.md sections 11–12). `IInventoryService.ReserveAsync`/`ReleaseAsync`/`RecordSaleAsync` already exist and are tested — the Order feature should call them, not reimplement stock logic. Required test scenarios per CLAUDE.md section 29: `Create order → Reserve stock → Cancel → Release stock` and `Create order → Reserve stock → Confirm → Prepare → Ship → Deliver`.
-2. Cart entity/endpoints will likely be needed first (or built alongside Order, as guest checkout means Cart may just be client-side + a checkout-time order creation — decide this when picking up the feature).
-3. Smaller, can be done anytime: wire the frontend to the new auth + catalog endpoints (login page, token storage/refresh interceptor in `apiClient`, product listing/detail pages replacing `PagePlaceholder`) — currently both APIs work but nothing in `frontend/` calls them yet.
-4. Smaller, can be done anytime: admin product/category/inventory management UI in `/admin` (currently placeholder pages) now that the backend endpoints exist.
+1. Wire the frontend to the backend that now fully exists: login page + token storage/refresh interceptor in `apiClient`, product listing/detail pages, cart (client-side state), and the real checkout form posting to `POST /api/orders`, order confirmation/tracking pages. This is now the biggest gap — three backend feature slices (auth, catalog, orders) are done and tested but the storefront still renders only `PagePlaceholder`.
+2. Admin UI in `/admin`: product/category/inventory management and an order list/detail/status-change screen, now that all the backend endpoints exist.
+3. `OrderCallAttempt` + confirmation-center workflow (CLAUDE.md section 13), once the admin order UI exists to actually use it (see Important Decisions #19).
+4. Promotions (CLAUDE.md section 20) — no dependency on anything unbuilt, could be picked up independently of the shipping/marketing work below.
+5. Shipping: `IShippingProvider` + `FakeShippingProvider` abstraction (CLAUDE.md section 15), needed before `Order.ShippingCost` can be anything other than 0, and before Yalidine/ZR Express integration (both still blocked on real API docs/credentials per CLAUDE.md sections 16–17 — do not invent endpoints when picking this up).
+6. Marketing tracking (pixels, UTM capture, attribution) — lowest priority until there's checkout traffic to actually track.

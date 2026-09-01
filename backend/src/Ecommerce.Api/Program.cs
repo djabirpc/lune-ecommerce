@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Ecommerce.Api.Middleware;
 using Ecommerce.Application;
 using Ecommerce.Application.Common;
@@ -20,7 +21,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .WriteTo.Console());
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
