@@ -1,5 +1,7 @@
 import { Link, Outlet } from 'react-router-dom';
 
+import { useCart } from '../../lib/cart/CartContext';
+
 const NAV_LINKS = [
   { to: '/categories', label: 'Catégories' },
   { to: '/promotions', label: 'Promotions' },
@@ -7,6 +9,8 @@ const NAV_LINKS = [
 ];
 
 export function StorefrontLayout() {
+  const { itemCount } = useCart();
+
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <div className="bg-luna-black py-2 text-center text-xs text-white">
@@ -25,7 +29,7 @@ export function StorefrontLayout() {
             </Link>
           ))}
           <Link to="/cart" className="hover:text-luna-accent">
-            Panier
+            Panier{itemCount > 0 ? ` (${itemCount})` : ''}
           </Link>
         </nav>
       </header>

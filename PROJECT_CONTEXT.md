@@ -23,8 +23,9 @@ Frontend:
 - React 19 + TypeScript + Vite 8
 - Tailwind CSS v4 (via `@tailwindcss/vite`, no separate config file)
 - React Router v7 (`createBrowserRouter`)
-- TanStack Query v5
-- React Hook Form + Zod + `@hookform/resolvers` (installed, not yet wired to a form)
+- TanStack Query v5 (catalog reads)
+- React Hook Form + Zod + `@hookform/resolvers` (checkout + order-tracking forms)
+- No frontend state library beyond React Context — cart is a single `CartContext` + localStorage
 
 Infrastructure:
 - Docker + Docker Compose (postgres, backend, frontend)
@@ -71,11 +72,15 @@ Frontend is a single Vite app with two route trees sharing one React app (`front
 ```text
 frontend/src/
   storefront/   — customer-facing layout + pages (StorefrontLayout wraps "/")
-  admin/        — back-office layout + pages (AdminLayout wraps "/admin")
-  lib/api/      — fetch-based apiClient (reads VITE_API_URL) + TanStack QueryClient
-  lib/components/ — PagePlaceholder (shared placeholder used by all not-yet-built pages)
+  admin/        — back-office layout + pages (AdminLayout wraps "/admin") — still all PagePlaceholder
+  lib/api/      — fetch-based apiClient (reads VITE_API_URL) + TanStack QueryClient + types.ts (hand-written, mirrors backend DTOs) + catalog.ts/orders.ts (API functions)
+  lib/cart/     — CartContext (React Context + localStorage, key "luna-cart")
+  lib/format/   — formatPrice (DZD), ORDER_STATUS_LABELS/DELIVERY_TYPE_LABELS (French labels for backend enums)
+  lib/components/ — PagePlaceholder, ProductCard, OrderDetailsCard (shared across storefront pages)
   app/router.tsx  — single createBrowserRouter with both route trees
 ```
+
+`types.ts` is hand-written, not generated from the backend — if a backend DTO shape changes, this file must be updated manually (no codegen pipeline exists yet).
 
 ## Implemented Features
 
@@ -92,21 +97,22 @@ What IS implemented:
 - `GET /health` (Npgsql connectivity check) and `GET /api/system/ping` (no-dependency smoke endpoint)
 - EF Core migrations `InitialIdentity` and `AddRefreshTokens`
 - CORS configured via `Cors:AllowedOrigins` config (env var `Cors__AllowedOrigins__0` in docker-compose)
-- Frontend storefront/admin route shells with separate layouts/navigation, all pages are placeholders — **not yet wired to the auth endpoints** (no login page, no token storage/refresh logic in the frontend yet)
+- Admin route shell (`/admin/*`) with separate layout/navigation — still all `PagePlaceholder`, no admin login UI yet (see Pending Work).
 - Docker Compose stack (postgres + backend + frontend) verified working end-to-end, including automatic EF Core migration + identity seeding on backend startup (dev only, gated by `ApplyMigrationsOnStartup` config key, not `ASPNETCORE_ENVIRONMENT`). Full login → me → refresh → logout cycle verified via curl against the containerized backend.
 - **Catalog**: `Category`, `Product`, `ProductVariant` (color/size/SKU, mandatory per CLAUDE.md section 9 — stock is never tracked at product level), `ProductImage`. Public read endpoints (list/detail by slug) + admin write endpoints (`CatalogManagers` role: SUPER_ADMIN/ADMIN/STOCK_MANAGER). Creating a product with variants auto-creates one `InventoryRecord` per variant and logs an initial `RESTOCK` transaction if the initial quantity is > 0.
 - **Inventory**: `InventoryRecord` (Available/Reserved/Sold/Returned/Damaged quantities per variant) + `InventoryTransaction` audit log (all 6 CLAUDE.md section 10 transaction types modeled). `Restock`/`Adjust` exposed via `POST /api/inventory/{restock,adjust}` (admin only). `Reserve`/`Release`/`RecordSale`/`RecordReturn` implemented and tested at the service level, and **now actually called** by the Order feature below. All stock mutations use EF Core's `ExecuteUpdateAsync` with a guard predicate (atomic `UPDATE ... WHERE available >= quantity`), which is what actually prevents overselling under concurrent requests.
 - **Orders / COD checkout**: `POST /api/orders` (guest, public) validates the request, snapshots each variant's current price (never trusts a client-supplied price, per CLAUDE.md section 41), and reserves stock for every line **inside a single DB transaction** — if any line is out of stock, the entire order (and every reservation already made for earlier lines) rolls back, no partial order is ever created. `GET /api/orders/track?orderNumber=&phone=` lets a guest check status without an account, requiring the phone to match (prevents order-number enumeration). Admin: `GET /api/orders` (paged, filterable by status), `GET /api/orders/{id}`, `POST /api/orders/{id}/status` — the last one enforces a hardcoded state-transition map (CLAUDE.md section 12: *"Do not allow arbitrary status changes"*) and triggers the matching inventory effect (release on Cancelled/Refused, finalize-as-sold on Delivered, record-return on Returned). Every transition is appended to `OrderStatusHistory` (old/new status, acting user if any, reason). Order numbers are human-readable (`LUNA-YYMMDD-NNNN`) with a uniqueness retry loop, not a real invoice sequence yet.
+- **Storefront purchase journey (frontend, real data)**: `/categories`, `/category/:slug`, `/product/:slug` (color→size variant picker, live stock, add-to-cart), `/cart`, `/checkout` (React Hook Form + Zod, same validation rules as the backend), `/order-confirmation/:orderNumber` (shows the just-placed order via router state, with a graceful fallback if the page is reloaded), `/track-order` (phone-verified lookup). Cart is `CartContext` (React Context + localStorage), submitted as a flat item list directly to `POST /api/orders` at checkout — matches the "no server-side Cart" decision. Verified with a real headless-browser run against the live Docker stack (see Notes in CHANGELOG). `HomePage` and admin pages are unchanged (still placeholders/static).
 
 ## Current Feature
 
-None in progress. Auth, Catalog, Inventory, and core Order/COD workflow are complete. Next up: wiring the frontend to these APIs, or the admin confirmation-center workflow (`OrderCallAttempt`, deferred — see Important Decisions) — see Next Recommended Steps.
+None in progress. Auth, Catalog, Inventory, core Order/COD workflow, and the full customer-facing storefront purchase journey are complete. Next up: admin UI (login, product/order management) — see Next Recommended Steps.
 
 ## Last Completed Work
 
-2026-09-01 — Orders & COD checkout feature: `Order`/`OrderItem`/`OrderStatusHistory` domain model, a hardcoded order-status transition map enforcing CLAUDE.md section 12's valid-transitions-only rule, and full integration between order status changes and the previously-built (but until-now-unused) `IInventoryService.{Reserve,Release,RecordSale,RecordReturn}Async`. Guest checkout (no account) and phone-verified guest order tracking. Both CLAUDE.md section 29-mandated test scenarios pass end-to-end against a real Postgres via Testcontainers, plus a test proving multi-item checkout rolls back entirely (not per-line) when any item is out of stock. Added a global `JsonStringEnumConverter` so status/enum fields serialize as readable strings. Migration `AddOrders`. Full details in `CHANGELOG.md` under `[2026-09-01]`.
+2026-09-01 — Storefront frontend wired to the real backend: category/product browsing with live stock, a client-side cart, a checkout form that posts directly to `POST /api/orders`, order confirmation, and phone-verified order tracking. Verified end-to-end with a real headless-Chromium run (Playwright) against the Dockerized backend + Vite dev frontend — not just `npm run build`: the full click-through (browse → select variant → add to cart → checkout → confirm → cart clears → track by phone → wrong-phone correctly rejected) was exercised and screenshotted. No backend changes in this pass. `HomePage` and all `/admin` pages remain as before (untouched).
 
-Earlier same-date milestones: Catalog & Inventory (`Category`/`Product`/`ProductVariant`/`ProductImage`, `InventoryRecord`/`InventoryTransaction`, atomic never-oversell stock mutations), authentication (JWT login/refresh/logout/me, role + bootstrap SUPER_ADMIN seeding, standardized error responses — and a real eager-`IConfiguration`-read bug fixed along the way), and the original technical bootstrap (monorepo scaffold, backend/frontend skeletons, Docker Compose stack). See `CHANGELOG.md` for full bullet lists of each.
+Earlier same-date milestones: Orders & COD checkout (state machine + inventory integration, both CLAUDE.md section 29 test scenarios), Catalog & Inventory (`Category`/`Product`/`ProductVariant`/`ProductImage`, `InventoryRecord`/`InventoryTransaction`, atomic never-oversell stock mutations), authentication (JWT login/refresh/logout/me, role + bootstrap SUPER_ADMIN seeding, standardized error responses — and a real eager-`IConfiguration`-read bug fixed along the way), and the original technical bootstrap (monorepo scaffold, backend/frontend skeletons, Docker Compose stack). See `CHANGELOG.md` for full bullet lists of each.
 
 ## Database
 
@@ -173,9 +179,13 @@ Storefront (`StorefrontLayout` at `/`): `/`, `/categories`, `/category/:slug`, `
 
 Admin (`AdminLayout` at `/admin`): `/admin` (+ `/admin/dashboard`), `/admin/orders`, `/admin/orders/confirmation`, `/admin/orders/:id`, `/admin/products`, `/admin/inventory`, `/admin/promotions`, `/admin/customers`, `/admin/shipping`, `/admin/marketing`, `/admin/users`, `/admin/settings`.
 
-All pages except `HomePage` currently render `<PagePlaceholder />`. `HomePage` has static hero copy + trust section (no data fetching yet — matches CLAUDE.md section 8 copy).
+**Storefront status**: `HomePage` (static hero/trust copy), `CategoriesPage`, `CategoryPage`, `ProductPage`, `CartPage`, `CheckoutPage`, `OrderConfirmationPage`, `TrackOrderPage` all use real backend data via TanStack Query / direct `apiClient` calls. `PromotionsPage`, `OrdersPage` (storefront "my orders" — not meaningful without customer accounts), and `AccountPage` remain `PagePlaceholder` (no backend feature to back them: Promotions isn't built, and there's no customer login).
 
-`apiClient` (`frontend/src/lib/api/client.ts`) is a thin `fetch` wrapper reading `VITE_API_URL`, expects the backend's `{ success, error: { code, message } }` error shape (CLAUDE.md section 27) and throws `ApiError`.
+**Admin status**: every `/admin/*` page is still `PagePlaceholder`. No admin login UI exists yet even though the backend `/api/auth/*` endpoints are ready.
+
+`apiClient` (`frontend/src/lib/api/client.ts`) is a thin `fetch` wrapper reading `VITE_API_URL`, expects the backend's `{ success, error: { code, message } }` error shape (CLAUDE.md section 27) and throws `ApiError`. It does not currently attach an `Authorization` header — fine for the storefront (every endpoint it calls is public), but the admin UI work will need to extend it with token attachment + refresh-on-401 retry.
+
+`ProductPage`'s variant picker groups `ProductDetailDto.variants` client-side into color → size (the backend returns a flat list, one entry per SKU) — there's no variant-matrix endpoint, this is pure frontend grouping logic.
 
 ## Shipping
 
@@ -214,10 +224,10 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 6. ~~Implement authentication (login/refresh endpoints, role seeding).~~ ✅ — login/refresh/logout/me implemented and tested; still pending: frontend login UI/token storage, and an admin-facing user-management endpoint (currently the only way to create staff accounts is the `InitialAdmin` bootstrap seed — no `POST /api/admin/users` yet).
 7. ~~Implement products/categories.~~ ✅
 8. ~~Implement inventory.~~ ✅ — Restock/Adjust exposed via API; Reserve/Release/Sale/Return implemented and tested at service level, wiring to HTTP deferred to the Order feature that will actually call them.
-9. Implement storefront (real data, not placeholders).
+9. ~~Implement storefront (real data, not placeholders).~~ ✅ — the purchase journey (categories/product/cart/checkout/confirmation/tracking) is real; `PromotionsPage`/storefront `OrdersPage`/`AccountPage` remain placeholders because there's no Promotions feature or customer accounts to back them.
 10. ~~Implement COD checkout.~~ ✅
 11. ~~Implement order workflow.~~ ✅ — core state machine + inventory integration done; confirmation-center (`OrderCallAttempt`) deferred, see Important Decisions.
-12. Implement admin (real data, not placeholders).
+12. Implement admin (real data, not placeholders) — still fully pending, including admin login UI.
 13. Implement promotions.
 14. Implement shipping abstraction (`IShippingProvider` + `FakeShippingProvider`).
 15. Integrate Yalidine (needs real API docs/credentials first).
@@ -250,12 +260,15 @@ Not implemented yet. No Meta/TikTok pixel wiring, no UTM capture, no `MarketingE
 20. Order status transitions are enforced via a hardcoded `Dictionary<OrderStatus, OrderStatus[]>` in `OrderService`, not a database-driven workflow engine — intentionally simple and exhaustive (12 states, ~20 edges), matches CLAUDE.md's explicit list of states, and is trivial to unit-test. Revisit only if the workflow needs to become configurable per-tenant or per-carrier.
 21. `Order.ShippingCost` is hardcoded to 0 — there is no shipping-cost calculation yet since `IShippingProvider` doesn't exist. `Order.Total` will need recalculating once shipping rates are wired up; this is a known gap, not an oversight.
 22. `OrderItem.ProductVariantId` has no FK constraint to `ProductVariants` (unlike `InventoryTransaction`, which does). Order history must remain intact and queryable even if a product/variant is later deleted from the catalog — the snapshot fields (`ProductName`, `Sku`, etc.) are what matters for a placed order, not a live join to the catalog.
+23. Frontend `types.ts` DTOs are hand-written, not generated from the backend (no OpenAPI-codegen pipeline set up). Acceptable at the current size; revisit if the two start drifting often.
+24. `OrderConfirmationPage` reads the just-created order from React Router navigation `state`, not a fresh API call — it doesn't have the customer's phone number handy to call the (phone-verified) track endpoint, and re-fetching without that verification would defeat the anti-enumeration protection on `GET /api/orders/track`. On a page reload (state lost), it shows a fallback pointing to `/track-order` instead of silently failing.
+25. `apiClient` has no auth-token attachment yet — deliberately, since every endpoint the storefront currently calls is public (categories, products, order create/track). This will need to be added when the admin UI (which needs `Authorization: Bearer`) is built, not before.
 
 ## Next Recommended Steps
 
-1. Wire the frontend to the backend that now fully exists: login page + token storage/refresh interceptor in `apiClient`, product listing/detail pages, cart (client-side state), and the real checkout form posting to `POST /api/orders`, order confirmation/tracking pages. This is now the biggest gap — three backend feature slices (auth, catalog, orders) are done and tested but the storefront still renders only `PagePlaceholder`.
-2. Admin UI in `/admin`: product/category/inventory management and an order list/detail/status-change screen, now that all the backend endpoints exist.
-3. `OrderCallAttempt` + confirmation-center workflow (CLAUDE.md section 13), once the admin order UI exists to actually use it (see Important Decisions #19).
-4. Promotions (CLAUDE.md section 20) — no dependency on anything unbuilt, could be picked up independently of the shipping/marketing work below.
-5. Shipping: `IShippingProvider` + `FakeShippingProvider` abstraction (CLAUDE.md section 15), needed before `Order.ShippingCost` can be anything other than 0, and before Yalidine/ZR Express integration (both still blocked on real API docs/credentials per CLAUDE.md sections 16–17 — do not invent endpoints when picking this up).
-6. Marketing tracking (pixels, UTM capture, attribution) — lowest priority until there's checkout traffic to actually track.
+1. Admin UI in `/admin`: login page (needs `apiClient` to gain token attachment + refresh-on-401), then product/category/inventory management and an order list/detail/status-change screen, now that all the backend endpoints exist. This is now the biggest gap — the customer-facing storefront is real end-to-end, but staff have no UI to manage any of it (only curl/Swagger).
+2. `OrderCallAttempt` + confirmation-center workflow (CLAUDE.md section 13), once the admin order UI exists to actually use it (see Important Decisions #19).
+3. Promotions (CLAUDE.md section 20) — no dependency on anything unbuilt, could be picked up independently of the shipping/marketing work below.
+4. Shipping: `IShippingProvider` + `FakeShippingProvider` abstraction (CLAUDE.md section 15), needed before `Order.ShippingCost` can be anything other than 0, and before Yalidine/ZR Express integration (both still blocked on real API docs/credentials per CLAUDE.md sections 16–17 — do not invent endpoints when picking this up).
+5. Marketing tracking (pixels, UTM capture, attribution) — lowest priority until there's checkout traffic to actually track.
+6. Smaller, can be done anytime: real product photography/images (`ProductImage`) — every product created so far has none, so the storefront always shows the "Pas d'image" placeholder box; not a bug, just no image upload flow or seeded image URLs yet.
