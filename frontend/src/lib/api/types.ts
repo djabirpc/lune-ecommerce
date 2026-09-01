@@ -157,6 +157,23 @@ export interface OrderStatusHistoryDto {
   createdAtUtc: string;
 }
 
+export type CallAttemptResult = 'NoAnswer' | 'Confirmed' | 'Cancelled' | 'CallbackScheduled';
+
+export interface OrderCallAttemptDto {
+  id: string;
+  attemptNumber: number;
+  result: CallAttemptResult;
+  notes: string | null;
+  calledAtUtc: string;
+  nextCallAtUtc: string | null;
+}
+
+export interface RecordCallAttemptRequest {
+  result: CallAttemptResult;
+  notes: string | null;
+  nextCallAt: string | null;
+}
+
 export interface OrderDetailDto {
   id: string;
   orderNumber: string;
@@ -177,6 +194,7 @@ export interface OrderDetailDto {
   createdAtUtc: string;
   items: OrderItemDto[];
   statusHistory: OrderStatusHistoryDto[];
+  callAttempts: OrderCallAttemptDto[];
 }
 
 export interface OrderSummaryDto {

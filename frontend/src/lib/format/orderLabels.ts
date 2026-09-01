@@ -1,4 +1,4 @@
-import type { DeliveryType, OrderStatus } from '../api/types';
+import type { CallAttemptResult, DeliveryType, OrderStatus } from '../api/types';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PendingConfirmation: 'En attente de confirmation',
@@ -18,4 +18,11 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
   HomeDelivery: 'Livraison à domicile',
   StopDesk: 'Point relais (Stop Desk)',
+};
+
+export const CALL_ATTEMPT_RESULT_LABELS: Record<CallAttemptResult, string> = {
+  NoAnswer: 'Pas de réponse',
+  Confirmed: 'Confirmée',
+  Cancelled: 'Annulée',
+  CallbackScheduled: 'Rappel programmé',
 };

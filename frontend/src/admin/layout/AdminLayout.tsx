@@ -5,6 +5,7 @@ import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 const NAV_LINKS = [
   { to: '/admin/dashboard', label: 'Tableau de bord' },
   { to: '/admin/orders', label: 'Commandes' },
+  { to: '/admin/orders/confirmation', label: 'Confirmation' },
   { to: '/admin/products', label: 'Produits' },
   { to: '/admin/inventory', label: 'Stock' },
   { to: '/admin/promotions', label: 'Promotions' },

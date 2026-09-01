@@ -21,4 +21,5 @@ public record OrderDetailDto(
     decimal Total,
     DateTime CreatedAtUtc,
     IReadOnlyList<OrderItemDto> Items,
-    IReadOnlyList<OrderStatusHistoryDto> StatusHistory);
+    IReadOnlyList<OrderStatusHistoryDto> StatusHistory,
+    IReadOnlyList<OrderCallAttemptDto> CallAttempts);

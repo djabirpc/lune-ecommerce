@@ -11,7 +11,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
-public class OrdersController(IOrderService orderService) : ControllerBase
+public class OrdersController(IOrderService orderService, IOrderCallAttemptService callAttemptService) : ControllerBase
 {
     [HttpPost]
     [AllowAnonymous]
@@ -63,6 +63,19 @@ public class OrdersController(IOrderService orderService) : ControllerBase
         var changedByUserId = userIdClaim is not null ? Guid.Parse(userIdClaim) : (Guid?)null;
 
         var order = await orderService.ChangeStatusAsync(id, request, changedByUserId, cancellationToken);
+        return Ok(order);
+    }
+
+    [HttpPost("{id:guid}/call-attempts")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<OrderDetailDto>> RecordCallAttempt(
+        Guid id,
+        RecordCallAttemptRequest request,
+        CancellationToken cancellationToken)
+    {
+        var agentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var order = await callAttemptService.RecordAsync(id, request, agentUserId, cancellationToken);
         return Ok(order);
     }
 }

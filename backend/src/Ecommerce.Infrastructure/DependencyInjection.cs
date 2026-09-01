@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
 
         return services;
     }

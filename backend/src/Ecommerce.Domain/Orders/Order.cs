@@ -25,4 +25,5 @@ public class Order : Entity
 
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderStatusHistory> StatusHistory { get; set; } = [];
+    public ICollection<OrderCallAttempt> CallAttempts { get; set; } = [];
 }

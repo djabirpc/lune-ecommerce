@@ -120,6 +120,7 @@ public class OrderService(
         var order = await dbContext.Orders.AsNoTracking()
             .Include(o => o.Items)
             .Include(o => o.StatusHistory)
+            .Include(o => o.CallAttempts)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -173,6 +174,7 @@ public class OrderService(
         var order = await dbContext.Orders
             .Include(o => o.Items)
             .Include(o => o.StatusHistory)
+            .Include(o => o.CallAttempts)
             .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -266,6 +268,12 @@ public class OrderService(
             ? order.StatusHistory
                 .OrderBy(h => h.CreatedAtUtc)
                 .Select(h => new OrderStatusHistoryDto(h.Id, h.OldStatus, h.NewStatus, h.Reason, h.CreatedAtUtc))
+                .ToList()
+            : [],
+        includeHistory
+            ? order.CallAttempts
+                .OrderBy(a => a.CalledAtUtc)
+                .Select(a => new OrderCallAttemptDto(a.Id, a.AttemptNumber, a.Result, a.Notes, a.CalledAtUtc, a.NextCallAtUtc))
                 .ToList()
             : []);
 }

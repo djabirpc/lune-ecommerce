@@ -23,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
+    public DbSet<OrderCallAttempt> OrderCallAttempts => Set<OrderCallAttempt>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -161,6 +162,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasOne(h => h.Order)
                 .WithMany(o => o.StatusHistory)
                 .HasForeignKey(h => h.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrderCallAttempt>(entity =>
+        {
+            entity.ToTable("OrderCallAttempts");
+            entity.Property(a => a.Result).HasConversion<string>().HasMaxLength(30);
+            entity.Property(a => a.Notes).HasMaxLength(1000);
+            entity.HasIndex(a => a.OrderId);
+            entity.HasOne(a => a.Order)
+                .WithMany(o => o.CallAttempts)
+                .HasForeignKey(a => a.OrderId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

@@ -6,6 +6,7 @@ import type {
   OrderStatus,
   OrderSummaryDto,
   PagedResult,
+  RecordCallAttemptRequest,
 } from './types';
 
 export const ordersApi = {
@@ -29,4 +30,7 @@ export const ordersApi = {
 
   changeStatus: (id: string, request: ChangeOrderStatusRequest) =>
     apiClient.post<OrderDetailDto>(`/api/orders/${id}/status`, request),
+
+  recordCallAttempt: (id: string, request: RecordCallAttemptRequest) =>
+    apiClient.post<OrderDetailDto>(`/api/orders/${id}/call-attempts`, request),
 };
