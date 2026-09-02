@@ -147,6 +147,27 @@ export function OrderDetailPage() {
           <p className="text-sm">Livraison : {formatPrice(order.shippingCost)}</p>
           <p className="text-sm font-medium">Total : {formatPrice(order.total)}</p>
         </div>
+
+        {order.marketingAttribution && (
+          <div>
+            <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Marketing</h2>
+            {order.marketingAttribution.utmSource && (
+              <p className="text-sm">Source : {order.marketingAttribution.utmSource}</p>
+            )}
+            {order.marketingAttribution.utmCampaign && (
+              <p className="text-sm">Campagne : {order.marketingAttribution.utmCampaign}</p>
+            )}
+            {order.marketingAttribution.utmContent && (
+              <p className="text-sm">Annonce : {order.marketingAttribution.utmContent}</p>
+            )}
+            {order.marketingAttribution.utmMedium && (
+              <p className="text-sm">Support : {order.marketingAttribution.utmMedium}</p>
+            )}
+            {order.marketingAttribution.referrer && (
+              <p className="text-sm text-luna-charcoal/70">Référent : {order.marketingAttribution.referrer}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6">

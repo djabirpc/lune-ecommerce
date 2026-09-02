@@ -71,6 +71,15 @@ public class OrderService(
             DeliveryType = request.DeliveryType,
             Notes = request.Notes,
             ShippingCost = 0m,
+            UtmSource = request.MarketingAttribution?.UtmSource,
+            UtmMedium = request.MarketingAttribution?.UtmMedium,
+            UtmCampaign = request.MarketingAttribution?.UtmCampaign,
+            UtmContent = request.MarketingAttribution?.UtmContent,
+            UtmTerm = request.MarketingAttribution?.UtmTerm,
+            Fbclid = request.MarketingAttribution?.Fbclid,
+            Ttclid = request.MarketingAttribution?.Ttclid,
+            Referrer = request.MarketingAttribution?.Referrer,
+            LandingPage = request.MarketingAttribution?.LandingPage,
         };
 
         foreach (var itemRequest in request.Items)
@@ -410,7 +419,28 @@ public class OrderService(
         order.AppliedPromotions
             .Select(p => new OrderPromotionDto(p.Id, p.PromotionId, p.PromotionName, p.DiscountAmount))
             .ToList(),
-        ToShipmentDto(order.Shipment));
+        ToShipmentDto(order.Shipment),
+        ToMarketingAttributionDto(order));
+
+    private static MarketingAttributionDto? ToMarketingAttributionDto(Order order)
+    {
+        if (order.UtmSource is null && order.UtmMedium is null && order.UtmCampaign is null && order.UtmContent is null
+            && order.UtmTerm is null && order.Fbclid is null && order.Ttclid is null && order.Referrer is null && order.LandingPage is null)
+        {
+            return null;
+        }
+
+        return new MarketingAttributionDto(
+            order.UtmSource,
+            order.UtmMedium,
+            order.UtmCampaign,
+            order.UtmContent,
+            order.UtmTerm,
+            order.Fbclid,
+            order.Ttclid,
+            order.Referrer,
+            order.LandingPage);
+    }
 
     private static ShipmentDto? ToShipmentDto(Shipment? shipment) => shipment is null ? null : new ShipmentDto(
         shipment.Id,

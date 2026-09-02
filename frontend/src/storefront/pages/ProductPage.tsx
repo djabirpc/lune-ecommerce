@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
+import { trackEvent } from '../../lib/marketing/pixels';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
 
 export function ProductPage() {
@@ -36,6 +37,12 @@ export function ProductPage() {
     () => product?.variants.find((v) => v.color === selectedColor && v.size === selectedSize) ?? null,
     [product, selectedColor, selectedSize],
   );
+
+  useEffect(() => {
+    if (product) {
+      trackEvent('VIEW_CONTENT', { content_name: product.name, content_ids: [product.slug], value: product.price, currency: 'DZD' });
+    }
+  }, [product]);
 
   if (isLoading) {
     return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">Chargement...</div>;
@@ -77,6 +84,12 @@ export function ProductPage() {
       },
       quantity,
     );
+    trackEvent('ADD_TO_CART', {
+      content_name: product!.name,
+      content_ids: [selectedVariant.sku],
+      value: selectedVariant.price * quantity,
+      currency: 'DZD',
+    });
     setJustAdded(true);
   }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -9,6 +9,8 @@ import { ApiError } from '../../lib/api/client';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
 import { DELIVERY_TYPE_LABELS } from '../../lib/format/orderLabels';
+import { getStoredAttribution } from '../../lib/marketing/attribution';
+import { trackEvent } from '../../lib/marketing/pixels';
 
 const checkoutSchema = z.object({
   firstName: z.string().min(1, 'Le prénom est requis.').max(100),
@@ -39,6 +41,13 @@ export function CheckoutPage() {
     defaultValues: { deliveryType: 'HomeDelivery' },
   });
 
+  useEffect(() => {
+    if (items.length > 0) {
+      trackEvent('INITIATE_CHECKOUT', { value: subtotal, currency: 'DZD', num_items: items.length });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (items.length === 0) {
     return (
       <div className="px-4 py-24 text-center text-sm text-luna-charcoal/70">
@@ -56,7 +65,9 @@ export function CheckoutPage() {
         notes: values.notes || null,
         items: items.map((item) => ({ productVariantId: item.variantId, quantity: item.quantity })),
         couponCode: couponCode.trim() || null,
+        marketingAttribution: getStoredAttribution(),
       });
+      trackEvent('ORDER_CREATED', { value: order.total, currency: 'DZD', order_id: order.orderNumber });
       clear();
       navigate(`/order-confirmation/${order.orderNumber}`, { state: { order } });
     } catch (error) {

@@ -29,4 +29,7 @@ public static class Roles
 
     /// <summary>Roles allowed to manage promotions, as a comma-separated list for [Authorize(Roles = ...)].</summary>
     public const string PromotionManagers = $"{SuperAdmin},{Admin},{MarketingManager}";
+
+    /// <summary>Roles allowed to view marketing attribution/reporting, as a comma-separated list for [Authorize(Roles = ...)].</summary>
+    public const string MarketingManagers = $"{SuperAdmin},{Admin},{MarketingManager}";
 }

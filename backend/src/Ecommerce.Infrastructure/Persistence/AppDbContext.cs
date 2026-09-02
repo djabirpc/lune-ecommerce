@@ -145,8 +145,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(o => o.ShippingCost).HasPrecision(10, 2);
             entity.Property(o => o.DiscountTotal).HasPrecision(10, 2);
             entity.Property(o => o.Total).HasPrecision(10, 2);
+            entity.Property(o => o.UtmSource).HasMaxLength(200);
+            entity.Property(o => o.UtmMedium).HasMaxLength(200);
+            entity.Property(o => o.UtmCampaign).HasMaxLength(200);
+            entity.Property(o => o.UtmContent).HasMaxLength(200);
+            entity.Property(o => o.UtmTerm).HasMaxLength(200);
+            entity.Property(o => o.Fbclid).HasMaxLength(500);
+            entity.Property(o => o.Ttclid).HasMaxLength(500);
+            entity.Property(o => o.Referrer).HasMaxLength(2000);
+            entity.Property(o => o.LandingPage).HasMaxLength(2000);
             entity.HasIndex(o => o.OrderNumber).IsUnique();
             entity.HasIndex(o => o.Phone);
+            entity.HasIndex(o => o.UtmSource);
         });
 
         builder.Entity<OrderItem>(entity =>

@@ -1,6 +1,9 @@
-import { Link, Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useCart } from '../../lib/cart/CartContext';
+import { captureAttributionOnLoad } from '../../lib/marketing/attribution';
+import { initPixels, trackEvent } from '../../lib/marketing/pixels';
 
 const NAV_LINKS = [
   { to: '/categories', label: 'Catégories' },
@@ -10,6 +13,16 @@ const NAV_LINKS = [
 
 export function StorefrontLayout() {
   const { itemCount } = useCart();
+  const location = useLocation();
+
+  useEffect(() => {
+    captureAttributionOnLoad();
+    initPixels();
+  }, []);
+
+  useEffect(() => {
+    trackEvent('PAGE_VIEW');
+  }, [location.pathname]);
 
   return (
     <div className="flex min-h-screen flex-col bg-white">

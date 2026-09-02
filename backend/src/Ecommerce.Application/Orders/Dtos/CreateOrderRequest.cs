@@ -12,4 +12,5 @@ public record CreateOrderRequest(
     DeliveryType DeliveryType,
     string? Notes,
     IReadOnlyList<OrderItemRequest> Items,
-    string? CouponCode = null);
+    string? CouponCode = null,
+    MarketingAttributionRequest? MarketingAttribution = null);

@@ -1,12 +1,14 @@
 using Ecommerce.Application.Auth;
 using Ecommerce.Application.Catalog;
 using Ecommerce.Application.Inventory;
+using Ecommerce.Application.Marketing;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Promotions;
 using Ecommerce.Application.Shipping;
 using Ecommerce.Infrastructure.Catalog;
 using Ecommerce.Infrastructure.Identity;
 using Ecommerce.Infrastructure.Inventory;
+using Ecommerce.Infrastructure.Marketing;
 using Ecommerce.Infrastructure.Orders;
 using Ecommerce.Infrastructure.Persistence;
 using Ecommerce.Infrastructure.Promotions;
@@ -49,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
         services.AddScoped<IPromotionService, PromotionService>();
+        services.AddScoped<IMarketingService, MarketingService>();
 
         services.Configure<YalidineOptions>(configuration.GetSection(YalidineOptions.SectionName));
         services.Configure<ZRExpressOptions>(configuration.GetSection(ZRExpressOptions.SectionName));

@@ -26,4 +26,5 @@ public record OrderDetailDto(
     IReadOnlyList<OrderStatusHistoryDto> StatusHistory,
     IReadOnlyList<OrderCallAttemptDto> CallAttempts,
     IReadOnlyList<OrderPromotionDto> AppliedPromotions,
-    ShipmentDto? Shipment);
+    ShipmentDto? Shipment,
+    MarketingAttributionDto? MarketingAttribution);

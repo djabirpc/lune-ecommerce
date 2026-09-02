@@ -25,6 +25,19 @@ public class Order : Entity
     public decimal DiscountTotal { get; set; }
     public decimal Total { get; set; }
 
+    // Marketing attribution (CLAUDE.md section 21) — captured client-side at checkout, stored as a
+    // flat snapshot on the order (not a separate table) since it's always 1:1, write-once, and never
+    // queried independently of an order except for aggregate reporting (see UtmSource index).
+    public string? UtmSource { get; set; }
+    public string? UtmMedium { get; set; }
+    public string? UtmCampaign { get; set; }
+    public string? UtmContent { get; set; }
+    public string? UtmTerm { get; set; }
+    public string? Fbclid { get; set; }
+    public string? Ttclid { get; set; }
+    public string? Referrer { get; set; }
+    public string? LandingPage { get; set; }
+
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderStatusHistory> StatusHistory { get; set; } = [];
     public ICollection<OrderCallAttempt> CallAttempts { get; set; } = [];

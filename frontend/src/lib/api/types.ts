@@ -125,6 +125,18 @@ export interface OrderItemRequest {
   quantity: number;
 }
 
+export interface MarketingAttribution {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  fbclid?: string;
+  ttclid?: string;
+  referrer?: string;
+  landingPage?: string;
+}
+
 export interface CreateOrderRequest {
   firstName: string;
   lastName: string;
@@ -136,6 +148,7 @@ export interface CreateOrderRequest {
   notes: string | null;
   items: OrderItemRequest[];
   couponCode?: string | null;
+  marketingAttribution?: MarketingAttribution | null;
 }
 
 export interface OrderItemDto {
@@ -251,6 +264,25 @@ export interface OrderDetailDto {
   callAttempts: OrderCallAttemptDto[];
   appliedPromotions: OrderPromotionDto[];
   shipment: ShipmentDto | null;
+  marketingAttribution: MarketingAttributionDto | null;
+}
+
+export interface MarketingAttributionDto {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  fbclid: string | null;
+  ttclid: string | null;
+  referrer: string | null;
+  landingPage: string | null;
+}
+
+export interface MarketingSourceSummaryDto {
+  source: string;
+  orderCount: number;
+  totalRevenue: number;
 }
 
 export interface OrderSummaryDto {
