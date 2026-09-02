@@ -2,6 +2,8 @@ using System.Security.Claims;
 using Ecommerce.Application.Common;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Orders.Dtos;
+using Ecommerce.Application.Shipping;
+using Ecommerce.Application.Shipping.Dtos;
 using Ecommerce.Domain.Identity;
 using Ecommerce.Domain.Orders;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +13,10 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
-public class OrdersController(IOrderService orderService, IOrderCallAttemptService callAttemptService) : ControllerBase
+public class OrdersController(
+    IOrderService orderService,
+    IOrderCallAttemptService callAttemptService,
+    IShippingService shippingService) : ControllerBase
 {
     [HttpPost]
     [AllowAnonymous]
@@ -77,5 +82,16 @@ public class OrdersController(IOrderService orderService, IOrderCallAttemptServi
 
         var order = await callAttemptService.RecordAsync(id, request, agentUserId, cancellationToken);
         return Ok(order);
+    }
+
+    [HttpPost("{id:guid}/shipment")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<ShipmentDto>> CreateShipment(
+        Guid id,
+        CreateShipmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var shipment = await shippingService.CreateShipmentAsync(id, request, cancellationToken);
+        return Ok(shipment);
     }
 }

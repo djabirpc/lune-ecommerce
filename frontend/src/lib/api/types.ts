@@ -182,6 +182,51 @@ export interface OrderPromotionDto {
   discountAmount: number;
 }
 
+export type ShippingCarrier = 'Fake' | 'Yalidine' | 'ZRExpress';
+
+export type NormalizedShippingStatus =
+  | 'Created'
+  | 'PickedUp'
+  | 'InTransit'
+  | 'AtDestination'
+  | 'OutForDelivery'
+  | 'Delivered'
+  | 'Failed'
+  | 'Refused'
+  | 'Returned'
+  | 'Cancelled'
+  | 'Unknown';
+
+export interface ShipmentTrackingEventDto {
+  id: string;
+  providerStatus: string;
+  normalizedStatus: NormalizedShippingStatus;
+  description: string | null;
+  occurredAtUtc: string;
+}
+
+export interface ShipmentDto {
+  id: string;
+  orderId: string;
+  carrier: ShippingCarrier;
+  providerShipmentId: string;
+  trackingNumber: string | null;
+  providerStatus: string;
+  normalizedStatus: NormalizedShippingStatus;
+  createdAtUtc: string;
+  trackingEvents: ShipmentTrackingEventDto[];
+}
+
+export interface CreateShipmentRequest {
+  carrier: ShippingCarrier;
+}
+
+export interface ShippingCarrierAvailabilityDto {
+  carrier: ShippingCarrier;
+  isConfigured: boolean;
+  unavailableReason: string | null;
+}
+
 export interface OrderDetailDto {
   id: string;
   orderNumber: string;
@@ -205,6 +250,7 @@ export interface OrderDetailDto {
   statusHistory: OrderStatusHistoryDto[];
   callAttempts: OrderCallAttemptDto[];
   appliedPromotions: OrderPromotionDto[];
+  shipment: ShipmentDto | null;
 }
 
 export interface OrderSummaryDto {

@@ -4,9 +4,11 @@ using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Orders.Dtos;
+using Ecommerce.Application.Shipping.Dtos;
 using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Orders;
 using Ecommerce.Domain.Promotions;
+using Ecommerce.Domain.Shipping;
 using Ecommerce.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -121,6 +123,7 @@ public class OrderService(
         var order = await dbContext.Orders.AsNoTracking()
             .Include(o => o.Items)
             .Include(o => o.AppliedPromotions)
+            .Include(o => o.Shipment).ThenInclude(s => s!.TrackingEvents)
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, cancellationToken);
 
         return order is null || order.Phone != phone
@@ -135,6 +138,7 @@ public class OrderService(
             .Include(o => o.StatusHistory)
             .Include(o => o.CallAttempts)
             .Include(o => o.AppliedPromotions)
+            .Include(o => o.Shipment).ThenInclude(s => s!.TrackingEvents)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -190,6 +194,7 @@ public class OrderService(
             .Include(o => o.StatusHistory)
             .Include(o => o.CallAttempts)
             .Include(o => o.AppliedPromotions)
+            .Include(o => o.Shipment).ThenInclude(s => s!.TrackingEvents)
             .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
@@ -404,5 +409,20 @@ public class OrderService(
             : [],
         order.AppliedPromotions
             .Select(p => new OrderPromotionDto(p.Id, p.PromotionId, p.PromotionName, p.DiscountAmount))
+            .ToList(),
+        ToShipmentDto(order.Shipment));
+
+    private static ShipmentDto? ToShipmentDto(Shipment? shipment) => shipment is null ? null : new ShipmentDto(
+        shipment.Id,
+        shipment.OrderId,
+        shipment.Carrier,
+        shipment.ProviderShipmentId,
+        shipment.TrackingNumber,
+        shipment.ProviderStatus,
+        shipment.NormalizedStatus,
+        shipment.CreatedAtUtc,
+        shipment.TrackingEvents
+            .OrderBy(e => e.OccurredAtUtc)
+            .Select(e => new ShipmentTrackingEventDto(e.Id, e.ProviderStatus, e.NormalizedStatus, e.Description, e.OccurredAtUtc))
             .ToList());
 }

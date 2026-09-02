@@ -38,6 +38,7 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
                 ["InitialAdmin:Password"] = AdminPassword,
                 ["InitialAdmin:FirstName"] = "Test",
                 ["InitialAdmin:LastName"] = "Admin",
+                ["ShippingSync:Enabled"] = "false",
             });
         });
     }

@@ -47,7 +47,7 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
-async function request<T>(path: string, init?: RequestInit, allowRetry = true): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, allowRetry = true, asText = false): Promise<T> {
   const auth = loadAuth();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -62,7 +62,7 @@ async function request<T>(path: string, init?: RequestInit, allowRetry = true): 
   if (response.status === 401 && allowRetry && auth) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      return request<T>(path, init, false);
+      return request<T>(path, init, false, asText);
     }
   }
 
@@ -79,11 +79,12 @@ async function request<T>(path: string, init?: RequestInit, allowRetry = true): 
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  return (asText ? response.text() : response.json()) as Promise<T>;
 }
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
+  getText: (path: string) => request<string>(path, { method: 'GET' }, true, true),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) =>

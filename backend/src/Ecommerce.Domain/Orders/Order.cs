@@ -1,4 +1,5 @@
 using Ecommerce.Domain.Common;
+using Ecommerce.Domain.Shipping;
 
 namespace Ecommerce.Domain.Orders;
 
@@ -28,4 +29,5 @@ public class Order : Entity
     public ICollection<OrderStatusHistory> StatusHistory { get; set; } = [];
     public ICollection<OrderCallAttempt> CallAttempts { get; set; } = [];
     public ICollection<OrderPromotion> AppliedPromotions { get; set; } = [];
+    public Shipment? Shipment { get; set; }
 }

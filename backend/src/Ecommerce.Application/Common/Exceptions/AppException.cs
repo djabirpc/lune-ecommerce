@@ -23,3 +23,6 @@ public class NotFoundAppException(string message)
 
 public class ConflictAppException(string message)
     : AppException("CONFLICT", message, 409);
+
+public class NotConfiguredAppException(string message)
+    : AppException("NOT_CONFIGURED", message, 501);

@@ -3,12 +3,14 @@ using Ecommerce.Application.Catalog;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Promotions;
+using Ecommerce.Application.Shipping;
 using Ecommerce.Infrastructure.Catalog;
 using Ecommerce.Infrastructure.Identity;
 using Ecommerce.Infrastructure.Inventory;
 using Ecommerce.Infrastructure.Orders;
 using Ecommerce.Infrastructure.Persistence;
 using Ecommerce.Infrastructure.Promotions;
+using Ecommerce.Infrastructure.Shipping;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -47,6 +49,16 @@ public static class DependencyInjection
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
         services.AddScoped<IPromotionService, PromotionService>();
+
+        services.Configure<YalidineOptions>(configuration.GetSection(YalidineOptions.SectionName));
+        services.Configure<ZRExpressOptions>(configuration.GetSection(ZRExpressOptions.SectionName));
+        services.Configure<ShippingSyncOptions>(configuration.GetSection(ShippingSyncOptions.SectionName));
+
+        services.AddSingleton<IShippingProvider, FakeShippingProvider>();
+        services.AddScoped<IShippingProvider, YalidineShippingProvider>();
+        services.AddScoped<IShippingProvider, ZRExpressShippingProvider>();
+        services.AddScoped<IShippingService, ShippingService>();
+        services.AddHostedService<ShippingSyncBackgroundService>();
 
         return services;
     }

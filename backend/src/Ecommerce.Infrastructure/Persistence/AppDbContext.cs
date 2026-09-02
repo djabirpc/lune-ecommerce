@@ -2,6 +2,7 @@ using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Inventory;
 using Ecommerce.Domain.Orders;
 using Ecommerce.Domain.Promotions;
+using Ecommerce.Domain.Shipping;
 using Ecommerce.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -30,6 +31,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Promotion> Promotions => Set<Promotion>();
     public DbSet<PromotionProduct> PromotionProducts => Set<PromotionProduct>();
     public DbSet<PromotionCategory> PromotionCategories => Set<PromotionCategory>();
+
+    public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -234,6 +238,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasOne<Category>()
                 .WithMany()
                 .HasForeignKey(pc => pc.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Shipment>(entity =>
+        {
+            entity.ToTable("Shipments");
+            entity.Property(s => s.Carrier).HasConversion<string>().HasMaxLength(20);
+            entity.Property(s => s.ProviderShipmentId).IsRequired().HasMaxLength(100);
+            entity.Property(s => s.TrackingNumber).HasMaxLength(100);
+            entity.Property(s => s.ProviderStatus).IsRequired().HasMaxLength(50);
+            entity.Property(s => s.NormalizedStatus).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(s => s.OrderId).IsUnique();
+            entity.HasOne(s => s.Order)
+                .WithOne(o => o.Shipment)
+                .HasForeignKey<Shipment>(s => s.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ShipmentTrackingEvent>(entity =>
+        {
+            entity.ToTable("ShipmentTrackingEvents");
+            entity.Property(e => e.ProviderStatus).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.NormalizedStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.HasIndex(e => e.ShipmentId);
+            entity.HasOne(e => e.Shipment)
+                .WithMany(s => s.TrackingEvents)
+                .HasForeignKey(e => e.ShipmentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

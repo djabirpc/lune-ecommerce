@@ -1,3 +1,4 @@
+using Ecommerce.Application.Shipping.Dtos;
 using Ecommerce.Domain.Orders;
 
 namespace Ecommerce.Application.Orders.Dtos;
@@ -24,4 +25,5 @@ public record OrderDetailDto(
     IReadOnlyList<OrderItemDto> Items,
     IReadOnlyList<OrderStatusHistoryDto> StatusHistory,
     IReadOnlyList<OrderCallAttemptDto> CallAttempts,
-    IReadOnlyList<OrderPromotionDto> AppliedPromotions);
+    IReadOnlyList<OrderPromotionDto> AppliedPromotions,
+    ShipmentDto? Shipment);

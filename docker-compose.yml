@@ -36,6 +36,13 @@ services:
       InitialAdmin__Password: ${INITIAL_ADMIN_PASSWORD:-}
       InitialAdmin__FirstName: ${INITIAL_ADMIN_FIRST_NAME:-}
       InitialAdmin__LastName: ${INITIAL_ADMIN_LAST_NAME:-}
+      Yalidine__BaseUrl: ${YALIDINE_BASE_URL:-}
+      Yalidine__ApiId: ${YALIDINE_API_ID:-}
+      Yalidine__ApiToken: ${YALIDINE_API_TOKEN:-}
+      ZRExpress__BaseUrl: ${ZR_EXPRESS_BASE_URL:-}
+      ZRExpress__ApiKey: ${ZR_EXPRESS_API_KEY:-}
+      ShippingSync__Enabled: ${SHIPPING_SYNC_ENABLED:-true}
+      ShippingSync__IntervalSeconds: ${SHIPPING_SYNC_INTERVAL_SECONDS:-300}
     ports:
       - "${BACKEND_PORT:-5000}:8080"
     healthcheck:
