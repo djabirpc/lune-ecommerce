@@ -251,4 +251,76 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         Assert.Single(order.AppliedPromotions);
         Assert.Equal("Haute priorité", order.AppliedPromotions[0].PromotionName);
     }
+
+    private async Task<PromotionDetailDto> CreateBuyXGetYPromotionAsync(HttpClient adminClient, Guid productId, int buyQuantity, int getQuantity) =>
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Achetez X Obtenez Y",
+            null,
+            PromotionType.BuyXGetY,
+            null,
+            null,
+            buyQuantity,
+            getQuantity,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [productId],
+            []));
+
+    [Fact]
+    public async Task BuyXGetY_CompleteBundle_MakesGetQuantityUnitsFree()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBuyXGetYPromotionAsync(adminClient, productId, buyQuantity: 2, getQuantity: 1);
+
+        // Buy 2 Get 1: quantity 3 = one complete bundle = 1 free unit.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 3), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(3000m, order!.Subtotal);
+        Assert.Equal(1000m, order.DiscountTotal);
+        Assert.Equal(2000m, order.Total);
+        Assert.Single(order.AppliedPromotions);
+    }
+
+    [Fact]
+    public async Task BuyXGetY_MultipleCompleteBundles_MultipliesDiscount()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(20, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBuyXGetYPromotionAsync(adminClient, productId, buyQuantity: 2, getQuantity: 1);
+
+        // Quantity 6 = two complete bundles of 3 = 2 free units.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 6), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(6000m, order!.Subtotal);
+        Assert.Equal(2000m, order.DiscountTotal);
+        Assert.Equal(4000m, order.Total);
+    }
+
+    [Fact]
+    public async Task BuyXGetY_IncompleteBundle_NoDiscount()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBuyXGetYPromotionAsync(adminClient, productId, buyQuantity: 2, getQuantity: 1);
+
+        // Quantity 2 doesn't reach the 3-unit bundle size — no free unit.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, order!.DiscountTotal);
+        Assert.Equal(2000m, order.Total);
+        Assert.Empty(order.AppliedPromotions);
+    }
 }

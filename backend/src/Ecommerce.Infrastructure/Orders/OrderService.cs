@@ -299,7 +299,7 @@ public class OrderService(
         {
             var variant = variantsById[item.ProductVariantId];
             var applicable = candidates
-                .Where(p => p.Type is not (PromotionType.FreeShipping or PromotionType.BuyXGetY))
+                .Where(p => p.Type != PromotionType.FreeShipping)
                 .Where(p => IsScopedTo(p, variant.ProductId, variant.Product.CategoryId))
                 .OrderByDescending(p => p.Priority)
                 .FirstOrDefault();
@@ -309,7 +309,7 @@ public class OrderService(
                 continue;
             }
 
-            var discount = ComputeDiscount(applicable, item.LineTotal);
+            var discount = ComputeItemDiscount(applicable, item);
             if (discount <= 0)
             {
                 continue;
@@ -376,6 +376,37 @@ public class OrderService(
             : promotion.FixedAmountValue.HasValue
                 ? Math.Min(promotion.FixedAmountValue.Value, baseAmount)
                 : 0m;
+
+    /// <summary>
+    /// BuyXGetY has its own discount shape (quantity bundles, not a percentage/fixed amount of the
+    /// line), so it's dispatched separately rather than folded into ComputeDiscount.
+    /// </summary>
+    private static decimal ComputeItemDiscount(Promotion promotion, OrderItem item) =>
+        promotion.Type == PromotionType.BuyXGetY
+            ? ComputeBuyXGetYDiscount(promotion, item)
+            : ComputeDiscount(promotion, item.LineTotal);
+
+    /// <summary>
+    /// "Buy X, Get Y" — every complete bundle of (BuyQuantity + GetQuantity) matching units in this
+    /// line makes GetQuantity of them free. Evaluated per line item only (CLAUDE.md doesn't specify
+    /// cross-line bundling, and the existing per-line promotion model doesn't support combining
+    /// partial quantities across different variants) — e.g. "Buy 2 Get 1" needs 3+ units of the SAME
+    /// variant in one line to trigger; buying 1 of variant A and 2 of variant B does not combine.
+    /// A partial/incomplete bundle (e.g. 2 units on a "Buy 2 Get 1" promo) earns no discount.
+    /// </summary>
+    private static decimal ComputeBuyXGetYDiscount(Promotion promotion, OrderItem item)
+    {
+        if (promotion.BuyQuantity is not > 0 || promotion.GetQuantity is not > 0)
+        {
+            return 0m;
+        }
+
+        var bundleSize = promotion.BuyQuantity.Value + promotion.GetQuantity.Value;
+        var completeBundles = item.Quantity / bundleSize;
+        var freeUnits = completeBundles * promotion.GetQuantity.Value;
+
+        return freeUnits * item.UnitPrice;
+    }
 
     private static void Accumulate(Dictionary<Guid, (string Name, decimal Amount)> totals, Guid id, string name, decimal amount)
     {
