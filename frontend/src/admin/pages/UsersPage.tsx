@@ -24,6 +24,76 @@ function toFormState(u: UserDto): FormState {
   return { email: u.email, password: '', firstName: u.firstName, lastName: u.lastName, isActive: u.isActive, roles: u.roles };
 }
 
+function ResetPasswordAction({ userId }: { userId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const resetPassword = useMutation({
+    mutationFn: () => usersApi.resetPassword(userId, { newPassword: password }),
+    onSuccess: () => {
+      setError(null);
+      setSuccess(true);
+      setPassword('');
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
+  });
+
+  function close() {
+    setIsOpen(false);
+    setPassword('');
+    setError(null);
+    setSuccess(false);
+  }
+
+  if (!isOpen) {
+    return (
+      <button type="button" onClick={() => setIsOpen(true)} className="underline">
+        Réinitialiser le mot de passe
+      </button>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="flex items-center gap-1 text-xs">
+        <span className="text-green-700">Mot de passe réinitialisé.</span>
+        <button type="button" onClick={close} className="underline">
+          Fermer
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-1">
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Nouveau mot de passe"
+          minLength={8}
+          className="w-36 rounded border border-black/20 px-1.5 py-0.5 text-xs"
+        />
+        <button
+          type="button"
+          disabled={resetPassword.isPending || password.length < 8}
+          onClick={() => resetPassword.mutate()}
+          className="rounded border border-black/20 px-2 py-0.5 text-xs disabled:opacity-40"
+        >
+          Confirmer
+        </button>
+        <button type="button" onClick={close} className="text-xs underline">
+          Annuler
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 export function UsersPage() {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAdminAuth();
@@ -206,18 +276,21 @@ export function UsersPage() {
                   <p className="text-xs text-luna-charcoal/60">{u.email}</p>
                   <p className="text-xs text-luna-charcoal/60">{u.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ')}</p>
                 </div>
-                <div className="flex shrink-0 gap-2 text-xs">
-                  <button type="button" onClick={() => startEdit(u)} className="underline">
-                    Modifier
-                  </button>
-                  <button
-                    type="button"
-                    disabled={u.id === currentUser?.id}
-                    onClick={() => toggleActive.mutate(u)}
-                    className="underline disabled:opacity-40"
-                  >
-                    {u.isActive ? 'Désactiver' : 'Activer'}
-                  </button>
+                <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => startEdit(u)} className="underline">
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      disabled={u.id === currentUser?.id}
+                      onClick={() => toggleActive.mutate(u)}
+                      className="underline disabled:opacity-40"
+                    >
+                      {u.isActive ? 'Désactiver' : 'Activer'}
+                    </button>
+                  </div>
+                  <ResetPasswordAction userId={u.id} />
                 </div>
               </div>
             ))}

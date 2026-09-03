@@ -11,4 +11,7 @@ public interface IUserService
 
     /// <summary>currentUserId is used to reject an admin deactivating their own account.</summary>
     Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request, Guid currentUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets a new password for the account and revokes all of its active refresh tokens, forcing re-login everywhere.</summary>
+    Task ResetPasswordAsync(Guid id, ResetPasswordRequest request, CancellationToken cancellationToken = default);
 }

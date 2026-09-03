@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { CreateUserRequest, PagedResult, UpdateUserRequest, UserDto } from './types';
+import type { CreateUserRequest, PagedResult, ResetPasswordRequest, UpdateUserRequest, UserDto } from './types';
 
 export const usersApi = {
   getPaged: (params: { page?: number; pageSize?: number } = {}) => {
@@ -13,4 +13,7 @@ export const usersApi = {
   create: (request: CreateUserRequest) => apiClient.post<UserDto>('/api/users', request),
 
   update: (id: string, request: UpdateUserRequest) => apiClient.put<UserDto>(`/api/users/${id}`, request),
+
+  resetPassword: (id: string, request: ResetPasswordRequest) =>
+    apiClient.post<void>(`/api/users/${id}/reset-password`, request),
 };

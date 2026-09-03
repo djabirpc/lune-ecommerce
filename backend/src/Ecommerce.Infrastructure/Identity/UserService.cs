@@ -2,6 +2,7 @@ using Ecommerce.Application.Common;
 using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Users;
 using Ecommerce.Application.Users.Dtos;
+using Ecommerce.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -10,8 +11,10 @@ namespace Ecommerce.Infrastructure.Identity;
 
 public class UserService(
     UserManager<ApplicationUser> userManager,
+    AppDbContext dbContext,
     IValidator<CreateUserRequest> createValidator,
-    IValidator<UpdateUserRequest> updateValidator) : IUserService
+    IValidator<UpdateUserRequest> updateValidator,
+    IValidator<ResetPasswordRequest> resetPasswordValidator) : IUserService
 {
     public async Task<PagedResult<UserDto>> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
@@ -101,6 +104,30 @@ public class UserService(
         }
 
         return await ToDtoAsync(user);
+    }
+
+    public async Task ResetPasswordAsync(Guid id, ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        await resetPasswordValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var user = await userManager.FindByIdAsync(id.ToString())
+            ?? throw new NotFoundAppException("Utilisateur introuvable.");
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var resetResult = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        if (!resetResult.Succeeded)
+        {
+            throw new ValidationAppException(string.Join(" ", resetResult.Errors.Select(e => e.Description)));
+        }
+
+        var activeTokens = await dbContext.RefreshTokens
+            .Where(rt => rt.UserId == id && rt.RevokedAtUtc == null)
+            .ToListAsync(cancellationToken);
+        foreach (var refreshToken in activeTokens)
+        {
+            refreshToken.RevokedAtUtc = DateTime.UtcNow;
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<UserDto> ToDtoAsync(ApplicationUser user)

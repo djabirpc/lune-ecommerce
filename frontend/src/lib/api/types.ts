@@ -23,6 +23,10 @@ export interface UpdateUserRequest {
   roles: string[];
 }
 
+export interface ResetPasswordRequest {
+  newPassword: string;
+}
+
 export interface CategoryDto {
   id: string;
   name: string;

@@ -131,4 +131,73 @@ public class UsersTests(AuthWebApplicationFactory factory) : IClassFixture<AuthW
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task ResetPassword_AllowsLoginWithNewPassword_AndRejectsOldPassword()
+    {
+        var (client, _) = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        var email = $"reset-{unique}@luna.test";
+
+        var createResponse = await client.PostAsJsonAsync("/api/users", new CreateUserRequest(
+            email, "Old-Password-123!", "A", "B", ["VIEWER"]));
+        var created = await createResponse.Content.ReadFromJsonAsync<UserDto>();
+
+        var resetResponse = await client.PostAsJsonAsync($"/api/users/{created!.Id}/reset-password", new ResetPasswordRequest("New-Password-456!"));
+        Assert.Equal(HttpStatusCode.NoContent, resetResponse.StatusCode);
+
+        var guestClient = factory.CreateClient();
+        var oldPasswordLogin = await guestClient.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Old-Password-123!"));
+        Assert.Equal(HttpStatusCode.Unauthorized, oldPasswordLogin.StatusCode);
+
+        var newPasswordLogin = await guestClient.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "New-Password-456!"));
+        newPasswordLogin.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task ResetPassword_RevokesExistingRefreshTokens()
+    {
+        var (adminClient, _) = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        var email = $"revoke-{unique}@luna.test";
+
+        var createResponse = await adminClient.PostAsJsonAsync("/api/users", new CreateUserRequest(
+            email, "Old-Password-123!", "A", "B", ["VIEWER"]));
+        var created = await createResponse.Content.ReadFromJsonAsync<UserDto>();
+
+        var staffClient = factory.CreateClient();
+        var staffLogin = await staffClient.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Old-Password-123!"));
+        var staffTokens = await staffLogin.Content.ReadFromJsonAsync<AuthResponse>();
+
+        await adminClient.PostAsJsonAsync($"/api/users/{created!.Id}/reset-password", new ResetPasswordRequest("New-Password-456!"));
+
+        var refreshAttempt = await staffClient.PostAsJsonAsync("/api/auth/refresh", new RefreshTokenRequest(staffTokens!.RefreshToken));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, refreshAttempt.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPassword_TooShort_ReturnsBadRequest()
+    {
+        var (client, _) = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var createResponse = await client.PostAsJsonAsync("/api/users", new CreateUserRequest(
+            $"short-{unique}@luna.test", "Old-Password-123!", "A", "B", ["VIEWER"]));
+        var created = await createResponse.Content.ReadFromJsonAsync<UserDto>();
+
+        var response = await client.PostAsJsonAsync($"/api/users/{created!.Id}/reset-password", new ResetPasswordRequest("short"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithoutAuth_ReturnsUnauthorized()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync($"/api/users/{Guid.NewGuid()}/reset-password", new ResetPasswordRequest("New-Password-456!"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }
