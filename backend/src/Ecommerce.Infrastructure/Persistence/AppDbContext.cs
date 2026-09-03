@@ -34,6 +34,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
+    public DbSet<ShippingRate> ShippingRates => Set<ShippingRate>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -278,5 +279,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasForeignKey(e => e.ShipmentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        builder.Entity<ShippingRate>(entity =>
+        {
+            entity.ToTable("ShippingRates");
+            entity.Property(r => r.Wilaya).IsRequired().HasMaxLength(100);
+            entity.Property(r => r.HomeDeliveryPrice).HasPrecision(10, 2);
+            entity.Property(r => r.StopDeskPrice).HasPrecision(10, 2);
+            entity.HasIndex(r => r.Wilaya).IsUnique();
+
+            // Seeded with a uniform placeholder rate for every official wilaya (CLAUDE.md section 42:
+            // never invent real carrier pricing) — the admin is expected to adjust these to the
+            // business's actual delivery costs per wilaya via the shipping-rates admin UI.
+            entity.HasData(AlgerianWilayas.All.Select(wilaya => new ShippingRate
+            {
+                Id = SeedGuid(wilaya),
+                Wilaya = wilaya,
+                HomeDeliveryPrice = 600m,
+                StopDeskPrice = 400m,
+                IsActive = true,
+                CreatedAtUtc = SeedTimestamp,
+            }));
+        });
+    }
+
+    private static readonly DateTime SeedTimestamp = new(2026, 9, 3, 0, 0, 0, DateTimeKind.Utc);
+
+    private static Guid SeedGuid(string input)
+    {
+        var hash = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes($"ShippingRate:{input}"));
+        return new Guid(hash);
     }
 }

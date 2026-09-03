@@ -1,5 +1,13 @@
 import { apiClient } from './client';
-import type { CreateShipmentRequest, ShipmentDto, ShippingCarrierAvailabilityDto } from './types';
+import type {
+  CreateShipmentRequest,
+  DeliveryType,
+  ShipmentDto,
+  ShippingCarrierAvailabilityDto,
+  ShippingQuoteDto,
+  ShippingRateDto,
+  UpdateShippingRateRequest,
+} from './types';
 
 export const shippingApi = {
   createShipment: (orderId: string, request: CreateShipmentRequest) =>
@@ -10,4 +18,16 @@ export const shippingApi = {
   getLabel: (shipmentId: string) => apiClient.getText(`/api/shipments/${shipmentId}/label`),
 
   getCarriers: () => apiClient.get<ShippingCarrierAvailabilityDto[]>('/api/shipping/carriers'),
+};
+
+export const shippingRatesApi = {
+  getAll: () => apiClient.get<ShippingRateDto[]>('/api/shipping-rates'),
+
+  update: (wilaya: string, request: UpdateShippingRateRequest) =>
+    apiClient.put<ShippingRateDto>(`/api/shipping-rates/${encodeURIComponent(wilaya)}`, request),
+
+  getQuote: (wilaya: string, deliveryType: DeliveryType) =>
+    apiClient.get<ShippingQuoteDto>(
+      `/api/shipping-rates/quote?wilaya=${encodeURIComponent(wilaya)}&deliveryType=${deliveryType}`,
+    ),
 };

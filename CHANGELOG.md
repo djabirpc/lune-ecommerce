@@ -1,5 +1,30 @@
 # Changelog
 
+## [2026-09-03]
+
+### Added
+- **Shipping-rate calculation** (CLAUDE.md section 15, closing the gap left in Important Decision #46): new `ShippingRate` domain entity (`Ecommerce.Domain.Shipping`) — `Wilaya` (unique index), `HomeDeliveryPrice`/`StopDeskPrice` (numeric(10,2)), `IsActive`. New `Ecommerce.Domain.Shipping.AlgerianWilayas.All` — the canonical, hardcoded list of the 58 official Algerian wilayas, used both to seed `ShippingRate` (via `HasData`, deterministic MD5-derived GUIDs) and mirrored by a new frontend constant.
+- `IShippingRateService`/`ShippingRateService` (`Ecommerce.Application.Shipping`/`Ecommerce.Infrastructure.Shipping`) — deliberately separate from `IShippingProvider` (that's carrier API access; this is the merchant's own pricing). `GetAllAsync`, `UpdateAsync(wilaya, request)`, and `GetPriceAsync(wilaya, deliveryType)` — the last throws `ValidationAppException` (`400`) for an unknown or deactivated wilaya rather than silently defaulting to `0`.
+- `ShippingRatesController`: admin `GET`/`PUT /api/shipping-rates/{wilaya}` (`OrderManagers` role) and a public `GET /api/shipping-rates/quote?wilaya=&deliveryType=` for storefront checkout price previews (the backend still recalculates authoritatively at order creation, CLAUDE.md section 41).
+- `OrderService.CreateAsync` now resolves the real shipping rate via `IShippingRateService.GetPriceAsync` **before** `CalculatePromotionsAsync`, replacing the hardcoded `ShippingCost = 0m`. This is also what finally makes `FreeShipping` promotions have a real, visible effect at checkout.
+- Migration `AddShippingRates` — creates `ShippingRates` and seeds all 58 wilayas with a uniform placeholder rate (600 DA home delivery / 400 DA stop desk) that the admin is expected to adjust to real business costs.
+- `ShippingRateTests` (9 new tests, Testcontainers): the quote endpoint returns the seeded default and rejects an unknown wilaya with `400`; order creation uses the correct rate for wilaya + delivery type and rejects an unknown wilaya; an admin rate update is reflected in the next order's shipping cost; deactivating a wilaya's rate makes orders for it fail; the admin rates list requires auth and returns all 58 wilayas. `PromotionCheckoutTests` gained `FreeShippingPromotion_ZeroesOutShippingCost` (previously untestable, since shipping cost was always `0`), and all existing `Total` assertions were updated for the now-nonzero default shipping cost.
+- **Frontend**: `ShippingRateDto`/`UpdateShippingRateRequest`/`ShippingQuoteDto` types, `shippingRatesApi` (`getAll`/`update`/`getQuote`), and `ALGERIAN_WILAYAS` (`lib/data/wilayas.ts`, must be kept manually in sync with the backend's `AlgerianWilayas.cs`). `CheckoutPage`'s Wilaya field changed from a free-text `<input>` to a `<select>` of the 58 wilayas (needed for exact rate-key matching, not just UX), with a live shipping-cost quote fetched on every wilaya/delivery-type change, replacing the old "Calculée à la préparation" placeholder. `OrderDetailsCard` (storefront order confirmation) now always shows a Livraison line (previously shown only inside the discount block). `/admin/shipping` gained an editable per-wilaya rates table below the existing carrier-availability list.
+
+### API
+- `GET /api/shipping-rates`, `PUT /api/shipping-rates/{wilaya}`, `GET /api/shipping-rates/quote` added (see Added).
+
+### Database
+- Migration `AddShippingRates`: adds `ShippingRates` (unique index on `Wilaya`), seeded with all 58 official wilayas at a uniform placeholder rate.
+
+### Frontend
+- `CheckoutPage`, `OrderDetailsCard`, and admin `ShippingPage` all updated for real shipping-cost data (see Added).
+
+### Notes
+- Full backend test suite (`dotnet test` from `backend/`) passes: 95/95 tests (49 Application.Tests, 46 Api.Tests), re-verified after the shipping-rate addition.
+- `npm run build` (`tsc -b && vite build`) passes with no type errors.
+- Verified with a real headless-browser session against the live Docker stack: edited a wilaya's rate via the admin `/admin/shipping` rates table → checkout correctly fetched the live updated quote for that wilaya (verified against the actual `GET /api/shipping-rates/quote` network response, not scraped DOM text) → placed a real guest order and confirmed `shippingCost`/`total` matched the new rate exactly → confirmed a direct API call with an unknown wilaya was rejected with `400`. Hit and fixed one real test-script gotcha along the way (not an app bug): the Postgres Docker volume persists between script runs, so a prior run's rate update could already match the next run's target value, leaving the admin "Enregistrer" button correctly disabled (not dirty) and producing a false failure — fixed by resetting the wilaya to a known baseline via a direct API call before each run. Also switched a DOM-text-scraping price assertion to a network-response assertion, since `Intl.NumberFormat('fr-FR')` renders thousands separators with a narrow no-break space (U+202F), not a plain space. Both documented in PROJECT_CONTEXT.md Known Issues.
+
 ## [2026-09-02]
 
 ### Added

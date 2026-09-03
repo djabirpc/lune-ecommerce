@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import { ordersApi } from '../../lib/api/orders';
+import { shippingRatesApi } from '../../lib/api/shipping';
 import { ApiError } from '../../lib/api/client';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
 import { DELIVERY_TYPE_LABELS } from '../../lib/format/orderLabels';
 import { getStoredAttribution } from '../../lib/marketing/attribution';
 import { trackEvent } from '../../lib/marketing/pixels';
+import { ALGERIAN_WILAYAS } from '../../lib/data/wilayas';
 
 const checkoutSchema = z.object({
   firstName: z.string().min(1, 'Le prénom est requis.').max(100),
@@ -35,11 +37,17 @@ export function CheckoutPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: { deliveryType: 'HomeDelivery' },
   });
+
+  const wilaya = useWatch({ control, name: 'wilaya' });
+  const deliveryType = useWatch({ control, name: 'deliveryType' });
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
+  const [shippingError, setShippingError] = useState<string | null>(null);
 
   useEffect(() => {
     if (items.length > 0) {
@@ -47,6 +55,34 @@ export function CheckoutPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!wilaya) {
+      setShippingCost(null);
+      setShippingError(null);
+      return;
+    }
+
+    let cancelled = false;
+    shippingRatesApi
+      .getQuote(wilaya, deliveryType)
+      .then((quote) => {
+        if (!cancelled) {
+          setShippingCost(quote.price);
+          setShippingError(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShippingCost(null);
+          setShippingError("Livraison indisponible pour cette wilaya. Contactez-nous pour vérifier.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wilaya, deliveryType]);
 
   if (items.length === 0) {
     return (
@@ -104,7 +140,16 @@ export function CheckoutPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm font-medium">Wilaya</label>
-            <input {...register('wilaya')} className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
+            <select {...register('wilaya')} defaultValue="" className="w-full rounded border border-black/20 px-3 py-2 text-sm">
+              <option value="" disabled>
+                Sélectionnez une wilaya
+              </option>
+              {ALGERIAN_WILAYAS.map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
+            </select>
             {errors.wilaya && <p className="mt-1 text-xs text-red-600">{errors.wilaya.message}</p>}
           </div>
           <div>
@@ -166,8 +211,20 @@ export function CheckoutPage() {
         </div>
         <div className="mt-1 flex items-center justify-between text-sm text-luna-charcoal/60">
           <span>Livraison</span>
-          <span>Calculée à la préparation</span>
+          {shippingError ? (
+            <span className="text-red-600">{shippingError}</span>
+          ) : shippingCost === null ? (
+            <span>Sélectionnez une wilaya</span>
+          ) : (
+            <span>{formatPrice(shippingCost)}</span>
+          )}
         </div>
+        {shippingCost !== null && (
+          <div className="mt-1 flex items-center justify-between text-sm font-medium">
+            <span>Total estimé</span>
+            <span>{formatPrice(subtotal + shippingCost)}</span>
+          </div>
+        )}
 
         <div className="mt-4">
           <label className="mb-1 block text-sm font-medium">Code promo (facultatif)</label>

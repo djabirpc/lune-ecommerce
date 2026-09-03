@@ -99,7 +99,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
 
         Assert.Equal(2000m, order!.Subtotal);
         Assert.Equal(200m, order.DiscountTotal);
-        Assert.Equal(1800m, order.Total);
+        Assert.Equal(2400m, order.Total); // 2000 - 200 + 600 (Alger home-delivery shipping rate)
         Assert.Single(order.AppliedPromotions);
     }
 
@@ -130,7 +130,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
         Assert.Equal(150m, order!.DiscountTotal);
-        Assert.Equal(850m, order.Total);
+        Assert.Equal(1450m, order.Total); // 1000 - 150 + 600
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
         Assert.Equal(100m, order!.DiscountTotal);
-        Assert.Equal(900m, order.Total);
+        Assert.Equal(1500m, order.Total); // 1000 - 100 + 600
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
         Assert.Equal(0m, order!.DiscountTotal);
-        Assert.Equal(1000m, order.Total);
+        Assert.Equal(1600m, order.Total); // 1000 - 0 + 600
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
 
         Assert.Equal(3000m, order!.Subtotal);
         Assert.Equal(1000m, order.DiscountTotal);
-        Assert.Equal(2000m, order.Total);
+        Assert.Equal(2600m, order.Total); // 3000 - 1000 + 600
         Assert.Single(order.AppliedPromotions);
     }
 
@@ -303,7 +303,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
 
         Assert.Equal(6000m, order!.Subtotal);
         Assert.Equal(2000m, order.DiscountTotal);
-        Assert.Equal(4000m, order.Total);
+        Assert.Equal(4600m, order.Total); // 6000 - 2000 + 600
     }
 
     [Fact]
@@ -320,7 +320,40 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
         Assert.Equal(0m, order!.DiscountTotal);
-        Assert.Equal(2000m, order.Total);
+        Assert.Equal(2600m, order.Total); // 2000 - 0 + 600
         Assert.Empty(order.AppliedPromotions);
+    }
+
+    [Fact]
+    public async Task FreeShippingPromotion_ZeroesOutShippingCost()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Livraison gratuite",
+            null,
+            PromotionType.FreeShipping,
+            null,
+            null,
+            null,
+            null,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [productId],
+            []));
+
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, order!.ShippingCost);
+        Assert.Equal(600m, order.DiscountTotal); // Alger home-delivery rate, discounted away
+        Assert.Equal(400m, order.Total); // 1000 - 600 + 0
+        Assert.Single(order.AppliedPromotions);
+        Assert.Equal("Livraison gratuite", order.AppliedPromotions[0].PromotionName);
     }
 }

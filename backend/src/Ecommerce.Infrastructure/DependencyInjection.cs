@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IShippingProvider, YalidineShippingProvider>();
         services.AddScoped<IShippingProvider, ZRExpressShippingProvider>();
         services.AddScoped<IShippingService, ShippingService>();
+        services.AddScoped<IShippingRateService, ShippingRateService>();
         services.AddHostedService<ShippingSyncBackgroundService>();
 
         return services;

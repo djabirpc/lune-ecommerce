@@ -240,6 +240,25 @@ export interface ShippingCarrierAvailabilityDto {
   unavailableReason: string | null;
 }
 
+export interface ShippingRateDto {
+  wilaya: string;
+  homeDeliveryPrice: number;
+  stopDeskPrice: number;
+  isActive: boolean;
+}
+
+export interface UpdateShippingRateRequest {
+  homeDeliveryPrice: number;
+  stopDeskPrice: number;
+  isActive: boolean;
+}
+
+export interface ShippingQuoteDto {
+  wilaya: string;
+  deliveryType: DeliveryType;
+  price: number;
+}
+
 export interface OrderDetailDto {
   id: string;
   orderNumber: string;

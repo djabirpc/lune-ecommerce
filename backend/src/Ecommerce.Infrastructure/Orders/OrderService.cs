@@ -4,6 +4,7 @@ using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Orders.Dtos;
+using Ecommerce.Application.Shipping;
 using Ecommerce.Application.Shipping.Dtos;
 using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Orders;
@@ -18,6 +19,7 @@ namespace Ecommerce.Infrastructure.Orders;
 public class OrderService(
     AppDbContext dbContext,
     IInventoryService inventoryService,
+    IShippingRateService shippingRateService,
     IValidator<CreateOrderRequest> createValidator,
     IValidator<ChangeOrderStatusRequest> changeStatusValidator) : IOrderService
 {
@@ -40,6 +42,8 @@ public class OrderService(
     public async Task<OrderDetailDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken = default)
     {
         await createValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var baseShippingCost = await shippingRateService.GetPriceAsync(request.Wilaya, request.DeliveryType, cancellationToken);
 
         var variantIds = request.Items.Select(i => i.ProductVariantId).ToList();
         var variants = await dbContext.ProductVariants
@@ -70,7 +74,7 @@ public class OrderService(
             Address = request.Address,
             DeliveryType = request.DeliveryType,
             Notes = request.Notes,
-            ShippingCost = 0m,
+            ShippingCost = baseShippingCost,
             UtmSource = request.MarketingAttribution?.UtmSource,
             UtmMedium = request.MarketingAttribution?.UtmMedium,
             UtmCampaign = request.MarketingAttribution?.UtmCampaign,

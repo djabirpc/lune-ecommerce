@@ -23,12 +23,16 @@ export function OrderDetailsCard({ order }: { order: OrderDetailDto }) {
         ))}
       </div>
 
-      {order.discountTotal > 0 && (
-        <div className="flex flex-col gap-1 text-sm">
-          <div className="flex items-center justify-between text-luna-charcoal/70">
-            <span>Sous-total</span>
-            <span>{formatPrice(order.subtotal)}</span>
-          </div>
+      <div className="flex flex-col gap-1 text-sm">
+        <div className="flex items-center justify-between text-luna-charcoal/70">
+          <span>Sous-total</span>
+          <span>{formatPrice(order.subtotal)}</span>
+        </div>
+        <div className="flex items-center justify-between text-luna-charcoal/70">
+          <span>Livraison</span>
+          <span>{order.shippingCost > 0 ? formatPrice(order.shippingCost) : 'Gratuite'}</span>
+        </div>
+        {order.discountTotal > 0 && (
           <div className="flex items-center justify-between text-green-700">
             <span>
               Réduction
@@ -36,8 +40,8 @@ export function OrderDetailsCard({ order }: { order: OrderDetailDto }) {
             </span>
             <span>−{formatPrice(order.discountTotal)}</span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex items-center justify-between border-t border-black/10 pt-3 text-sm font-medium">
         <span>Total (paiement à la livraison)</span>
