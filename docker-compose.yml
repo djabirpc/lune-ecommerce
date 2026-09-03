@@ -43,8 +43,12 @@ services:
       ZRExpress__ApiKey: ${ZR_EXPRESS_API_KEY:-}
       ShippingSync__Enabled: ${SHIPPING_SYNC_ENABLED:-true}
       ShippingSync__IntervalSeconds: ${SHIPPING_SYNC_INTERVAL_SECONDS:-300}
+      FileStorage__LocalPath: /app/uploads
+      FileStorage__PublicBaseUrl: ${BACKEND_PUBLIC_URL:-http://localhost:5000}
     ports:
       - "${BACKEND_PORT:-5000}:8080"
+    volumes:
+      - uploads_data:/app/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -69,3 +73,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

@@ -1,5 +1,6 @@
 using Ecommerce.Application.Auth;
 using Ecommerce.Application.Catalog;
+using Ecommerce.Application.Common;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Marketing;
 using Ecommerce.Application.Orders;
@@ -13,6 +14,7 @@ using Ecommerce.Infrastructure.Orders;
 using Ecommerce.Infrastructure.Persistence;
 using Ecommerce.Infrastructure.Promotions;
 using Ecommerce.Infrastructure.Shipping;
+using Ecommerce.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -52,6 +54,9 @@ public static class DependencyInjection
         services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
         services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<IMarketingService, MarketingService>();
+
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
         services.Configure<YalidineOptions>(configuration.GetSection(YalidineOptions.SectionName));
         services.Configure<ZRExpressOptions>(configuration.GetSection(ZRExpressOptions.SectionName));

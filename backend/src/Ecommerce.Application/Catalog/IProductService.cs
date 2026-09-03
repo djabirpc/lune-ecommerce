@@ -5,6 +5,17 @@ namespace Ecommerce.Application.Catalog;
 
 public interface IProductService
 {
+    Task<ProductImageDto> AddImageAsync(
+        Guid productId,
+        UploadFileRequest file,
+        string? altText,
+        bool isPrimary,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteImageAsync(Guid productId, Guid imageId, CancellationToken cancellationToken = default);
+
+    Task<ProductImageDto> SetPrimaryImageAsync(Guid productId, Guid imageId, CancellationToken cancellationToken = default);
+
     Task<PagedResult<ProductListItemDto>> GetPagedAsync(
         string? categorySlug,
         int page,

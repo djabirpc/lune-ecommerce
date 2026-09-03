@@ -49,8 +49,10 @@ async function tryRefresh(): Promise<boolean> {
 
 async function request<T>(path: string, init?: RequestInit, allowRetry = true, asText = false): Promise<T> {
   const auth = loadAuth();
+  const isFormData = init?.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    // Omit Content-Type for FormData bodies — the browser must set it itself (with the multipart boundary).
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(init?.headers as Record<string, string> | undefined),
   };
   if (auth) {
@@ -87,6 +89,7 @@ export const apiClient = {
   getText: (path: string) => request<string>(path, { method: 'GET' }, true, true),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  postForm: <T>(path: string, formData: FormData) => request<T>(path, { method: 'POST', body: formData }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),

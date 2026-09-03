@@ -6,6 +6,7 @@ import type {
   CreateProductVariantRequest,
   PagedResult,
   ProductDetailDto,
+  ProductImageDto,
   ProductListItemDto,
   ProductVariantDto,
   UpdateCategoryRequest,
@@ -44,4 +45,18 @@ export const catalogApi = {
 
   addVariant: (productId: string, request: CreateProductVariantRequest) =>
     apiClient.post<ProductVariantDto>(`/api/products/${productId}/variants`, request),
+
+  uploadImage: (productId: string, file: File, options: { altText?: string; isPrimary?: boolean } = {}) => {
+    const formData = new FormData();
+    formData.append('File', file);
+    formData.append('IsPrimary', options.isPrimary ? 'true' : 'false');
+    if (options.altText) formData.append('AltText', options.altText);
+    return apiClient.postForm<ProductImageDto>(`/api/products/${productId}/images`, formData);
+  },
+
+  deleteImage: (productId: string, imageId: string) =>
+    apiClient.delete<void>(`/api/products/${productId}/images/${imageId}`),
+
+  setPrimaryImage: (productId: string, imageId: string) =>
+    apiClient.put<ProductImageDto>(`/api/products/${productId}/images/${imageId}/primary`),
 };

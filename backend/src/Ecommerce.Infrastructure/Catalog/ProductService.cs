@@ -12,10 +12,113 @@ namespace Ecommerce.Infrastructure.Catalog;
 
 public class ProductService(
     AppDbContext dbContext,
+    IFileStorageService fileStorageService,
     IValidator<CreateProductRequest> createValidator,
     IValidator<UpdateProductRequest> updateValidator,
     IValidator<CreateProductVariantRequest> variantValidator) : IProductService
 {
+    private static readonly string[] AllowedImageContentTypes = ["image/jpeg", "image/png", "image/webp"];
+    private const long MaxImageSizeBytes = 5 * 1024 * 1024;
+
+    public async Task<ProductImageDto> AddImageAsync(
+        Guid productId,
+        UploadFileRequest file,
+        string? altText,
+        bool isPrimary,
+        CancellationToken cancellationToken = default)
+    {
+        if (file.LengthBytes <= 0)
+        {
+            throw new ValidationAppException("Aucun fichier n'a été fourni.");
+        }
+
+        if (!AllowedImageContentTypes.Contains(file.ContentType))
+        {
+            throw new ValidationAppException("Format d'image non supporté. Utilisez JPEG, PNG ou WebP.");
+        }
+
+        if (file.LengthBytes > MaxImageSizeBytes)
+        {
+            throw new ValidationAppException("L'image dépasse la taille maximale autorisée (5 Mo).");
+        }
+
+        var product = await dbContext.Products
+            .Include(p => p.Images)
+            .FirstOrDefaultAsync(p => p.Id == productId, cancellationToken)
+            ?? throw new NotFoundAppException("Produit introuvable.");
+
+        var url = await fileStorageService.SaveAsync(file, cancellationToken);
+
+        var makePrimary = isPrimary || product.Images.Count == 0;
+        if (makePrimary)
+        {
+            foreach (var existingImage in product.Images)
+            {
+                existingImage.IsPrimary = false;
+            }
+        }
+
+        var image = new ProductImage
+        {
+            ProductId = productId,
+            Url = url,
+            AltText = altText,
+            DisplayOrder = product.Images.Count == 0 ? 0 : product.Images.Max(i => i.DisplayOrder) + 1,
+            IsPrimary = makePrimary,
+        };
+
+        dbContext.ProductImages.Add(image);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ProductImageDto(image.Id, image.Url, image.AltText, image.DisplayOrder, image.IsPrimary);
+    }
+
+    public async Task DeleteImageAsync(Guid productId, Guid imageId, CancellationToken cancellationToken = default)
+    {
+        var image = await dbContext.ProductImages
+            .FirstOrDefaultAsync(i => i.Id == imageId && i.ProductId == productId, cancellationToken)
+            ?? throw new NotFoundAppException("Image introuvable.");
+
+        var wasPrimary = image.IsPrimary;
+        dbContext.ProductImages.Remove(image);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await fileStorageService.DeleteAsync(image.Url, cancellationToken);
+
+        if (wasPrimary)
+        {
+            var nextImage = await dbContext.ProductImages
+                .Where(i => i.ProductId == productId)
+                .OrderBy(i => i.DisplayOrder)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (nextImage is not null)
+            {
+                nextImage.IsPrimary = true;
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+    }
+
+    public async Task<ProductImageDto> SetPrimaryImageAsync(Guid productId, Guid imageId, CancellationToken cancellationToken = default)
+    {
+        var images = await dbContext.ProductImages
+            .Where(i => i.ProductId == productId)
+            .ToListAsync(cancellationToken);
+
+        var target = images.FirstOrDefault(i => i.Id == imageId)
+            ?? throw new NotFoundAppException("Image introuvable.");
+
+        foreach (var image in images)
+        {
+            image.IsPrimary = image.Id == imageId;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ProductImageDto(target.Id, target.Url, target.AltText, target.DisplayOrder, true);
+    }
+
     public async Task<PagedResult<ProductListItemDto>> GetPagedAsync(
         string? categorySlug,
         int page,

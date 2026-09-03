@@ -6,17 +6,19 @@ import { formatPrice } from '../../lib/format/price';
 import { CategoryQuickManager } from '../components/CategoryQuickManager';
 import { CreateProductForm } from '../components/CreateProductForm';
 import { EditProductForm } from '../components/EditProductForm';
+import { ProductImagesPanel } from '../components/ProductImagesPanel';
 import { ProductVariantsPanel } from '../components/ProductVariantsPanel';
 
 const PAGE_SIZE = 20;
 
-type ExpandedPanel = { slug: string; mode: 'variants' | 'edit' } | null;
+type PanelMode = 'variants' | 'edit' | 'images';
+type ExpandedPanel = { slug: string; mode: PanelMode } | null;
 
 export function ProductsPage() {
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
 
-  function togglePanel(slug: string, mode: 'variants' | 'edit') {
+  function togglePanel(slug: string, mode: PanelMode) {
     setExpanded((current) => (current?.slug === slug && current.mode === mode ? null : { slug, mode }));
   }
 
@@ -81,6 +83,13 @@ export function ProductsPage() {
                             </button>
                             <button
                               type="button"
+                              onClick={() => togglePanel(product.slug, 'images')}
+                              className="text-xs underline"
+                            >
+                              {expanded?.slug === product.slug && expanded.mode === 'images' ? 'Fermer' : 'Images'}
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => togglePanel(product.slug, 'variants')}
                               className="text-xs underline"
                             >
@@ -93,6 +102,13 @@ export function ProductsPage() {
                         <tr>
                           <td colSpan={5} className="p-0">
                             <EditProductForm slug={product.slug} onDone={() => setExpanded(null)} />
+                          </td>
+                        </tr>
+                      )}
+                      {expanded?.slug === product.slug && expanded.mode === 'images' && (
+                        <tr>
+                          <td colSpan={5} className="p-0">
+                            <ProductImagesPanel slug={product.slug} />
                           </td>
                         </tr>
                       )}

@@ -5,9 +5,11 @@ using Ecommerce.Application;
 using Ecommerce.Application.Common;
 using Ecommerce.Infrastructure;
 using Ecommerce.Infrastructure.Persistence;
+using Ecommerce.Infrastructure.Storage;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -123,6 +125,15 @@ if (builder.Configuration.GetValue<bool>("ApplyMigrationsOnStartup"))
 app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
+
+var fileStorageOptions = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value;
+var uploadsPath = fileStorageOptions.ResolveDirectory(app.Environment.ContentRootPath);
+Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads",
+});
 
 app.UseCors("Storefront");
 
