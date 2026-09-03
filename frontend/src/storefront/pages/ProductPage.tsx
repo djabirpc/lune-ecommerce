@@ -23,6 +23,7 @@ export function ProductPage() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   const colors = useMemo(
     () => [...new Set((product?.variants ?? []).filter((v) => v.isActive).map((v) => v.color))],
@@ -44,6 +45,10 @@ export function ProductPage() {
     }
   }, [product]);
 
+  useEffect(() => {
+    setSelectedImageId(null);
+  }, [product?.id]);
+
   if (isLoading) {
     return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">Chargement...</div>;
   }
@@ -53,6 +58,7 @@ export function ProductPage() {
   }
 
   const primaryImage = product.images.find((i) => i.isPrimary) ?? product.images[0];
+  const displayedImage = product.images.find((i) => i.id === selectedImageId) ?? primaryImage;
 
   function handleColorSelect(color: string) {
     setSelectedColor(color);
@@ -95,11 +101,31 @@ export function ProductPage() {
 
   return (
     <div className="grid gap-6 px-4 py-8 sm:grid-cols-2 sm:gap-10 sm:px-8">
-      <div className="aspect-[3/4] overflow-hidden rounded-lg bg-luna-cream">
-        {primaryImage ? (
-          <img src={primaryImage.url} alt={primaryImage.altText ?? product.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
+      <div>
+        <div className="aspect-[3/4] overflow-hidden rounded-lg bg-luna-cream">
+          {displayedImage ? (
+            <img src={displayedImage.url} alt={displayedImage.altText ?? product.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
+          )}
+        </div>
+
+        {product.images.length > 1 && (
+          <div className="mt-3 flex gap-2 overflow-x-auto">
+            {product.images.map((image) => (
+              <button
+                key={image.id}
+                type="button"
+                onClick={() => setSelectedImageId(image.id)}
+                aria-label={image.altText ?? product.name}
+                className={`h-16 w-16 shrink-0 overflow-hidden rounded border-2 ${
+                  displayedImage?.id === image.id ? 'border-luna-black' : 'border-transparent'
+                }`}
+              >
+                <img src={image.url} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
