@@ -15,27 +15,33 @@
 - `FileStorageOptions` (config section `FileStorage`, env vars `FileStorage__LocalPath`/`FileStorage__PublicBaseUrl`, root env var `BACKEND_PUBLIC_URL`) — `docker-compose.yml` gained a persistent `uploads_data` volume mounted at `/app/uploads`.
 - `ProductImageTests` (6 new tests, Testcontainers): first upload auto-primary; second upload with `isPrimary: true` swaps primary; unsupported content-type returns `400`; unauthenticated upload returns `401`; deleting the primary image promotes the next; explicitly setting primary swaps the flag.
 - **Frontend**: new `ProductImagesPanel` component (third per-row panel on `/admin/products`, alongside `Modifier`/`Variantes / Stock`) — thumbnail grid, file-input upload, "Définir principale"/"Supprimer" actions. `apiClient` gained `postForm` (skips the default JSON `Content-Type` header so the browser sets the multipart boundary itself). `catalogApi` gained `uploadImage`/`deleteImage`/`setPrimaryImage`. Storefront `ProductPage`/`ProductCard` needed **zero changes** — they already rendered image data correctly and just had none to render before this.
+- **Staff user management** (CLAUDE.md section 25): new `IUserService`/`UserService` (`Ecommerce.Application.Users`/`Ecommerce.Infrastructure.Identity`), built on the existing `UserManager<ApplicationUser>` — no new persistence, `ApplicationUser` and roles already existed. `GET/POST /api/users`, `PUT /api/users/{id}` (new `Roles.UserManagers` = SUPER_ADMIN/ADMIN). Users can hold multiple roles at once; updates fully replace the role set (validated against `Roles.All`, unknown role names return `400`). An admin cannot deactivate their own account (`409`) — deactivation itself was already enforced at login by the pre-existing `IsActive` check on `ApplicationUser`.
+- **Frontend**: real `/admin/users` (was `PagePlaceholder`) — create/edit dual-purpose form (role checkboxes, password field only on create) plus an accounts list with Modifier/Activer/Désactiver. New `lib/format/roleLabels.ts` (`ROLE_LABELS`/`ALL_ROLES`), also applied to `AdminLayout`'s header, which previously showed raw role codes (`SUPER_ADMIN`) directly in the French UI.
 
 ### API
 - `GET /api/shipping-rates`, `PUT /api/shipping-rates/{wilaya}`, `GET /api/shipping-rates/quote` added (see Added).
 - `ProductDetailDto` gained a `categoryId` field — additive, existing consumers unaffected.
 - `POST /api/products/{id}/images`, `DELETE /api/products/{id}/images/{imageId}`, `PUT /api/products/{id}/images/{imageId}/primary` added (see Added).
+- `GET/POST /api/users`, `PUT /api/users/{id}` added (see Added).
 
 ### Database
 - Migration `AddShippingRates`: adds `ShippingRates` (unique index on `Wilaya`), seeded with all 58 official wilayas at a uniform placeholder rate.
 - No migration for product images — `ProductImage`/`ProductImages` already existed.
+- No migration for user management — `ApplicationUser`/Identity roles already existed.
 
 ### Frontend
 - `CheckoutPage`, `OrderDetailsCard`, and admin `ShippingPage` all updated for real shipping-cost data (see Added).
 - `/admin/products` gained a working "Modifier" edit flow for both products and categories (see Added) — the backend endpoints for this existed since the original catalog work but were never wired up in the UI.
 - `/admin/products` gained a working "Images" upload/manage flow (see Added). Storefront product images now render for real instead of always showing "Pas d'image".
+- `/admin/users` now has real create/edit/deactivate functionality (see Added). `AdminLayout` header now shows French role labels instead of raw role codes.
 
 ### Notes
-- Full backend test suite (`dotnet test` from `backend/`) passes: 105/105 tests (49 Application.Tests, 56 Api.Tests), re-verified after the product photography addition (6 new `ProductImageTests`).
+- Full backend test suite (`dotnet test` from `backend/`) passes: 112/112 tests (49 Application.Tests, 63 Api.Tests), re-verified after the staff user management addition (7 new `UsersTests`).
 - `npm run build` (`tsc -b && vite build`) passes with no type errors.
 - The product/category update UI was verified with a real headless-browser session against the live Docker stack: renamed a category via its chip on `/admin/products` → renamed and repriced a product via its row's "Modifier" panel → confirmed the product rename persisted via a direct API refetch by the new slug. Passed cleanly on the first real run, no test-script gotchas.
 - Verified with a real headless-browser session against the live Docker stack: edited a wilaya's rate via the admin `/admin/shipping` rates table → checkout correctly fetched the live updated quote for that wilaya (verified against the actual `GET /api/shipping-rates/quote` network response, not scraped DOM text) → placed a real guest order and confirmed `shippingCost`/`total` matched the new rate exactly → confirmed a direct API call with an unknown wilaya was rejected with `400`. Hit and fixed one real test-script gotcha along the way (not an app bug): the Postgres Docker volume persists between script runs, so a prior run's rate update could already match the next run's target value, leaving the admin "Enregistrer" button correctly disabled (not dirty) and producing a false failure — fixed by resetting the wilaya to a known baseline via a direct API call before each run. Also switched a DOM-text-scraping price assertion to a network-response assertion, since `Intl.NumberFormat('fr-FR')` renders thousands separators with a narrow no-break space (U+202F), not a plain space. Both documented in PROJECT_CONTEXT.md Known Issues.
 - The product photography feature was verified with a real headless-browser session against the live Docker stack: confirmed the "Pas d'image" placeholder before any upload → uploaded a real image file via the admin panel's file input (auto-primary confirmed) → confirmed the returned URL was directly fetchable → confirmed an unsupported content type (`text/plain`) was rejected with `400` → confirmed the storefront product page then rendered the exact uploaded image URL → confirmed the image survives a real `docker compose restart backend` (actual volume persistence, not assumed). Passed cleanly on the first real run, no test-script gotchas.
+- The staff user management feature was verified with a real headless-browser session against the live Docker stack: created a new staff account with a role via the admin UI → confirmed the new account could actually log in → edited it via the admin UI (added a second role, deactivated it) → confirmed the deactivated account can no longer log in (`401`) → confirmed a direct API attempt to deactivate the currently-logged-in admin's own account is rejected (`409`). One test-script locator-scoping bug hit and fixed along the way (not an app bug — see PROJECT_CONTEXT.md Known Issues): a bare `div` locator with `hasText` matched an inner wrapper div instead of the intended row.
 
 ## [2026-09-02]
 

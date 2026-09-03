@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
+import { ROLE_LABELS } from '../../lib/format/roleLabels';
 
 const NAV_LINKS = [
   { to: '/admin/dashboard', label: 'Tableau de bord' },
@@ -41,7 +42,7 @@ export function AdminLayout() {
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-black/10 bg-white px-6 py-3 text-sm">
           <span className="text-luna-charcoal/70">
-            {user?.firstName} {user?.lastName} · {user?.roles.join(', ')}
+            {user?.firstName} {user?.lastName} · {user?.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ')}
           </span>
           <button type="button" onClick={handleLogout} className="text-luna-charcoal/70 underline">
             Déconnexion

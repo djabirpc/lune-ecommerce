@@ -32,4 +32,7 @@ public static class Roles
 
     /// <summary>Roles allowed to view marketing attribution/reporting, as a comma-separated list for [Authorize(Roles = ...)].</summary>
     public const string MarketingManagers = $"{SuperAdmin},{Admin},{MarketingManager}";
+
+    /// <summary>Roles allowed to manage staff accounts (create/edit/assign roles), as a comma-separated list for [Authorize(Roles = ...)].</summary>
+    public const string UserManagers = $"{SuperAdmin},{Admin}";
 }
