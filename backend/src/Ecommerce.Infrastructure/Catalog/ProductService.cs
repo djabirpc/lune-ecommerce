@@ -223,6 +223,7 @@ public class ProductService(
         product.Description,
         product.Price,
         product.IsActive,
+        product.CategoryId,
         product.Category.Name,
         product.Category.Slug,
         product.Images

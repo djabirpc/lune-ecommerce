@@ -5,13 +5,20 @@ import { catalogApi } from '../../lib/api/catalog';
 import { formatPrice } from '../../lib/format/price';
 import { CategoryQuickManager } from '../components/CategoryQuickManager';
 import { CreateProductForm } from '../components/CreateProductForm';
+import { EditProductForm } from '../components/EditProductForm';
 import { ProductVariantsPanel } from '../components/ProductVariantsPanel';
 
 const PAGE_SIZE = 20;
 
+type ExpandedPanel = { slug: string; mode: 'variants' | 'edit' } | null;
+
 export function ProductsPage() {
   const [page, setPage] = useState(1);
-  const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ExpandedPanel>(null);
+
+  function togglePanel(slug: string, mode: 'variants' | 'edit') {
+    setExpanded((current) => (current?.slug === slug && current.mode === mode ? null : { slug, mode }));
+  }
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-products', { page }],
@@ -64,16 +71,32 @@ export function ProductsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedSlug(expandedSlug === product.slug ? null : product.slug)}
-                            className="text-xs underline"
-                          >
-                            {expandedSlug === product.slug ? 'Fermer' : 'Variantes / Stock'}
-                          </button>
+                          <div className="flex justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => togglePanel(product.slug, 'edit')}
+                              className="text-xs underline"
+                            >
+                              {expanded?.slug === product.slug && expanded.mode === 'edit' ? 'Fermer' : 'Modifier'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => togglePanel(product.slug, 'variants')}
+                              className="text-xs underline"
+                            >
+                              {expanded?.slug === product.slug && expanded.mode === 'variants' ? 'Fermer' : 'Variantes / Stock'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                      {expandedSlug === product.slug && (
+                      {expanded?.slug === product.slug && expanded.mode === 'edit' && (
+                        <tr>
+                          <td colSpan={5} className="p-0">
+                            <EditProductForm slug={product.slug} onDone={() => setExpanded(null)} />
+                          </td>
+                        </tr>
+                      )}
+                      {expanded?.slug === product.slug && expanded.mode === 'variants' && (
                         <tr>
                           <td colSpan={5} className="p-0">
                             <ProductVariantsPanel slug={product.slug} />

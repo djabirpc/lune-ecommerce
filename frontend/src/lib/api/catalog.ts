@@ -8,6 +8,8 @@ import type {
   ProductDetailDto,
   ProductListItemDto,
   ProductVariantDto,
+  UpdateCategoryRequest,
+  UpdateProductRequest,
 } from './types';
 
 export const catalogApi = {
@@ -19,6 +21,9 @@ export const catalogApi = {
   getCategoryBySlug: (slug: string) => apiClient.get<CategoryDto>(`/api/categories/${slug}`),
 
   createCategory: (request: CreateCategoryRequest) => apiClient.post<CategoryDto>('/api/categories', request),
+
+  updateCategory: (id: string, request: UpdateCategoryRequest) =>
+    apiClient.put<CategoryDto>(`/api/categories/${id}`, request),
 
   getProducts: (params: { category?: string; page?: number; pageSize?: number; includeInactive?: boolean } = {}) => {
     const query = new URLSearchParams();
@@ -33,6 +38,9 @@ export const catalogApi = {
   getProductBySlug: (slug: string) => apiClient.get<ProductDetailDto>(`/api/products/${slug}`),
 
   createProduct: (request: CreateProductRequest) => apiClient.post<ProductDetailDto>('/api/products', request),
+
+  updateProduct: (id: string, request: UpdateProductRequest) =>
+    apiClient.put<ProductDetailDto>(`/api/products/${id}`, request),
 
   addVariant: (productId: string, request: CreateProductVariantRequest) =>
     apiClient.post<ProductVariantDto>(`/api/products/${productId}/variants`, request),

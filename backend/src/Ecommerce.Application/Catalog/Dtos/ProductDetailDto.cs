@@ -7,6 +7,7 @@ public record ProductDetailDto(
     string? Description,
     decimal Price,
     bool IsActive,
+    Guid CategoryId,
     string CategoryName,
     string CategorySlug,
     IReadOnlyList<ProductImageDto> Images,

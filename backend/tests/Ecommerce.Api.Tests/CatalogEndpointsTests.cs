@@ -125,4 +125,107 @@ public class CatalogEndpointsTests(AuthWebApplicationFactory factory) : IClassFi
         Assert.Equal(5, afterRelease.AvailableQuantity);
         Assert.Equal(0, afterRelease.ReservedQuantity);
     }
+
+    [Fact]
+    public async Task UpdateProduct_ChangesFields_AndIsReflectedOnRefetch()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var category1Response = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category1 = await category1Response.Content.ReadFromJsonAsync<CategoryDto>();
+        var category2Response = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Vestes {unique}", $"vestes-{unique}", null, 0));
+        var category2 = await category2Response.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var createResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category1!.Id, "Robe originale", $"robe-originale-{unique}", null, 2000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 5)]));
+        var product = await createResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+        Assert.Equal(category1.Id, product!.CategoryId);
+
+        var newSlug = $"robe-modifiee-{unique}";
+        var updateResponse = await client.PutAsJsonAsync($"/api/products/{product.Id}", new UpdateProductRequest(
+            category2!.Id, "Robe modifiée", newSlug, "Nouvelle description", 2500m, false));
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        Assert.Equal("Robe modifiée", updated!.Name);
+        Assert.Equal(newSlug, updated.Slug);
+        Assert.Equal(category2.Id, updated.CategoryId);
+        Assert.Equal(2500m, updated.Price);
+        Assert.False(updated.IsActive);
+
+        var refetched = await (await client.GetAsync($"/api/products/{newSlug}")).Content.ReadFromJsonAsync<ProductDetailDto>();
+        Assert.Equal("Robe modifiée", refetched!.Name);
+        Assert.False(refetched.IsActive);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_WithDuplicateSlug_ReturnsConflict()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var firstResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Produit A", $"produit-a-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-A-{unique}", null, 1)]));
+        var first = await firstResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        var secondResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category.Id, "Produit B", $"produit-b-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-B-{unique}", null, 1)]));
+        var second = await secondResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/products/{second!.Id}", new UpdateProductRequest(
+            category.Id, second.Name, first!.Slug, null, second.Price, true));
+
+        Assert.Equal(HttpStatusCode.Conflict, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateCategory_ChangesFields_AndCanDeactivate()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var createResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Cat {unique}", $"cat-{unique}", null, 0));
+        var category = await createResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/categories/{category!.Id}", new UpdateCategoryRequest(
+            "Catégorie renommée", $"cat-renommee-{unique}", "Nouvelle description", false, 5));
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        Assert.Equal("Catégorie renommée", updated!.Name);
+        Assert.Equal($"cat-renommee-{unique}", updated.Slug);
+        Assert.False(updated.IsActive);
+        Assert.Equal(5, updated.DisplayOrder);
+
+        var listResponse = await client.GetAsync("/api/categories?includeInactive=true");
+        var list = await listResponse.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        Assert.Contains(list!, c => c.Id == category.Id && !c.IsActive);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_WithoutAuth_ReturnsUnauthorized()
+    {
+        var adminClient = await CreateAuthenticatedClientAsync();
+        var guestClient = factory.CreateClient();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await adminClient.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+        var productResponse = await adminClient.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Produit test", $"produit-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 1)]));
+        var product = await productResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        var response = await guestClient.PutAsJsonAsync($"/api/products/{product!.Id}", new UpdateProductRequest(
+            category.Id, product.Name, product.Slug, null, product.Price, true));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

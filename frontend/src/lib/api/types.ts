@@ -43,6 +43,7 @@ export interface ProductDetailDto {
   description: string | null;
   price: number;
   isActive: boolean;
+  categoryId: string;
   categoryName: string;
   categorySlug: string;
   images: ProductImageDto[];
@@ -63,6 +64,14 @@ export interface CreateCategoryRequest {
   displayOrder: number;
 }
 
+export interface UpdateCategoryRequest {
+  name: string;
+  slug: string;
+  description: string | null;
+  isActive: boolean;
+  displayOrder: number;
+}
+
 export interface CreateProductVariantRequest {
   color: string;
   size: string;
@@ -78,6 +87,15 @@ export interface CreateProductRequest {
   description: string | null;
   price: number;
   variants: CreateProductVariantRequest[];
+}
+
+export interface UpdateProductRequest {
+  categoryId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price: number;
+  isActive: boolean;
 }
 
 export interface InventoryDto {
