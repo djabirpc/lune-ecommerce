@@ -24,4 +24,7 @@ public interface IOrderService
         ChangeOrderStatusRequest request,
         Guid? changedByUserId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Counts of Returned orders grouped by their structured ReturnReason, most common first (admin dashboard).</summary>
+    Task<IReadOnlyList<ReturnReasonSummaryDto>> GetReturnReasonSummaryAsync(CancellationToken cancellationToken = default);
 }

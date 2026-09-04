@@ -20,6 +20,9 @@ public class Order : Entity
     public string PaymentMethod { get; set; } = "COD";
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
 
+    /// <summary>Set only when Status becomes Returned — the structured cause (damaged, wrong size, ...) used for admin reporting.</summary>
+    public OrderReturnReason? ReturnReason { get; set; }
+
     public decimal Subtotal { get; set; }
     public decimal ShippingCost { get; set; }
     public decimal DiscountTotal { get; set; }

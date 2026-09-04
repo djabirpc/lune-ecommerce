@@ -5,9 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from '../../lib/api/orders';
 import { shippingApi } from '../../lib/api/shipping';
 import { ApiError } from '../../lib/api/client';
-import type { CallAttemptResult, OrderStatus, ShippingCarrier } from '../../lib/api/types';
+import type { CallAttemptResult, OrderReturnReason, OrderStatus, ShippingCarrier } from '../../lib/api/types';
 import { formatPrice } from '../../lib/format/price';
-import { CALL_ATTEMPT_RESULT_LABELS, DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS } from '../../lib/format/orderLabels';
+import { CALL_ATTEMPT_RESULT_LABELS, DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS, RETURN_REASON_LABELS } from '../../lib/format/orderLabels';
 import { NORMALIZED_SHIPPING_STATUS_LABELS, SHIPPING_CARRIER_LABELS } from '../../lib/format/shippingLabels';
 import { ALLOWED_TRANSITIONS, ORDER_ACTION_LABELS, requiresReason } from '../../lib/orders/transitions';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
@@ -26,6 +26,8 @@ export function OrderDetailPage() {
   const [shipmentCarrier, setShipmentCarrier] = useState<ShippingCarrier>('Fake');
   const [shipmentError, setShipmentError] = useState<string | null>(null);
   const [label, setLabel] = useState<string | null>(null);
+  const [returnReason, setReturnReason] = useState<OrderReturnReason>('WrongSize');
+  const [returnNote, setReturnNote] = useState('');
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: ['admin-order', id],
@@ -39,11 +41,13 @@ export function OrderDetailPage() {
   });
 
   const changeStatus = useMutation({
-    mutationFn: (vars: { newStatus: OrderStatus; reason: string | null }) => ordersApi.changeStatus(id!, vars),
+    mutationFn: (vars: { newStatus: OrderStatus; reason: string | null; returnReason?: OrderReturnReason | null }) =>
+      ordersApi.changeStatus(id!, vars),
     onSuccess: (updated) => {
       queryClient.setQueryData(['admin-order', id], updated);
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       setActionError(null);
+      setReturnNote('');
     },
     onError: (err) => setActionError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
   });
@@ -110,6 +114,11 @@ export function OrderDetailPage() {
     changeStatus.mutate({ newStatus, reason: reason || null });
   }
 
+  function handleReturnSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    changeStatus.mutate({ newStatus: 'Returned', reason: returnNote.trim() || null, returnReason });
+  }
+
   return (
     <div>
       <Link to="/admin/orders" className="mb-4 inline-block text-sm underline">
@@ -146,6 +155,9 @@ export function OrderDetailPage() {
           )}
           <p className="text-sm">Livraison : {formatPrice(order.shippingCost)}</p>
           <p className="text-sm font-medium">Total : {formatPrice(order.total)}</p>
+          {order.returnReason && (
+            <p className="mt-1 text-sm text-luna-charcoal/70">Cause du retour : {RETURN_REASON_LABELS[order.returnReason]}</p>
+          )}
         </div>
 
         {order.marketingAttribution && (
@@ -188,19 +200,60 @@ export function OrderDetailPage() {
         <div className="mt-6">
           <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Actions</h2>
           <div className="flex flex-wrap gap-2">
-            {nextStatuses.map((next) => (
-              <button
-                key={next}
-                type="button"
-                disabled={changeStatus.isPending}
-                onClick={() => handleTransition(next)}
-                className="rounded-full border border-luna-black px-4 py-2 text-sm disabled:opacity-40"
-              >
-                {ORDER_ACTION_LABELS[next]}
-              </button>
-            ))}
+            {nextStatuses
+              .filter((next) => next !== 'Returned')
+              .map((next) => (
+                <button
+                  key={next}
+                  type="button"
+                  disabled={changeStatus.isPending}
+                  onClick={() => handleTransition(next)}
+                  className="rounded-full border border-luna-black px-4 py-2 text-sm disabled:opacity-40"
+                >
+                  {ORDER_ACTION_LABELS[next]}
+                </button>
+              ))}
           </div>
           {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
+
+          {nextStatuses.includes('Returned') && (
+            <form
+              onSubmit={handleReturnSubmit}
+              className="mt-3 flex flex-col gap-2 rounded-lg border border-black/10 bg-white p-4 sm:max-w-md"
+            >
+              <h3 className="text-sm font-medium">Marquer retournée</h3>
+              <label className="flex flex-col gap-1 text-sm">
+                Cause du retour
+                <select
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value as OrderReturnReason)}
+                  className="rounded border border-black/20 px-2 py-1 text-sm"
+                >
+                  {(Object.keys(RETURN_REASON_LABELS) as OrderReturnReason[]).map((r) => (
+                    <option key={r} value={r}>
+                      {RETURN_REASON_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                Note (optionnel)
+                <input
+                  type="text"
+                  value={returnNote}
+                  onChange={(e) => setReturnNote(e.target.value)}
+                  className="rounded border border-black/20 px-2 py-1 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={changeStatus.isPending}
+                className="mt-1 w-fit rounded-full border border-luna-black px-4 py-2 text-sm disabled:opacity-40"
+              >
+                Confirmer le retour
+              </button>
+            </form>
+          )}
         </div>
       )}
 

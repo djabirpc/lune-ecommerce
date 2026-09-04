@@ -236,10 +236,39 @@ public class OrderService(
                 break;
 
             case OrderStatus.Returned:
+                // Which inventory bucket the stock is currently sitting in depends on where the order
+                // came from: Delivered means it was actually sold (Sold bucket); Refused already
+                // released its reservation back to Available when it *became* Refused (see the
+                // Cancelled/Refused case above); DeliveryFailed never touched inventory at all, so the
+                // stock is still sitting in Reserved. Treating every "Returned" the same way (as if it
+                // had been Sold) was the original bug — see PROJECT_CONTEXT.md Known Issues.
+                var isDamaged = request.ReturnReason == OrderReturnReason.Damaged;
                 foreach (var item in order.Items)
                 {
-                    await inventoryService.RecordReturnAsync(item.ProductVariantId, item.Quantity, cancellationToken);
+                    switch (order.Status)
+                    {
+                        case OrderStatus.Delivered:
+                            await inventoryService.RecordReturnAsync(item.ProductVariantId, item.Quantity, isDamaged, cancellationToken);
+                            break;
+                        case OrderStatus.DeliveryFailed:
+                            if (isDamaged)
+                            {
+                                await inventoryService.ReleaseToDamagedAsync(item.ProductVariantId, item.Quantity, cancellationToken);
+                            }
+                            else
+                            {
+                                await inventoryService.ReleaseAsync(item.ProductVariantId, item.Quantity, cancellationToken);
+                            }
+                            break;
+                        case OrderStatus.Refused:
+                            if (isDamaged)
+                            {
+                                await inventoryService.MarkAvailableDamagedAsync(item.ProductVariantId, item.Quantity, cancellationToken);
+                            }
+                            break;
+                    }
                 }
+                order.ReturnReason = request.ReturnReason;
                 break;
         }
 
@@ -260,6 +289,23 @@ public class OrderService(
         await transaction.CommitAsync(cancellationToken);
 
         return ToDetailDto(order, includeHistory: true);
+    }
+
+    public async Task<IReadOnlyList<ReturnReasonSummaryDto>> GetReturnReasonSummaryAsync(CancellationToken cancellationToken = default)
+    {
+        // GroupBy aggregates can't project straight into a record constructor (EF Core translation
+        // limitation, see the Marketing namespace gotcha in PROJECT_CONTEXT.md) — project into an
+        // anonymous type first, materialize, then map to the DTO record client-side.
+        var grouped = await dbContext.Orders
+            .Where(o => o.Status == OrderStatus.Returned && o.ReturnReason != null)
+            .GroupBy(o => o.ReturnReason)
+            .Select(g => new { Reason = g.Key!.Value, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return grouped
+            .OrderByDescending(g => g.Count)
+            .Select(g => new ReturnReasonSummaryDto(g.Reason, g.Count))
+            .ToList();
     }
 
     private async Task<string> GenerateUniqueOrderNumberAsync(CancellationToken cancellationToken)
@@ -435,6 +481,7 @@ public class OrderService(
         order.ShippingCost,
         order.DiscountTotal,
         order.Total,
+        order.ReturnReason,
         order.CreatedAtUtc,
         order.Items
             .Select(i => new OrderItemDto(i.Id, i.ProductVariantId, i.ProductName, i.Color, i.Size, i.Sku, i.UnitPrice, i.Quantity, i.LineTotal))

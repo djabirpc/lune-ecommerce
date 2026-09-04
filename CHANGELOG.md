@@ -22,9 +22,23 @@
 ### Frontend
 - New `SuppliersPage`, `suppliers.ts` API client. Extended `ProductVariantsPanel`, `CreateProductForm`, `EditProductForm`. `pixels.ts` gained `initProductPixels()` and a corrected TikTok stub.
 
+- **Return-reason tracking + fix for a real order-return bug**: the user reported hitting `"Quantité vendue insuffisante pour enregistrer ce retour."` when marking an order as returned. Root cause: `OrderService.ChangeStatusAsync`'s `Returned` case always assumed the order had been `Delivered` (and thus marked `Sold`), but `Returned` is also reachable from `Refused` and `DeliveryFailed`, neither of which ever marks stock `Sold` — those transitions always hit the "insufficient sold quantity" guard. Fixed by branching the `Returned` handling on the order's pre-transition status. New `OrderReturnReason` enum (`Damaged`/`WrongSize`/`WrongItem`/`CustomerChangedMind`/`Other`) — required on every `Returned` transition (`400` otherwise); `Damaged` redirects stock to the `DamagedQuantity` bucket instead of `Returned`/`Available`. New `IInventoryService.ReleaseToDamagedAsync` (Reserved→Damaged) and `MarkAvailableDamagedAsync` (Available→Damaged); `RecordReturnAsync` extended with an `isDamaged` flag (Sold→Returned or Sold→Damaged). New `GET /api/orders/return-reasons` (admin) aggregates `Returned` orders by reason. 8 new `OrderReturnTests` (including 2 explicit regressions for the reported bug); backend suite grew to 134/134. Migration `AddOrderReturnReason`. **Frontend**: `OrderDetailPage`'s "Marquer retournée" action is now a dedicated form (reason dropdown + optional note) instead of a `window.prompt()`, and shows "Cause du retour" on the order once set; `DashboardPage` gained a "Retours" stat card and a "Retours par cause" breakdown table.
+
+### API
+- `POST /api/orders/{id}/status` gained an optional `returnReason` field, required (`400`) when `newStatus` is `Returned`.
+- `GET /api/orders/return-reasons` added (admin, `OrderManagers` role) — `[{ reason, count }]`.
+- `OrderDetailDto` gained `returnReason: OrderReturnReason | null`.
+
+### Database
+- Migration `AddOrderReturnReason`: adds nullable `Orders.ReturnReason` (string-converted enum).
+
+### Frontend
+- `OrderDetailPage` gained a dedicated return-reason form; `DashboardPage` gained a Retours stat + reason breakdown. New `RETURN_REASON_LABELS`, `ordersApi.getReturnReasonSummary()`.
+
 ### Notes
 - Fixed a real app bug found during manual verification, not a test artifact: the original TikTok pixel stub set `window.ttq` to a bare `{}`, so `trackEvent()`'s `window.ttq?.track(...)` threw `TypeError: ... is not a function` and crashed `ProductPage` the first time a per-product TikTok Pixel ID was actually configured (this code path had never been exercised before, since no site-wide TikTok Pixel ID has ever been configured in this project). Fixed by rewriting the stub to match TikTok's real public base-code pattern (`window.ttq` starts as an array; every method is defined synchronously and queues its own call via `push` until the real script upgrades it in place) — see `ensureTikTokBaseCode()` in `lib/marketing/pixels.ts` and PROJECT_CONTEXT.md Known Issues.
 - Also hit a Docker/tooling gotcha (not an app bug): after rebuilding only the `backend` container, the already-running `frontend` container's Vite dev server kept serving a stale pre-edit transform of `router.tsx`/`AdminLayout.tsx` — chokidar doesn't reliably detect file changes over a Windows Docker bind mount. Fixed with `docker compose restart frontend`; documented in PROJECT_CONTEXT.md Known Issues as a general rule for future sessions.
+- Fixed a second real bug, this one reported directly by the user in production use: the order-return status transition — see the "Return-reason tracking" entry above and PROJECT_CONTEXT.md Known Issues for the full root-cause writeup.
 
 ## [2026-09-03]
 

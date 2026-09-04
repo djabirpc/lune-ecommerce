@@ -162,6 +162,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(o => o.Notes).HasMaxLength(1000);
             entity.Property(o => o.PaymentMethod).IsRequired().HasMaxLength(20);
             entity.Property(o => o.PaymentStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(o => o.ReturnReason).HasConversion<string>().HasMaxLength(30);
             entity.Property(o => o.Subtotal).HasPrecision(10, 2);
             entity.Property(o => o.ShippingCost).HasPrecision(10, 2);
             entity.Property(o => o.DiscountTotal).HasPrecision(10, 2);

@@ -367,6 +367,7 @@ export interface OrderDetailDto {
   shippingCost: number;
   discountTotal: number;
   total: number;
+  returnReason: OrderReturnReason | null;
   createdAtUtc: string;
   items: OrderItemDto[];
   statusHistory: OrderStatusHistoryDto[];
@@ -405,9 +406,17 @@ export interface OrderSummaryDto {
   createdAtUtc: string;
 }
 
+export type OrderReturnReason = 'Damaged' | 'WrongSize' | 'WrongItem' | 'CustomerChangedMind' | 'Other';
+
 export interface ChangeOrderStatusRequest {
   newStatus: OrderStatus;
   reason: string | null;
+  returnReason?: OrderReturnReason | null;
+}
+
+export interface ReturnReasonSummaryDto {
+  reason: OrderReturnReason;
+  count: number;
 }
 
 // --- Auth ---

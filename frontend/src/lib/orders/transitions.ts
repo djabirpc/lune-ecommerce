@@ -32,12 +32,13 @@ export const ORDER_ACTION_LABELS: Record<OrderStatus, string> = {
   Returned: 'Marquer retournée',
 };
 
+// 'Returned' is deliberately excluded — it has its own dedicated form (reason dropdown, not a free-text
+// prompt) on OrderDetailPage, since the return cause is now a structured OrderReturnReason, not free text.
 const STATUSES_REQUIRING_REASON: ReadonlySet<OrderStatus> = new Set([
   'Cancelled',
   'CustomerUnreachable',
   'DeliveryFailed',
   'Refused',
-  'Returned',
 ]);
 
 export function requiresReason(status: OrderStatus): boolean {

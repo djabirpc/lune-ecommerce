@@ -21,6 +21,7 @@ public record OrderDetailDto(
     decimal ShippingCost,
     decimal DiscountTotal,
     decimal Total,
+    OrderReturnReason? ReturnReason,
     DateTime CreatedAtUtc,
     IReadOnlyList<OrderItemDto> Items,
     IReadOnlyList<OrderStatusHistoryDto> StatusHistory,

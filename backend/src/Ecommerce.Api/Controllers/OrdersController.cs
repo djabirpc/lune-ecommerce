@@ -57,6 +57,14 @@ public class OrdersController(
         return Ok(order);
     }
 
+    [HttpGet("return-reasons")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<IReadOnlyList<ReturnReasonSummaryDto>>> GetReturnReasonSummary(CancellationToken cancellationToken)
+    {
+        var summary = await orderService.GetReturnReasonSummaryAsync(cancellationToken);
+        return Ok(summary);
+    }
+
     [HttpPost("{id:guid}/status")]
     [Authorize(Roles = Roles.OrderManagers)]
     public async Task<ActionResult<OrderDetailDto>> ChangeStatus(

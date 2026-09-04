@@ -1,4 +1,4 @@
-import type { CallAttemptResult, DeliveryType, OrderStatus } from '../api/types';
+import type { CallAttemptResult, DeliveryType, OrderReturnReason, OrderStatus } from '../api/types';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PendingConfirmation: 'En attente de confirmation',
@@ -25,4 +25,12 @@ export const CALL_ATTEMPT_RESULT_LABELS: Record<CallAttemptResult, string> = {
   Confirmed: 'Confirmée',
   Cancelled: 'Annulée',
   CallbackScheduled: 'Rappel programmé',
+};
+
+export const RETURN_REASON_LABELS: Record<OrderReturnReason, string> = {
+  Damaged: 'Colis endommagé',
+  WrongSize: 'Mauvaise taille',
+  WrongItem: 'Mauvais article',
+  CustomerChangedMind: 'Client a changé d\'avis',
+  Other: 'Autre',
 };

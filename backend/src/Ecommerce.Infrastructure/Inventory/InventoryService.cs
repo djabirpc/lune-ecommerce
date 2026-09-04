@@ -134,18 +134,58 @@ public class InventoryService(
         await LogTransactionAsync(variantId, InventoryTransactionType.Sale, quantity, null, null, null, cancellationToken);
     }
 
-    public async Task RecordReturnAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default)
+    public async Task RecordReturnAsync(Guid variantId, int quantity, bool isDamaged = false, CancellationToken cancellationToken = default)
     {
-        var affected = await dbContext.Inventory
-            .Where(i => i.ProductVariantId == variantId && i.SoldQuantity >= quantity)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(i => i.SoldQuantity, i => i.SoldQuantity - quantity)
-                .SetProperty(i => i.ReturnedQuantity, i => i.ReturnedQuantity + quantity), cancellationToken);
+        var affected = isDamaged
+            ? await dbContext.Inventory
+                .Where(i => i.ProductVariantId == variantId && i.SoldQuantity >= quantity)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(i => i.SoldQuantity, i => i.SoldQuantity - quantity)
+                    .SetProperty(i => i.DamagedQuantity, i => i.DamagedQuantity + quantity), cancellationToken)
+            : await dbContext.Inventory
+                .Where(i => i.ProductVariantId == variantId && i.SoldQuantity >= quantity)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(i => i.SoldQuantity, i => i.SoldQuantity - quantity)
+                    .SetProperty(i => i.ReturnedQuantity, i => i.ReturnedQuantity + quantity), cancellationToken);
 
         if (affected == 0)
         {
             await EnsureVariantExistsAsync(variantId, cancellationToken);
             throw new ConflictAppException("Quantité vendue insuffisante pour enregistrer ce retour.");
+        }
+
+        await LogTransactionAsync(variantId, InventoryTransactionType.Return, quantity, null, null, null, cancellationToken);
+    }
+
+    public async Task ReleaseToDamagedAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default)
+    {
+        var affected = await dbContext.Inventory
+            .Where(i => i.ProductVariantId == variantId && i.ReservedQuantity >= quantity)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.ReservedQuantity, i => i.ReservedQuantity - quantity)
+                .SetProperty(i => i.DamagedQuantity, i => i.DamagedQuantity + quantity), cancellationToken);
+
+        if (affected == 0)
+        {
+            await EnsureVariantExistsAsync(variantId, cancellationToken);
+            throw new ConflictAppException("Quantité réservée insuffisante pour cette opération.");
+        }
+
+        await LogTransactionAsync(variantId, InventoryTransactionType.Return, quantity, null, null, null, cancellationToken);
+    }
+
+    public async Task MarkAvailableDamagedAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default)
+    {
+        var affected = await dbContext.Inventory
+            .Where(i => i.ProductVariantId == variantId && i.AvailableQuantity >= quantity)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.AvailableQuantity, i => i.AvailableQuantity - quantity)
+                .SetProperty(i => i.DamagedQuantity, i => i.DamagedQuantity + quantity), cancellationToken);
+
+        if (affected == 0)
+        {
+            await EnsureVariantExistsAsync(variantId, cancellationToken);
+            throw new ConflictAppException("Quantité disponible insuffisante pour cette opération.");
         }
 
         await LogTransactionAsync(variantId, InventoryTransactionType.Return, quantity, null, null, null, cancellationToken);

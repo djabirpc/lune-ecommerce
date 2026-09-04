@@ -7,6 +7,7 @@ import type {
   OrderSummaryDto,
   PagedResult,
   RecordCallAttemptRequest,
+  ReturnReasonSummaryDto,
 } from './types';
 
 export const ordersApi = {
@@ -33,4 +34,6 @@ export const ordersApi = {
 
   recordCallAttempt: (id: string, request: RecordCallAttemptRequest) =>
     apiClient.post<OrderDetailDto>(`/api/orders/${id}/call-attempts`, request),
+
+  getReturnReasonSummary: () => apiClient.get<ReturnReasonSummaryDto[]>('/api/orders/return-reasons'),
 };

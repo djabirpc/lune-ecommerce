@@ -21,6 +21,12 @@ public interface IInventoryService
     /// <summary>Moves stock from Reserved to Sold (order confirmed/shipped).</summary>
     Task RecordSaleAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default);
 
-    /// <summary>Moves stock from Sold to Returned (customer return).</summary>
-    Task RecordReturnAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default);
+    /// <summary>Moves stock from Sold to Returned, or to Damaged when the return reason is a damaged item.</summary>
+    Task RecordReturnAsync(Guid variantId, int quantity, bool isDamaged = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Moves stock from Reserved to Damaged — a delivery-failed order later found damaged when it comes back, never having been released.</summary>
+    Task ReleaseToDamagedAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default);
+
+    /// <summary>Moves stock from Available to Damaged — a refused order's stock (already released back to Available) later found damaged on inspection.</summary>
+    Task MarkAvailableDamagedAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default);
 }
