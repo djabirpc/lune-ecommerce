@@ -64,6 +64,8 @@ services:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
       VITE_META_PIXEL_ID: ${VITE_META_PIXEL_ID:-}
       VITE_TIKTOK_PIXEL_ID: ${VITE_TIKTOK_PIXEL_ID:-}
+      VITE_INSTAGRAM_URL: ${VITE_INSTAGRAM_URL:-}
+      VITE_TIKTOK_URL: ${VITE_TIKTOK_URL:-}
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:

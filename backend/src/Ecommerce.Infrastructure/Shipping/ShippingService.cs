@@ -144,7 +144,7 @@ public class ShippingService(
         }
 
         return $"""
-            ===== ÉTIQUETTE DE TEST (FakeShippingProvider — usage développement uniquement) =====
+            ===== ÉTIQUETTE {FakeShippingProvider.DisplayName} (SIMULATION — usage développement uniquement) =====
             Numéro de suivi : {shipment.TrackingNumber}
             Référence transporteur : {shipment.ProviderShipmentId}
             Statut : {shipment.ProviderStatus}

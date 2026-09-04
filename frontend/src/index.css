@@ -2,11 +2,31 @@
 
 @theme {
   --color-luna-cream: #faf7f2;
+  --color-luna-cream-dark: #f1ebe1;
   --color-luna-black: #16151a;
   --color-luna-charcoal: #2c2b30;
   --color-luna-accent: #e8837a;
+  --color-luna-accent-dark: #d96c62;
+  --color-luna-rose: #fdf1ee;
+
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
   @apply bg-white text-luna-black antialiased;
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Hide scrollbars on horizontally-scrollable rows (thumbnail strips, chip lists) while keeping them scrollable */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

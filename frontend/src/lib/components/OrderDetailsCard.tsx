@@ -4,10 +4,10 @@ import { DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS } from '../format/orderLabels
 
 export function OrderDetailsCard({ order }: { order: OrderDetailDto }) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-black/10 p-4">
+    <div className="flex flex-col gap-4 rounded-2xl border border-black/10 bg-white p-5">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-sm">{order.orderNumber}</span>
-        <span className="rounded-full bg-luna-cream px-3 py-1 text-xs font-medium">
+        <span className="font-mono text-sm text-luna-charcoal/80">{order.orderNumber}</span>
+        <span className="rounded-full bg-luna-rose px-3 py-1 text-xs font-medium text-luna-accent-dark">
           {ORDER_STATUS_LABELS[order.status]}
         </span>
       </div>
@@ -15,10 +15,10 @@ export function OrderDetailsCard({ order }: { order: OrderDetailDto }) {
       <div className="flex flex-col divide-y divide-black/5">
         {order.items.map((item) => (
           <div key={item.id} className="flex items-center justify-between py-2 text-sm">
-            <span>
+            <span className="text-luna-charcoal/80">
               {item.productName} ({item.color}/{item.size}) × {item.quantity}
             </span>
-            <span>{formatPrice(item.lineTotal)}</span>
+            <span className="font-medium">{formatPrice(item.lineTotal)}</span>
           </div>
         ))}
       </div>
@@ -43,19 +43,19 @@ export function OrderDetailsCard({ order }: { order: OrderDetailDto }) {
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-black/10 pt-3 text-sm font-medium">
+      <div className="flex items-center justify-between border-t border-black/10 pt-3 text-base font-semibold">
         <span>Total (paiement à la livraison)</span>
         <span>{formatPrice(order.total)}</span>
       </div>
 
-      <div className="text-sm text-luna-charcoal/70">
-        <p>
+      <div className="rounded-xl bg-luna-cream p-3.5 text-sm text-luna-charcoal/70">
+        <p className="font-medium text-luna-black">
           {order.firstName} {order.lastName} — {order.phone}
         </p>
-        <p>
+        <p className="mt-0.5">
           {order.address}, {order.commune}, {order.wilaya}
         </p>
-        <p>{DELIVERY_TYPE_LABELS[order.deliveryType]}</p>
+        <p className="mt-0.5">{DELIVERY_TYPE_LABELS[order.deliveryType]}</p>
       </div>
     </div>
   );

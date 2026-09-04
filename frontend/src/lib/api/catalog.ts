@@ -26,12 +26,15 @@ export const catalogApi = {
   updateCategory: (id: string, request: UpdateCategoryRequest) =>
     apiClient.put<CategoryDto>(`/api/categories/${id}`, request),
 
-  getProducts: (params: { category?: string; page?: number; pageSize?: number; includeInactive?: boolean } = {}) => {
+  getProducts: (
+    params: { category?: string; page?: number; pageSize?: number; includeInactive?: boolean; sortByNewest?: boolean } = {},
+  ) => {
     const query = new URLSearchParams();
     if (params.category) query.set('category', params.category);
     if (params.page) query.set('page', String(params.page));
     if (params.pageSize) query.set('pageSize', String(params.pageSize));
     if (params.includeInactive) query.set('includeInactive', 'true');
+    if (params.sortByNewest) query.set('sortByNewest', 'true');
     const queryString = query.toString();
     return apiClient.get<PagedResult<ProductListItemDto>>(`/api/products${queryString ? `?${queryString}` : ''}`);
   },

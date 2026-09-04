@@ -124,6 +124,7 @@ public class ProductService(
         int page,
         int pageSize,
         bool includeInactive = false,
+        bool sortByNewest = false,
         CancellationToken cancellationToken = default)
     {
         page = page < 1 ? 1 : page;
@@ -146,8 +147,9 @@ public class ProductService(
 
         var totalCount = await query.CountAsync(cancellationToken);
 
+        query = sortByNewest ? query.OrderByDescending(p => p.CreatedAtUtc) : query.OrderBy(p => p.Name);
+
         var items = await query
-            .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(p => new ProductListItemDto(

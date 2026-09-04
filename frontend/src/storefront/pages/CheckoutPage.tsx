@@ -27,6 +27,9 @@ const checkoutSchema = z.object({
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
+const inputClass =
+  'w-full rounded-lg border border-black/15 px-3.5 py-2.5 text-sm outline-none transition focus:border-luna-black';
+
 export function CheckoutPage() {
   const { items, subtotal, clear } = useCart();
   const navigate = useNavigate();
@@ -75,7 +78,7 @@ export function CheckoutPage() {
       .catch(() => {
         if (!cancelled) {
           setShippingCost(null);
-          setShippingError("Livraison indisponible pour cette wilaya. Contactez-nous pour vérifier.");
+          setShippingError('Livraison indisponible pour cette wilaya. Contactez-nous pour vérifier.');
         }
       });
 
@@ -114,127 +117,136 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="grid gap-8 px-4 py-8 sm:grid-cols-2 sm:px-8">
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Livraison</h1>
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <h1 className="mb-6 font-display text-2xl italic text-luna-black">Finaliser la commande</h1>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Prénom</label>
-            <input {...register('firstName')} className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
-            {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Nom</label>
-            <input {...register('lastName')} className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
-            {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>}
-          </div>
-        </div>
+      <div className="grid gap-8 sm:grid-cols-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 sm:order-1 sm:col-span-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Coordonnées &amp; livraison</h2>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium">Téléphone</label>
-          <input {...register('phone')} placeholder="0551234567" className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
-          {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Wilaya</label>
-            <select {...register('wilaya')} defaultValue="" className="w-full rounded border border-black/20 px-3 py-2 text-sm">
-              <option value="" disabled>
-                Sélectionnez une wilaya
-              </option>
-              {ALGERIAN_WILAYAS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
-                </option>
-              ))}
-            </select>
-            {errors.wilaya && <p className="mt-1 text-xs text-red-600">{errors.wilaya.message}</p>}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Commune</label>
-            <input {...register('commune')} className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
-            {errors.commune && <p className="mt-1 text-xs text-red-600">{errors.commune.message}</p>}
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium">Adresse</label>
-          <input {...register('address')} className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
-          {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>}
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-medium">Type de livraison</label>
-          <div className="flex flex-col gap-2">
-            {(Object.keys(DELIVERY_TYPE_LABELS) as (keyof typeof DELIVERY_TYPE_LABELS)[]).map((type) => (
-              <label key={type} className="flex items-center gap-2 text-sm">
-                <input type="radio" value={type} {...register('deliveryType')} />
-                {DELIVERY_TYPE_LABELS[type]}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium">Notes (facultatif)</label>
-          <textarea {...register('notes')} rows={2} className="w-full rounded border border-black/20 px-3 py-2 text-sm" />
-        </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 rounded-full bg-luna-black px-6 py-3 text-sm text-white disabled:opacity-40"
-        >
-          {isSubmitting ? 'Envoi...' : 'Confirmer la commande — Paiement à la livraison'}
-        </button>
-      </form>
-
-      <div>
-        <h2 className="mb-4 text-lg font-semibold">Résumé</h2>
-        <div className="flex flex-col divide-y divide-black/5">
-          {items.map((item) => (
-            <div key={item.variantId} className="flex items-center justify-between py-2 text-sm">
-              <span>
-                {item.productName} ({item.color}/{item.size}) × {item.quantity}
-              </span>
-              <span>{formatPrice(item.unitPrice * item.quantity)}</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Prénom</label>
+              <input {...register('firstName')} className={inputClass} />
+              {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
             </div>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center justify-between border-t border-black/10 pt-4 text-sm font-medium">
-          <span>Sous-total</span>
-          <span>{formatPrice(subtotal)}</span>
-        </div>
-        <div className="mt-1 flex items-center justify-between text-sm text-luna-charcoal/60">
-          <span>Livraison</span>
-          {shippingError ? (
-            <span className="text-red-600">{shippingError}</span>
-          ) : shippingCost === null ? (
-            <span>Sélectionnez une wilaya</span>
-          ) : (
-            <span>{formatPrice(shippingCost)}</span>
-          )}
-        </div>
-        {shippingCost !== null && (
-          <div className="mt-1 flex items-center justify-between text-sm font-medium">
-            <span>Total estimé</span>
-            <span>{formatPrice(subtotal + shippingCost)}</span>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nom</label>
+              <input {...register('lastName')} className={inputClass} />
+              {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>}
+            </div>
           </div>
-        )}
 
-        <div className="mt-4">
-          <label className="mb-1 block text-sm font-medium">Code promo (facultatif)</label>
-          <input
-            value={couponCode}
-            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-            placeholder="CODE2024"
-            className="w-full rounded border border-black/20 px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-xs text-luna-charcoal/50">La réduction sera appliquée et affichée sur la confirmation.</p>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Téléphone</label>
+            <input {...register('phone')} placeholder="0551234567" className={inputClass} inputMode="numeric" />
+            {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Wilaya</label>
+              <select {...register('wilaya')} defaultValue="" className={inputClass}>
+                <option value="" disabled>
+                  Sélectionnez une wilaya
+                </option>
+                {ALGERIAN_WILAYAS.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+              {errors.wilaya && <p className="mt-1 text-xs text-red-600">{errors.wilaya.message}</p>}
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Commune</label>
+              <input {...register('commune')} className={inputClass} />
+              {errors.commune && <p className="mt-1 text-xs text-red-600">{errors.commune.message}</p>}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Adresse</label>
+            <input {...register('address')} className={inputClass} />
+            {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">Type de livraison</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(DELIVERY_TYPE_LABELS) as (keyof typeof DELIVERY_TYPE_LABELS)[]).map((type) => (
+                <label
+                  key={type}
+                  className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-black/15 px-3 py-2.5 text-sm has-[:checked]:border-luna-black has-[:checked]:bg-luna-black has-[:checked]:text-white"
+                >
+                  <input type="radio" value={type} {...register('deliveryType')} className="sr-only" />
+                  {DELIVERY_TYPE_LABELS[type]}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Notes (facultatif)</label>
+            <textarea {...register('notes')} rows={2} className={inputClass} />
+          </div>
+
+          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="mt-2 rounded-full bg-luna-black px-6 py-3.5 text-sm font-medium text-white transition hover:bg-luna-charcoal disabled:opacity-40"
+          >
+            {isSubmitting ? 'Envoi...' : 'Confirmer la commande — Paiement à la livraison'}
+          </button>
+        </form>
+
+        <div className="sm:order-2 sm:col-span-2">
+          <div className="rounded-2xl bg-luna-cream p-5 sm:sticky sm:top-24">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Résumé</h2>
+            <div className="flex flex-col divide-y divide-black/5">
+              {items.map((item) => (
+                <div key={item.variantId} className="flex items-center justify-between py-2 text-sm">
+                  <span className="pr-2 text-luna-charcoal/80">
+                    {item.productName} ({item.color}/{item.size}) × {item.quantity}
+                  </span>
+                  <span className="shrink-0 font-medium">{formatPrice(item.unitPrice * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-black/10 pt-3 text-sm font-medium">
+              <span>Sous-total</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-sm text-luna-charcoal/60">
+              <span>Livraison</span>
+              {shippingError ? (
+                <span className="text-red-600">{shippingError}</span>
+              ) : shippingCost === null ? (
+                <span>Sélectionnez une wilaya</span>
+              ) : (
+                <span>{formatPrice(shippingCost)}</span>
+              )}
+            </div>
+            {shippingCost !== null && (
+              <div className="mt-2 flex items-center justify-between border-t border-black/10 pt-2 text-base font-semibold">
+                <span>Total estimé</span>
+                <span>{formatPrice(subtotal + shippingCost)}</span>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium">Code promo (facultatif)</label>
+              <input
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                placeholder="CODE2024"
+                className={`${inputClass} bg-white`}
+              />
+              <p className="mt-1 text-xs text-luna-charcoal/50">La réduction sera appliquée et affichée sur la confirmation.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

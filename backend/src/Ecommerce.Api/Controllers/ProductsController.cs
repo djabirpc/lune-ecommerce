@@ -26,9 +26,10 @@ public class ProductsController(IProductService productService) : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeInactive = false,
+        [FromQuery] bool sortByNewest = false,
         CancellationToken cancellationToken = default)
     {
-        var result = await productService.GetPagedAsync(category, page, pageSize, includeInactive, cancellationToken);
+        var result = await productService.GetPagedAsync(category, page, pageSize, includeInactive, sortByNewest, cancellationToken);
         return Ok(result);
     }
 

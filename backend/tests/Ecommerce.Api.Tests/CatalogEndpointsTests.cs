@@ -47,6 +47,34 @@ public class CatalogEndpointsTests(AuthWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task GetProducts_SortByNewest_ReturnsMostRecentlyCreatedFirst()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Cat {unique}", $"cat-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var olderResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, $"Ancien produit {unique}", $"ancien-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-OLD-{unique}", null, 1)]));
+        var older = await olderResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        var newerResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category.Id, $"Nouveau produit {unique}", $"nouveau-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-NEW-{unique}", null, 1)]));
+        var newer = await newerResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        var response = await client.GetAsync($"/api/products?category={category.Slug}&sortByNewest=true&pageSize=2");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<ProductListItemDto>>();
+
+        Assert.Equal(2, result!.Items.Count);
+        Assert.Equal(newer!.Id, result.Items[0].Id);
+        Assert.Equal(older!.Id, result.Items[1].Id);
+    }
+
+    [Fact]
     public async Task FullFlow_CreateCategoryProductAndManageStock_Succeeds()
     {
         var client = await CreateAuthenticatedClientAsync();

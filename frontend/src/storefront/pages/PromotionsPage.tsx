@@ -12,7 +12,7 @@ export function PromotionsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="mb-6 text-xl font-semibold text-luna-black">Promotions</h1>
+      <h1 className="mb-6 font-display text-2xl italic text-luna-black">Promotions</h1>
 
       {isLoading && <p className="text-sm text-luna-charcoal/60">Chargement...</p>}
 
@@ -22,10 +22,10 @@ export function PromotionsPage() {
 
       <div className="flex flex-col gap-3">
         {promotions?.map((promo) => (
-          <div key={promo.id} className="rounded-lg border border-black/10 p-4">
+          <div key={promo.id} className="rounded-2xl border border-black/10 p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="font-medium text-luna-black">{promo.name}</h2>
-              <span className="shrink-0 rounded-full bg-luna-cream px-3 py-1 text-xs font-medium text-luna-black">
+              <h2 className="font-display text-lg italic text-luna-black">{promo.name}</h2>
+              <span className="shrink-0 rounded-full bg-luna-accent px-3 py-1 text-xs font-semibold text-white">
                 {promo.percentageValue
                   ? `-${promo.percentageValue}%`
                   : promo.fixedAmountValue
@@ -33,8 +33,8 @@ export function PromotionsPage() {
                     : PROMOTION_TYPE_LABELS[promo.type]}
               </span>
             </div>
-            {promo.description && <p className="mt-1 text-sm text-luna-charcoal/70">{promo.description}</p>}
-            <p className="mt-2 text-xs text-luna-charcoal/50">
+            {promo.description && <p className="mt-1.5 text-sm text-luna-charcoal/70">{promo.description}</p>}
+            <p className="mt-3 text-xs text-luna-charcoal/50">
               Jusqu'au {new Date(promo.endsAtUtc).toLocaleDateString('fr-FR')}
             </p>
           </div>

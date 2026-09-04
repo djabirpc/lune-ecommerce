@@ -22,16 +22,17 @@ export function CategoriesPage() {
   }
 
   return (
-    <div className="px-4 py-10">
-      <h1 className="mb-6 text-xl font-semibold">Catégories</h1>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {categories.map((category) => (
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <h1 className="mb-6 font-display text-2xl italic text-luna-black">Catégories</h1>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {categories.map((category, index) => (
           <Link
             key={category.id}
             to={`/category/${category.slug}`}
-            className="flex items-center justify-center rounded-lg bg-luna-cream px-4 py-8 text-center text-sm font-medium hover:bg-luna-cream/70"
+            className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-2xl text-center transition hover:opacity-90"
+            style={{ backgroundColor: index % 2 === 0 ? 'var(--color-luna-rose)' : 'var(--color-luna-cream)' }}
           >
-            {category.name}
+            <span className="font-display text-lg italic text-luna-black">{category.name}</span>
           </Link>
         ))}
       </div>

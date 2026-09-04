@@ -99,129 +99,156 @@ export function ProductPage() {
     setJustAdded(true);
   }
 
+  const canAddToCart = Boolean(selectedVariant && selectedVariant.availableQuantity > 0);
+
   return (
-    <div className="grid gap-6 px-4 py-8 sm:grid-cols-2 sm:gap-10 sm:px-8">
-      <div>
-        <div className="aspect-[3/4] overflow-hidden rounded-lg bg-luna-cream">
-          {displayedImage ? (
-            <img src={displayedImage.url} alt={displayedImage.altText ?? product.name} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
+    <div className="pb-28 sm:pb-0">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:grid-cols-2 sm:gap-10 sm:px-6 sm:py-10 lg:px-8">
+        <div>
+          <div className="aspect-[3/4] overflow-hidden rounded-xl bg-luna-cream">
+            {displayedImage ? (
+              <img src={displayedImage.url} alt={displayedImage.altText ?? product.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
+            )}
+          </div>
+
+          {product.images.length > 1 && (
+            <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+              {product.images.map((image) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() => setSelectedImageId(image.id)}
+                  aria-label={image.altText ?? product.name}
+                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${
+                    displayedImage?.id === image.id ? 'border-luna-black' : 'border-transparent'
+                  }`}
+                >
+                  <img src={image.url} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
-        {product.images.length > 1 && (
-          <div className="mt-3 flex gap-2 overflow-x-auto">
-            {product.images.map((image) => (
-              <button
-                key={image.id}
-                type="button"
-                onClick={() => setSelectedImageId(image.id)}
-                aria-label={image.altText ?? product.name}
-                className={`h-16 w-16 shrink-0 overflow-hidden rounded border-2 ${
-                  displayedImage?.id === image.id ? 'border-luna-black' : 'border-transparent'
-                }`}
-              >
-                <img src={image.url} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        <div>
+          <h1 className="font-display text-2xl italic text-luna-black">{product.name}</h1>
+          <p className="mt-2 text-xl font-medium text-luna-accent-dark">{formatPrice(selectedVariant?.price ?? product.price)}</p>
+          {product.description && <p className="mt-4 text-sm leading-relaxed text-luna-charcoal/70">{product.description}</p>}
 
-      <div>
-        <h1 className="text-xl font-semibold text-luna-black">{product.name}</h1>
-        <p className="mt-1 text-lg">{formatPrice(selectedVariant?.price ?? product.price)}</p>
-        {product.description && <p className="mt-4 text-sm text-luna-charcoal/70">{product.description}</p>}
-
-        <div className="mt-6">
-          <p className="mb-2 text-sm font-medium">Couleur</p>
-          <div className="flex flex-wrap gap-2">
-            {colors.map((color) => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => handleColorSelect(color)}
-                className={`rounded-full border px-4 py-2 text-sm ${
-                  selectedColor === color ? 'border-luna-black bg-luna-black text-white' : 'border-black/20'
-                }`}
-              >
-                {color}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selectedColor && (
-          <div className="mt-4">
-            <p className="mb-2 text-sm font-medium">Taille</p>
+          <div className="mt-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Couleur</p>
             <div className="flex flex-wrap gap-2">
-              {sizesForColor.map((size) => (
+              {colors.map((color) => (
                 <button
-                  key={size}
+                  key={color}
                   type="button"
-                  onClick={() => handleSizeSelect(size)}
-                  className={`rounded-full border px-4 py-2 text-sm ${
-                    selectedSize === size ? 'border-luna-black bg-luna-black text-white' : 'border-black/20'
+                  onClick={() => handleColorSelect(color)}
+                  className={`rounded-full border px-4 py-2 text-sm transition ${
+                    selectedColor === color ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 hover:border-luna-black'
                   }`}
                 >
-                  {size}
+                  {color}
                 </button>
               ))}
             </div>
           </div>
-        )}
 
-        {selectedVariant && (
-          <div className="mt-4 text-sm">
-            {selectedVariant.availableQuantity > 0 ? (
-              <p className="text-green-700">En stock ({selectedVariant.availableQuantity} disponibles)</p>
-            ) : (
-              <p className="text-red-600">Rupture de stock</p>
+          {selectedColor && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Taille</p>
+              <div className="flex flex-wrap gap-2">
+                {sizesForColor.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => handleSizeSelect(size)}
+                    className={`rounded-full border px-4 py-2 text-sm transition ${
+                      selectedSize === size ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 hover:border-luna-black'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedVariant && (
+            <div className="mt-4 text-sm">
+              {selectedVariant.availableQuantity > 0 ? (
+                <p className="text-green-700">En stock ({selectedVariant.availableQuantity} disponibles)</p>
+              ) : (
+                <p className="text-red-600">Rupture de stock</p>
+              )}
+            </div>
+          )}
+
+          {selectedVariant && selectedVariant.availableQuantity > 0 && (
+            <div className="mt-4 flex items-center gap-3">
+              <label htmlFor="quantity" className="text-sm font-medium">
+                Quantité
+              </label>
+              <select
+                id="quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+                className="rounded-lg border border-black/15 px-3 py-1.5 text-sm"
+              >
+                {Array.from({ length: Math.min(10, selectedVariant.availableQuantity) }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Desktop / tablet CTA */}
+          <div className="mt-6 hidden flex-col gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!canAddToCart}
+              className="rounded-full bg-luna-black px-6 py-3.5 text-sm font-medium text-white transition hover:bg-luna-charcoal disabled:opacity-40"
+            >
+              {selectedVariant ? 'Ajouter au panier' : 'Choisissez une couleur et une taille'}
+            </button>
+
+            {justAdded && (
+              <button
+                type="button"
+                onClick={() => navigate('/checkout')}
+                className="rounded-full border border-luna-black px-6 py-3.5 text-sm font-medium transition hover:bg-luna-black hover:text-white"
+              >
+                Ajouté — Acheter maintenant
+              </button>
             )}
           </div>
-        )}
+        </div>
+      </div>
 
-        {selectedVariant && selectedVariant.availableQuantity > 0 && (
-          <div className="mt-4 flex items-center gap-3">
-            <label htmlFor="quantity" className="text-sm font-medium">
-              Quantité
-            </label>
-            <select
-              id="quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              className="rounded border border-black/20 px-2 py-1 text-sm"
-            >
-              {Array.from({ length: Math.min(10, selectedVariant.availableQuantity) }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className="mt-6 flex flex-col gap-2">
+      {/* Sticky mobile CTA bar — keeps the primary action reachable without scrolling back up */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 p-3 backdrop-blur sm:hidden">
+        {justAdded ? (
+          <button
+            type="button"
+            onClick={() => navigate('/checkout')}
+            className="w-full rounded-full bg-luna-accent px-6 py-3.5 text-sm font-medium text-white"
+          >
+            Ajouté — Acheter maintenant
+          </button>
+        ) : (
           <button
             type="button"
             onClick={handleAddToCart}
-            disabled={!selectedVariant || selectedVariant.availableQuantity < 1}
-            className="rounded-full bg-luna-black px-6 py-3 text-sm text-white disabled:opacity-40"
+            disabled={!canAddToCart}
+            className="w-full rounded-full bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
           >
-            {selectedVariant ? 'Ajouter au panier' : 'Choisissez une couleur et une taille'}
+            {selectedVariant ? `Ajouter au panier — ${formatPrice((selectedVariant?.price ?? product.price) * quantity)}` : 'Choisissez une couleur et une taille'}
           </button>
-
-          {justAdded && (
-            <button
-              type="button"
-              onClick={() => navigate('/checkout')}
-              className="rounded-full border border-luna-black px-6 py-3 text-sm"
-            >
-              Ajouté — Acheter maintenant
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
