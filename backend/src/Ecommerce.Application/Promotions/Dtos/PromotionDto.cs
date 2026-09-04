@@ -15,4 +15,6 @@ public record PromotionDto(
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,
     bool IsActive,
-    int Priority);
+    int Priority,
+    IReadOnlyList<Guid> ProductIds,
+    IReadOnlyList<Guid> CategoryIds);

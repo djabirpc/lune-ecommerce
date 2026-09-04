@@ -1,25 +1,38 @@
 @import "tailwindcss";
 
+/*
+ * Luna — design system (storefront). Palette: warm off-white / near-black / dark warm charcoal
+ * + coral accent. Type: Cormorant Garamond (display serif) + Jost (geometric sans).
+ * Values match the "belle-mode" reference design (github.com/djabirpc/belle-mode).
+ */
 @theme {
-  --color-luna-cream: #faf7f2;
-  --color-luna-cream-dark: #f1ebe1;
-  --color-luna-black: #16151a;
-  --color-luna-charcoal: #2c2b30;
-  --color-luna-accent: #e8837a;
-  --color-luna-accent-dark: #d96c62;
-  --color-luna-rose: #fdf1ee;
+  --color-luna-cream: oklch(0.977 0.006 84);
+  --color-luna-cream-dark: oklch(0.93 0.018 78);
+  --color-luna-black: oklch(0.19 0.005 60);
+  --color-luna-charcoal: oklch(0.32 0.01 60);
+  --color-luna-accent: oklch(0.685 0.14 28);
+  --color-luna-accent-dark: oklch(0.58 0.15 26);
+  --color-luna-rose: oklch(0.95 0.03 30);
 
-  --font-display: "Fraunces", "Georgia", serif;
-  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Cormorant Garamond", "Georgia", serif;
+  --font-sans: "Jost", "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
-  @apply bg-white text-luna-black antialiased;
+  @apply bg-luna-cream text-luna-black antialiased;
   font-family: var(--font-sans);
 }
 
 .font-display {
   font-family: var(--font-display);
+}
+
+@utility eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-luna-charcoal);
+  opacity: 0.65;
 }
 
 /* Hide scrollbars on horizontally-scrollable rows (thumbnail strips, chip lists) while keeping them scrollable */

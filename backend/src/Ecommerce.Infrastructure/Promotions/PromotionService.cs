@@ -96,7 +96,10 @@ public class PromotionService(
         page = page < 1 ? 1 : page;
         pageSize = pageSize is < 1 or > 100 ? 20 : pageSize;
 
-        var query = dbContext.Promotions.AsNoTracking();
+        var query = dbContext.Promotions.AsNoTracking()
+            .Include(p => p.Products)
+            .Include(p => p.Categories)
+            .AsQueryable();
 
         if (!includeInactive)
         {
@@ -121,6 +124,8 @@ public class PromotionService(
         var now = DateTime.UtcNow;
 
         return await dbContext.Promotions.AsNoTracking()
+            .Include(p => p.Products)
+            .Include(p => p.Categories)
             .Where(p => p.IsActive && p.Type != PromotionType.Coupon && p.StartsAtUtc <= now && p.EndsAtUtc >= now)
             .OrderByDescending(p => p.Priority)
             .Select(p => ToDto(p))
@@ -169,7 +174,9 @@ public class PromotionService(
         p.StartsAtUtc,
         p.EndsAtUtc,
         p.IsActive,
-        p.Priority);
+        p.Priority,
+        p.Products.Select(pp => pp.ProductId).ToList(),
+        p.Categories.Select(pc => pc.CategoryId).ToList());
 
     private static PromotionDetailDto ToDetailDto(Promotion p) => new(
         p.Id,

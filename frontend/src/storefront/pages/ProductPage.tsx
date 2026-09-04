@@ -1,22 +1,40 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
 
 import { catalogApi } from '../../lib/api/catalog';
+import { promotionsApi } from '../../lib/api/promotions';
+import { estimatePrice } from '../../lib/promotions/estimate';
+import { colorToHex } from '../../lib/format/colorSwatch';
 import { useCart } from '../../lib/cart/CartContext';
+import { useFavorites } from '../../lib/favorites/FavoritesContext';
 import { formatPrice } from '../../lib/format/price';
 import { initProductPixels, trackEvent } from '../../lib/marketing/pixels';
+import { ProductCard } from '../../lib/components/ProductCard';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
 
 export function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const { data: product, isLoading, isError } = useQuery({
     queryKey: ['product', slug],
     queryFn: () => catalogApi.getProductBySlug(slug!),
     enabled: !!slug,
+  });
+
+  const { data: activePromotions } = useQuery({
+    queryKey: ['active-promotions'],
+    queryFn: () => promotionsApi.getActive(),
+  });
+
+  const { data: relatedProducts } = useQuery({
+    queryKey: ['products', { category: product?.categorySlug }],
+    queryFn: () => catalogApi.getProducts({ category: product!.categorySlug, pageSize: 8 }),
+    enabled: !!product,
   });
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -60,6 +78,10 @@ export function ProductPage() {
 
   const primaryImage = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const displayedImage = product.images.find((i) => i.id === selectedImageId) ?? primaryImage;
+  const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: product.price }, activePromotions) : null;
+  const unitPrice = selectedVariant?.price ?? (estimate ? estimate.discountedPrice : product.price);
+  const fav = isFavorite(product.id);
+  const related = (relatedProducts?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
   function handleColorSelect(color: string) {
     setSelectedColor(color);
@@ -103,15 +125,33 @@ export function ProductPage() {
   const canAddToCart = Boolean(selectedVariant && selectedVariant.availableQuantity > 0);
 
   return (
-    <div className="pb-28 sm:pb-0">
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:grid-cols-2 sm:gap-10 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto max-w-6xl px-4 pb-28 sm:px-6 sm:pb-12 lg:px-8">
+      <nav className="py-4 text-xs text-luna-charcoal/60">
+        <Link to="/categories" className="hover:text-luna-black">
+          Boutique
+        </Link>
+        <span className="mx-1">/</span>
+        <span className="text-luna-black">{product.name}</span>
+      </nav>
+
+      <div className="grid gap-8 sm:grid-cols-2">
         <div>
-          <div className="aspect-[3/4] overflow-hidden rounded-xl bg-luna-cream">
+          <div className="relative aspect-[3/4] overflow-hidden rounded-sm bg-luna-cream-dark">
             {displayedImage ? (
               <img src={displayedImage.url} alt={displayedImage.altText ?? product.name} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
             )}
+            {estimate && (
+              <span className="absolute top-3 left-3 rounded-full bg-luna-accent px-2.5 py-1 text-xs text-white">-{estimate.percent}%</span>
+            )}
+            <button
+              onClick={() => toggleFavorite(product.id)}
+              aria-label="Ajouter aux favoris"
+              className="absolute top-3 right-3 rounded-full bg-white/90 p-2.5"
+            >
+              <Heart className={`h-4 w-4 ${fav ? 'fill-luna-accent text-luna-accent' : 'text-luna-black'}`} />
+            </button>
           </div>
 
           {product.images.length > 1 && (
@@ -122,7 +162,7 @@ export function ProductPage() {
                   type="button"
                   onClick={() => setSelectedImageId(image.id)}
                   aria-label={image.altText ?? product.name}
-                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${
+                  className={`h-20 w-16 shrink-0 overflow-hidden rounded-sm border ${
                     displayedImage?.id === image.id ? 'border-luna-black' : 'border-transparent'
                   }`}
                 >
@@ -134,101 +174,130 @@ export function ProductPage() {
         </div>
 
         <div>
-          <h1 className="font-display text-2xl italic text-luna-black">{product.name}</h1>
-          <p className="mt-2 text-xl font-medium text-luna-accent-dark">{formatPrice(selectedVariant?.price ?? product.price)}</p>
+          <h1 className="font-display text-3xl text-luna-black sm:text-4xl">{product.name}</h1>
+
+          <div className="mt-4 flex items-baseline gap-3">
+            <span className="text-2xl font-medium text-luna-black">{formatPrice(unitPrice)}</span>
+            {estimate && !selectedVariant?.price && (
+              <span className="text-sm text-luna-charcoal/50 line-through">{formatPrice(estimate.compareAtPrice)}</span>
+            )}
+          </div>
+
           {product.description && <p className="mt-4 text-sm leading-relaxed text-luna-charcoal/70">{product.description}</p>}
 
           <div className="mt-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Couleur</p>
+            <p className="eyebrow mb-2">Couleur{selectedColor ? ` : ${selectedColor}` : ''}</p>
             <div className="flex flex-wrap gap-2">
               {colors.map((color) => (
                 <button
                   key={color}
                   type="button"
                   onClick={() => handleColorSelect(color)}
-                  className={`rounded-full border px-4 py-2 text-sm transition ${
-                    selectedColor === color ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 hover:border-luna-black'
-                  }`}
-                >
-                  {color}
-                </button>
+                  title={color}
+                  className={`h-9 w-9 rounded-full border-2 ${selectedColor === color ? 'border-luna-black' : 'border-black/15'}`}
+                  style={{ backgroundColor: colorToHex(color) }}
+                />
               ))}
             </div>
           </div>
 
           {selectedColor && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Taille</p>
+            <div className="mt-6">
+              <p className="eyebrow mb-2">Taille</p>
               <div className="flex flex-wrap gap-2">
                 {sizesForColor.map((size) => (
                   <button
                     key={size}
                     type="button"
                     onClick={() => handleSizeSelect(size)}
-                    className={`rounded-full border px-4 py-2 text-sm transition ${
-                      selectedSize === size ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 hover:border-luna-black'
+                    className={`h-11 min-w-14 rounded-sm border text-sm transition-colors ${
+                      selectedSize === size ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 hover:bg-luna-cream-dark'
                     }`}
                   >
                     {size}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {selectedVariant && (
-            <div className="mt-4 text-sm">
-              {selectedVariant.availableQuantity > 0 ? (
-                <p className="text-green-700">En stock ({selectedVariant.availableQuantity} disponibles)</p>
-              ) : (
-                <p className="text-red-600">Rupture de stock</p>
+              {selectedVariant && selectedVariant.availableQuantity > 0 && selectedVariant.availableQuantity <= 3 && (
+                <p className="mt-2 text-xs text-luna-accent">Plus que {selectedVariant.availableQuantity} en stock — commandez vite</p>
+              )}
+              {selectedVariant && selectedVariant.availableQuantity === 0 && (
+                <p className="mt-2 text-xs text-luna-charcoal/60">Taille épuisée</p>
               )}
             </div>
           )}
 
           {selectedVariant && selectedVariant.availableQuantity > 0 && (
-            <div className="mt-4 flex items-center gap-3">
-              <label htmlFor="quantity" className="text-sm font-medium">
-                Quantité
-              </label>
-              <select
-                id="quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                className="rounded-lg border border-black/15 px-3 py-1.5 text-sm"
+            <div className="mt-6 flex items-center gap-3">
+              <div className="flex items-center rounded-sm border border-black/15">
+                <button className="p-3" aria-label="Diminuer" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <span className="w-8 text-center text-sm">{quantity}</span>
+                <button
+                  className="p-3"
+                  aria-label="Augmenter"
+                  onClick={() => setQuantity((q) => Math.min(selectedVariant.availableQuantity, q + 1))}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={!canAddToCart}
+                className="h-12 flex-1 rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
               >
-                {Array.from({ length: Math.min(10, selectedVariant.availableQuantity) }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+                Ajouter au panier
+              </button>
             </div>
           )}
 
-          {/* Desktop / tablet CTA */}
-          <div className="mt-6 hidden flex-col gap-2 sm:flex">
+          {justAdded && (
             <button
               type="button"
-              onClick={handleAddToCart}
-              disabled={!canAddToCart}
-              className="rounded-full bg-luna-black px-6 py-3.5 text-sm font-medium text-white transition hover:bg-luna-charcoal disabled:opacity-40"
+              onClick={() => navigate('/checkout')}
+              className="mt-3 hidden h-12 w-full rounded-sm bg-luna-black text-sm font-medium text-white sm:inline-flex sm:items-center sm:justify-center"
             >
-              {selectedVariant ? 'Ajouter au panier' : 'Choisissez une couleur et une taille'}
+              Acheter maintenant — Paiement à la livraison
             </button>
+          )}
 
-            {justAdded && (
-              <button
-                type="button"
-                onClick={() => navigate('/checkout')}
-                className="rounded-full border border-luna-black px-6 py-3.5 text-sm font-medium transition hover:bg-luna-black hover:text-white"
-              >
-                Ajouté — Acheter maintenant
-              </button>
-            )}
+          <div className="mt-6 grid gap-3 rounded-sm bg-luna-cream-dark p-4 text-xs text-luna-black">
+            <p className="flex items-center gap-2">
+              <Truck className="h-4 w-4 shrink-0" /> Livraison dans les 58 wilayas, 2 à 5 jours
+            </p>
+            <p className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 shrink-0" /> Paiement à la livraison (COD), sans avance
+            </p>
+            <p className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 shrink-0" /> Échange sous 7 jours
+            </p>
           </div>
+
+          <details className="group mt-6 border-t border-black/10 py-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between text-sm text-luna-black">
+              Livraison &amp; retours
+              <span className="text-luna-charcoal/50 transition group-open:rotate-45">+</span>
+            </summary>
+            <p className="mt-2 text-sm text-luna-charcoal/70">
+              Livraison à domicile ou en point de retrait via nos partenaires. Vous payez à la réception. Échange possible sous 7
+              jours si l'article n'a pas été porté.
+            </p>
+          </details>
         </div>
       </div>
+
+      {related.length > 0 && (
+        <section className="mt-16">
+          <h2 className="mb-5 font-display text-2xl text-luna-black">Vous aimerez aussi</h2>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
+            {related.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Sticky mobile CTA bar — keeps the primary action reachable without scrolling back up */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 p-3 backdrop-blur sm:hidden">
@@ -236,7 +305,7 @@ export function ProductPage() {
           <button
             type="button"
             onClick={() => navigate('/checkout')}
-            className="w-full rounded-full bg-luna-accent px-6 py-3.5 text-sm font-medium text-white"
+            className="w-full rounded-sm bg-luna-accent px-6 py-3.5 text-sm font-medium text-white"
           >
             Ajouté — Acheter maintenant
           </button>
@@ -245,9 +314,9 @@ export function ProductPage() {
             type="button"
             onClick={handleAddToCart}
             disabled={!canAddToCart}
-            className="w-full rounded-full bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
+            className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
           >
-            {selectedVariant ? `Ajouter au panier — ${formatPrice((selectedVariant?.price ?? product.price) * quantity)}` : 'Choisissez une couleur et une taille'}
+            {selectedVariant ? `Ajouter — ${formatPrice(unitPrice * quantity)}` : 'Choisissez une couleur et une taille'}
           </button>
         )}
       </div>

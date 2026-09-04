@@ -42,9 +42,14 @@ export interface ProductListItemDto {
   slug: string;
   price: number;
   primaryImageUrl: string | null;
+  categoryId: string;
   categoryName: string;
   categorySlug: string;
   isActive: boolean;
+  createdAtUtc: string;
+  colors: string[];
+  sizes: string[];
+  isInStock: boolean;
 }
 
 export interface ProductImageDto {
@@ -472,6 +477,8 @@ export interface PromotionDto {
   endsAtUtc: string;
   isActive: boolean;
   priority: number;
+  productIds: string[];
+  categoryIds: string[];
 }
 
 export interface PromotionDetailDto {

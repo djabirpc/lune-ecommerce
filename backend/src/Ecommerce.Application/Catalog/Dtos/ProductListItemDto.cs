@@ -6,6 +6,11 @@ public record ProductListItemDto(
     string Slug,
     decimal Price,
     string? PrimaryImageUrl,
+    Guid CategoryId,
     string CategoryName,
     string CategorySlug,
-    bool IsActive);
+    bool IsActive,
+    DateTime CreatedAtUtc,
+    IReadOnlyList<string> Colors,
+    IReadOnlyList<string> Sizes,
+    bool IsInStock);

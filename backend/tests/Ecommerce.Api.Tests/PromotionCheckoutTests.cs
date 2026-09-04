@@ -356,4 +356,60 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         Assert.Single(order.AppliedPromotions);
         Assert.Equal("Livraison gratuite", order.AppliedPromotions[0].PromotionName);
     }
+
+    [Fact]
+    public async Task GetActive_ReturnsProductAndCategoryScoping()
+    {
+        // Regression test: GetActiveAsync/GetPagedAsync originally queried Promotions without
+        // .Include(p => p.Products)/.Include(p => p.Categories), so PromotionDto.ProductIds/
+        // CategoryIds always came back empty even when real scoping rows existed in the database —
+        // the storefront's client-side "does this product have an active promo" matching silently
+        // never matched anything as a result.
+        var (_, productId, categoryId, adminClient) = await CreateProductWithStockAsync(5);
+
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Promo produit scoping",
+            null,
+            PromotionType.ProductDiscount,
+            15m,
+            null,
+            null,
+            null,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [productId],
+            []));
+
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Promo catégorie scoping",
+            null,
+            PromotionType.CategoryDiscount,
+            20m,
+            null,
+            null,
+            null,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [],
+            [categoryId]));
+
+        var guestClient = factory.CreateClient();
+        var activeResponse = await guestClient.GetAsync("/api/promotions/active");
+        activeResponse.EnsureSuccessStatusCode();
+        var active = (await activeResponse.Content.ReadFromJsonAsync<List<PromotionDto>>(JsonOptions))!;
+
+        var productPromo = active.Single(p => p.Name == "Promo produit scoping");
+        Assert.Contains(productId, productPromo.ProductIds);
+        Assert.Empty(productPromo.CategoryIds);
+
+        var categoryPromo = active.Single(p => p.Name == "Promo catégorie scoping");
+        Assert.Contains(categoryId, categoryPromo.CategoryIds);
+        Assert.Empty(categoryPromo.ProductIds);
+    }
 }

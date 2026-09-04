@@ -40,6 +40,21 @@
 - Also hit a Docker/tooling gotcha (not an app bug): after rebuilding only the `backend` container, the already-running `frontend` container's Vite dev server kept serving a stale pre-edit transform of `router.tsx`/`AdminLayout.tsx` — chokidar doesn't reliably detect file changes over a Windows Docker bind mount. Fixed with `docker compose restart frontend`; documented in PROJECT_CONTEXT.md Known Issues as a general rule for future sessions.
 - Fixed a second real bug, this one reported directly by the user in production use: the order-return status transition — see the "Return-reason tracking" entry above and PROJECT_CONTEXT.md Known Issues for the full root-cause writeup.
 
+- **Storefront redesign v2, reference-implemented from an external Lovable prototype ("belle-mode")**: the user pointed at `github.com/djabirpc/belle-mode` (an independently-generated prototype with the same business brief) as a design they liked; recreated its visual language (warm off-white/coral OKLCH palette, Cormorant Garamond + Jost fonts, sharp `rounded-sm` corners) using this project's existing Tailwind component stack — no shadcn/ui/Radix/TanStack Router adopted, per the user's explicit choice. New `lucide-react` dependency (icons only). Every existing storefront page rebuilt against **real** backend data (no fake ratings/best-sellers/testimonials/free-shipping-threshold, none of which exist in this project's real data model). New: `FavoritesContext` (localStorage), `/favoris` route, `MobileTabBar` (fixed 5-tab bottom nav, hidden on product/cart/checkout), `lib/promotions/estimate.ts` (client-side discount preview, display-only), `lib/format/colorSwatch.ts`, `lib/components/Countdown.tsx`. Backend: additive DTO fields only, no migration — `ProductListItemDto` gained `categoryId`/`createdAtUtc`/`colors`/`sizes`/`isInStock`; `PromotionDto` gained `productIds`/`categoryIds`. Reset the dev Postgres/uploads volumes and reseeded a fresh 5-category/16-product/3-promotion demo catalog reusing the reference repo's own bundled product photos.
+
+### Fixed
+- **Real bug found during this work**: `PromotionService.GetActiveAsync`/`GetPagedAsync` queried `Promotions` without `.Include(p => p.Products)`/`.Include(p => p.Categories)`, so the new `PromotionDto.ProductIds`/`CategoryIds` silently came back empty (`[]`) despite correct underlying join-table data — confirmed via a direct `psql` query showing real rows while the API returned empty arrays. No exception was thrown (unlike the well-known `GroupBy` translation failure), which is what made it easy to miss. Fixed by adding the same `.Include()` calls `GetByIdAsync` already used correctly. New regression test `PromotionCheckoutTests.GetActive_ReturnsProductAndCategoryScoping`.
+
+### API
+- `GET /api/products`: `ProductListItemDto` gained `categoryId`, `createdAtUtc`, `colors`, `sizes`, `isInStock`.
+- `GET /api/promotions/active`, admin `GET /api/promotions`: `PromotionDto` gained `productIds`, `categoryIds`.
+
+### Database
+- No migration — all changes above are additive DTO fields computed from existing columns via the existing EF Core query projections.
+
+### Frontend
+- New `FavoritesPage` (`/favoris`), `FavoritesContext`, `MobileTabBar`. Rebuilt `StorefrontLayout`, `ProductCard`, `HomePage`, `CategoriesPage`, `CategoryPage` (real filters), `ProductPage`, `CartPage`, `PromotionsPage`. New design tokens (palette + fonts) in `index.css`/`index.html`. New `lucide-react` dependency.
+
 ## [2026-09-03]
 
 ### Added

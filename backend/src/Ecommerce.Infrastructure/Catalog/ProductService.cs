@@ -158,9 +158,14 @@ public class ProductService(
                 p.Slug,
                 p.Price,
                 p.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault(),
+                p.CategoryId,
                 p.Category.Name,
                 p.Category.Slug,
-                p.IsActive))
+                p.IsActive,
+                p.CreatedAtUtc,
+                p.Variants.Where(v => v.IsActive).Select(v => v.Color).Distinct().ToList(),
+                p.Variants.Where(v => v.IsActive).Select(v => v.Size).Distinct().ToList(),
+                p.Variants.Where(v => v.IsActive).Any(v => v.Inventory != null && v.Inventory.AvailableQuantity > 0)))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<ProductListItemDto>(items, page, pageSize, totalCount);

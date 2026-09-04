@@ -12,6 +12,7 @@ import { OrderConfirmationPage } from '../storefront/pages/OrderConfirmationPage
 import { TrackOrderPage } from '../storefront/pages/TrackOrderPage';
 import { OrdersPage as StorefrontOrdersPage } from '../storefront/pages/OrdersPage';
 import { AccountPage } from '../storefront/pages/AccountPage';
+import { FavoritesPage } from '../storefront/pages/FavoritesPage';
 
 import { RequireAdminAuth } from '../lib/auth/RequireAdminAuth';
 import { AdminLayout } from '../admin/layout/AdminLayout';
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: 'track-order', element: <TrackOrderPage /> },
       { path: 'orders', element: <StorefrontOrdersPage /> },
       { path: 'account', element: <AccountPage /> },
+      { path: 'favoris', element: <FavoritesPage /> },
     ],
   },
   {
