@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../lib/api/catalog';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
-import { trackEvent } from '../../lib/marketing/pixels';
+import { initProductPixels, trackEvent } from '../../lib/marketing/pixels';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
 
 export function ProductPage() {
@@ -41,6 +41,7 @@ export function ProductPage() {
 
   useEffect(() => {
     if (product) {
+      initProductPixels(product.facebookPixelId, product.tikTokPixelId);
       trackEvent('VIEW_CONTENT', { content_name: product.name, content_ids: [product.slug], value: product.price, currency: 'DZD' });
     }
   }, [product]);

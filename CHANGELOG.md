@@ -1,5 +1,31 @@
 # Changelog
 
+## [2026-09-04]
+
+### Added
+- **Suppliers + purchase-cost/margin tracking**: new `Supplier` domain entity (`Ecommerce.Domain.Inventory`) — `Name`/`Phone`/`Email`/`Address`/`Notes`/`IsActive`. `ISupplierService`/`SupplierService`/`SuppliersController` (`CatalogManagers` role) — `GET/POST /api/suppliers`, `PUT /api/suppliers/{id}`; no delete endpoint, deactivate-only (the `SupplierId` FK on `InventoryTransaction` is `Restrict`, so a supplier can never be deleted out from under restock history).
+- `ProductVariant.CostPrice` (nullable, purchase price) — settable at variant creation (`CreateProductVariantRequest.CostPrice`) and **overwritten** (not averaged) by every restock that supplies a `unitCost`.
+- `InventoryTransaction.SupplierId`/`UnitCost` (both nullable, only meaningful for `RESTOCK`) — `POST /api/inventory/restock` now accepts optional `supplierId`/`unitCost`; `404` if `supplierId` doesn't match an existing supplier. `InventoryTransactionDto` gained `supplierId`/`supplierName`/`unitCost`.
+- **Per-product Facebook/TikTok Pixel IDs**: `Product.FacebookPixelId`/`TikTokPixelId` (nullable, max 50). `POST /api/products`/`PUT /api/products/{id}` accept them; `ProductDetailDto` returns them. When set, the storefront product page inits that Pixel ID **in addition to** the site-wide `VITE_META_PIXEL_ID`/`VITE_TIKTOK_PIXEL_ID` one (both receive every tracking event), not instead of it.
+- Migration `AddSuppliersAndCostTrackingAndProductPixels` — adds `ProductVariants.CostPrice`, `Products.FacebookPixelId`/`TikTokPixelId`, `InventoryTransactions.SupplierId`/`UnitCost`, creates `Suppliers`.
+- `SuppliersTests` (5 new tests) + 4 new `CatalogEndpointsTests` (restock with supplier/cost updates `CostPrice` and records both on the transaction; restock with an unknown supplier returns `404`; product creation/update persist pixel IDs). Backend suite grew to 126/126 (49 unit + 77 integration).
+- **Frontend**: new `/admin/suppliers` page (create/edit form + list, deactivate not delete), "Fournisseurs" nav link. `ProductVariantsPanel`'s restock row gained a supplier picker + purchase-price input; the variant table gained Prix d'achat/Prix de vente/Marge columns (margin computed client-side). `CreateProductForm`/`EditProductForm` gained optional Facebook/TikTok Pixel ID fields. `lib/marketing/pixels.ts` gained `initProductPixels()`; the TikTok stub was rewritten to match TikTok's real public base-code pattern (self-queuing methods) after the naive version crashed the storefront product page when a product pixel was actually configured (see Notes).
+
+### API
+- `GET/POST /api/suppliers`, `PUT /api/suppliers/{id}` added (see Added).
+- `POST /api/inventory/restock` gained optional `supplierId`/`unitCost`; `InventoryTransactionDto` gained `supplierId`/`supplierName`/`unitCost`.
+- `POST /api/products`/`PUT /api/products/{id}` gained optional `facebookPixelId`/`tikTokPixelId`; `ProductDetailDto` and `CreateProductVariantRequest`/`ProductVariantDto` gained `costPrice`.
+
+### Database
+- Migration `AddSuppliersAndCostTrackingAndProductPixels`: new `Suppliers` table; adds `ProductVariants.CostPrice`, `Products.FacebookPixelId`/`TikTokPixelId`, `InventoryTransactions.SupplierId`(FK, indexed)/`UnitCost`.
+
+### Frontend
+- New `SuppliersPage`, `suppliers.ts` API client. Extended `ProductVariantsPanel`, `CreateProductForm`, `EditProductForm`. `pixels.ts` gained `initProductPixels()` and a corrected TikTok stub.
+
+### Notes
+- Fixed a real app bug found during manual verification, not a test artifact: the original TikTok pixel stub set `window.ttq` to a bare `{}`, so `trackEvent()`'s `window.ttq?.track(...)` threw `TypeError: ... is not a function` and crashed `ProductPage` the first time a per-product TikTok Pixel ID was actually configured (this code path had never been exercised before, since no site-wide TikTok Pixel ID has ever been configured in this project). Fixed by rewriting the stub to match TikTok's real public base-code pattern (`window.ttq` starts as an array; every method is defined synchronously and queues its own call via `push` until the real script upgrades it in place) — see `ensureTikTokBaseCode()` in `lib/marketing/pixels.ts` and PROJECT_CONTEXT.md Known Issues.
+- Also hit a Docker/tooling gotcha (not an app bug): after rebuilding only the `backend` container, the already-running `frontend` container's Vite dev server kept serving a stale pre-edit transform of `router.tsx`/`AdminLayout.tsx` — chokidar doesn't reliably detect file changes over a Windows Docker bind mount. Fixed with `docker compose restart frontend`; documented in PROJECT_CONTEXT.md Known Issues as a general rule for future sessions.
+
 ## [2026-09-03]
 
 ### Added

@@ -6,4 +6,6 @@ public record UpdateProductRequest(
     string Slug,
     string? Description,
     decimal Price,
-    bool IsActive);
+    bool IsActive,
+    string? FacebookPixelId = null,
+    string? TikTokPixelId = null);

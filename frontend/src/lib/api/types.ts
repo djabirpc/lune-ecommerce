@@ -61,6 +61,7 @@ export interface ProductVariantDto {
   size: string;
   sku: string;
   price: number;
+  costPrice: number | null;
   isActive: boolean;
   availableQuantity: number;
 }
@@ -77,6 +78,8 @@ export interface ProductDetailDto {
   categorySlug: string;
   images: ProductImageDto[];
   variants: ProductVariantDto[];
+  facebookPixelId: string | null;
+  tikTokPixelId: string | null;
 }
 
 export interface PagedResult<T> {
@@ -106,6 +109,7 @@ export interface CreateProductVariantRequest {
   size: string;
   sku: string;
   priceOverride: number | null;
+  costPrice: number | null;
   initialQuantity: number;
 }
 
@@ -116,6 +120,8 @@ export interface CreateProductRequest {
   description: string | null;
   price: number;
   variants: CreateProductVariantRequest[];
+  facebookPixelId?: string | null;
+  tikTokPixelId?: string | null;
 }
 
 export interface UpdateProductRequest {
@@ -125,6 +131,8 @@ export interface UpdateProductRequest {
   description: string | null;
   price: number;
   isActive: boolean;
+  facebookPixelId?: string | null;
+  tikTokPixelId?: string | null;
 }
 
 export interface InventoryDto {
@@ -141,12 +149,47 @@ export interface RestockRequest {
   productVariantId: string;
   quantity: number;
   reason: string | null;
+  supplierId?: string | null;
+  unitCost?: number | null;
 }
 
 export interface AdjustInventoryRequest {
   productVariantId: string;
   quantityDelta: number;
   reason: string;
+}
+
+export interface InventoryTransactionDto {
+  id: string;
+  productVariantId: string;
+  type: string;
+  quantity: number;
+  reason: string | null;
+  supplierId: string | null;
+  supplierName: string | null;
+  unitCost: number | null;
+  createdAtUtc: string;
+}
+
+// --- Suppliers ---
+
+export interface SupplierDto {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  isActive: boolean;
+}
+
+export interface SaveSupplierRequest {
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  isActive: boolean;
 }
 
 export type DeliveryType = 'HomeDelivery' | 'StopDesk';

@@ -11,4 +11,6 @@ public record ProductDetailDto(
     string CategoryName,
     string CategorySlug,
     IReadOnlyList<ProductImageDto> Images,
-    IReadOnlyList<ProductVariantDto> Variants);
+    IReadOnlyList<ProductVariantDto> Variants,
+    string? FacebookPixelId,
+    string? TikTokPixelId);

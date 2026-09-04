@@ -6,5 +6,6 @@ public record ProductVariantDto(
     string Size,
     string Sku,
     decimal Price,
+    decimal? CostPrice,
     bool IsActive,
     int AvailableQuantity);

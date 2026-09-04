@@ -12,6 +12,8 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
         RuleFor(x => x.Slug).MustBeAValidSlug();
         RuleFor(x => x.Description).MaximumLength(4000);
         RuleFor(x => x.Price).GreaterThan(0);
+        RuleFor(x => x.FacebookPixelId).MaximumLength(50);
+        RuleFor(x => x.TikTokPixelId).MaximumLength(50);
         RuleFor(x => x.Variants).NotEmpty().WithMessage("Au moins une variante est requise.");
         RuleForEach(x => x.Variants).SetValidator(new CreateProductVariantRequestValidator());
         RuleFor(x => x.Variants)

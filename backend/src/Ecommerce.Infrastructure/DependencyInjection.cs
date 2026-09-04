@@ -6,6 +6,7 @@ using Ecommerce.Application.Marketing;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Promotions;
 using Ecommerce.Application.Shipping;
+using Ecommerce.Application.Suppliers;
 using Ecommerce.Application.Users;
 using Ecommerce.Infrastructure.Catalog;
 using Ecommerce.Infrastructure.Identity;
@@ -52,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
         services.AddScoped<IPromotionService, PromotionService>();

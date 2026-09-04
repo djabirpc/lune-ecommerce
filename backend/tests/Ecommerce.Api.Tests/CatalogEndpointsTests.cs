@@ -7,6 +7,7 @@ using Ecommerce.Application.Common;
 using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Inventory.Dtos;
+using Ecommerce.Application.Suppliers.Dtos;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ecommerce.Api.Tests;
@@ -255,5 +256,107 @@ public class CatalogEndpointsTests(AuthWebApplicationFactory factory) : IClassFi
             category.Id, product.Name, product.Slug, null, product.Price, true));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Restock_WithSupplierAndUnitCost_UpdatesVariantCostPrice_AndRecordsOnTransaction()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var supplierResponse = await client.PostAsJsonAsync("/api/suppliers", new SaveSupplierRequest($"Fournisseur {unique}", "0551234567", null, null, null, true));
+        var supplier = await supplierResponse.Content.ReadFromJsonAsync<SupplierDto>();
+
+        var productResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Robe test", $"robe-cout-{unique}", null, 4500m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 5)]));
+        var product = await productResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+        var variantId = product!.Variants.Single().Id;
+        Assert.Null(product.Variants.Single().CostPrice);
+
+        var restockResponse = await client.PostAsJsonAsync("/api/inventory/restock", new RestockRequest(
+            variantId, 10, "Réassort", supplier!.Id, 2200m));
+        restockResponse.EnsureSuccessStatusCode();
+
+        var refetched = await (await client.GetAsync($"/api/products/{product.Slug}")).Content.ReadFromJsonAsync<ProductDetailDto>();
+        Assert.Equal(2200m, refetched!.Variants.Single().CostPrice);
+
+        var transactionsResponse = await client.GetAsync($"/api/inventory/{variantId}/transactions");
+        transactionsResponse.EnsureSuccessStatusCode();
+        var transactions = await transactionsResponse.Content.ReadFromJsonAsync<List<InventoryTransactionDto>>();
+        var restockTransaction = transactions!.Single(t => t.Type == "RESTOCK" && t.Quantity == 10);
+        Assert.Equal(supplier.Id, restockTransaction.SupplierId);
+        Assert.Equal(supplier.Name, restockTransaction.SupplierName);
+        Assert.Equal(2200m, restockTransaction.UnitCost);
+    }
+
+    [Fact]
+    public async Task Restock_WithUnknownSupplier_ReturnsNotFound()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+        var productResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Robe test", $"robe-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 1)]));
+        var product = await productResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        var response = await client.PostAsJsonAsync("/api/inventory/restock", new RestockRequest(
+            product!.Variants.Single().Id, 5, null, Guid.NewGuid(), 100m));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateProduct_WithPixelIds_PersistsAndReturnsThem()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var response = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Robe pixel", $"robe-pixel-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 1)],
+            FacebookPixelId: "1234567890123",
+            TikTokPixelId: "CXXXXXXXXXXXXXXXXXXX"));
+        response.EnsureSuccessStatusCode();
+        var product = await response.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        Assert.Equal("1234567890123", product!.FacebookPixelId);
+        Assert.Equal("CXXXXXXXXXXXXXXXXXXX", product.TikTokPixelId);
+
+        var refetched = await (await client.GetAsync($"/api/products/{product.Slug}")).Content.ReadFromJsonAsync<ProductDetailDto>();
+        Assert.Equal("1234567890123", refetched!.FacebookPixelId);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_ChangesPixelIds()
+    {
+        var client = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Robes {unique}", $"robes-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+        var createResponse = await client.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Robe test", $"robe-{unique}", null, 1000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 1)]));
+        var product = await createResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+        Assert.Null(product!.FacebookPixelId);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/products/{product.Id}", new UpdateProductRequest(
+            category.Id, product.Name, product.Slug, null, product.Price, true,
+            FacebookPixelId: "999888777666", TikTokPixelId: null));
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+
+        Assert.Equal("999888777666", updated!.FacebookPixelId);
+        Assert.Null(updated.TikTokPixelId);
     }
 }

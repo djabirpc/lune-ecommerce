@@ -15,6 +15,8 @@ const productSchema = z.object({
   description: z.string().max(4000).optional(),
   price: z.coerce.number().positive('Le prix doit être supérieur à zéro.'),
   isActive: z.boolean(),
+  facebookPixelId: z.string().max(50).optional(),
+  tikTokPixelId: z.string().max(50).optional(),
 });
 
 type ProductFormInput = z.input<typeof productSchema>;
@@ -51,13 +53,20 @@ export function EditProductForm({ slug, onDone }: { slug: string; onDone: () => 
         description: product.description ?? '',
         price: product.price,
         isActive: product.isActive,
+        facebookPixelId: product.facebookPixelId ?? '',
+        tikTokPixelId: product.tikTokPixelId ?? '',
       });
     }
   }, [product, reset]);
 
   const updateProduct = useMutation({
     mutationFn: (values: ProductFormValues) =>
-      catalogApi.updateProduct(product!.id, { ...values, description: values.description || null }),
+      catalogApi.updateProduct(product!.id, {
+        ...values,
+        description: values.description || null,
+        facebookPixelId: values.facebookPixelId || null,
+        tikTokPixelId: values.tikTokPixelId || null,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['admin-product-detail', slug] });
@@ -115,6 +124,24 @@ export function EditProductForm({ slug, onDone }: { slug: string; onDone: () => 
           <input type="checkbox" {...register('isActive')} />
           Actif (visible sur la boutique)
         </label>
+
+        <div>
+          <p className="mb-2 text-xs font-medium">Pixels marketing (optionnel)</p>
+          <p className="mb-2 text-xs text-luna-charcoal/60">
+            Laissez vide pour n&apos;utiliser que le pixel du site. Si renseigné, ce pixel reçoit les événements en plus
+            du pixel du site.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-luna-charcoal/60">Facebook Pixel ID</label>
+              <input {...register('facebookPixelId')} className="w-full rounded border border-black/20 px-2 py-1 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-luna-charcoal/60">TikTok Pixel ID</label>
+              <input {...register('tikTokPixelId')} className="w-full rounded border border-black/20 px-2 py-1 text-sm" />
+            </div>
+          </div>
+        </div>
 
         <div className="flex items-center gap-3">
           <button

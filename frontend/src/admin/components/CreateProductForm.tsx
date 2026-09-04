@@ -11,6 +11,7 @@ const variantSchema = z.object({
   color: z.string().min(1, 'Requis').max(100),
   size: z.string().min(1, 'Requis').max(50),
   sku: z.string().min(1, 'Requis').max(64),
+  costPrice: z.coerce.number().min(0).optional(),
   initialQuantity: z.coerce.number().int().min(0),
 });
 
@@ -21,6 +22,8 @@ const productSchema = z.object({
   description: z.string().max(4000).optional(),
   price: z.coerce.number().positive('Le prix doit être supérieur à zéro.'),
   variants: z.array(variantSchema).min(1, 'Au moins une variante est requise.'),
+  facebookPixelId: z.string().max(50).optional(),
+  tikTokPixelId: z.string().max(50).optional(),
 });
 
 type ProductFormInput = z.input<typeof productSchema>;
@@ -52,7 +55,9 @@ export function CreateProductForm() {
       catalogApi.createProduct({
         ...values,
         description: values.description || null,
-        variants: values.variants.map((v) => ({ ...v, priceOverride: null })),
+        variants: values.variants.map((v) => ({ ...v, priceOverride: null, costPrice: v.costPrice ?? null })),
+        facebookPixelId: values.facebookPixelId || null,
+        tikTokPixelId: values.tikTokPixelId || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -63,6 +68,8 @@ export function CreateProductForm() {
         description: '',
         price: undefined,
         variants: [{ color: '', size: '', sku: '', initialQuantity: 0 }],
+        facebookPixelId: '',
+        tikTokPixelId: '',
       });
     },
   });
@@ -139,6 +146,15 @@ export function CreateProductForm() {
                   />
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs text-luna-charcoal/60">Prix d&apos;achat</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register(`variants.${index}.costPrice`)}
+                    className="w-24 rounded border border-black/20 px-2 py-1 text-sm"
+                  />
+                </div>
+                <div>
                   <label className="mb-1 block text-xs text-luna-charcoal/60">Stock initial</label>
                   <input
                     type="number"
@@ -166,6 +182,24 @@ export function CreateProductForm() {
             + Ajouter une variante
           </button>
           {errors.variants && <p className="mt-1 text-xs text-red-600">{errors.variants.root?.message}</p>}
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium">Pixels marketing (optionnel)</p>
+          <p className="mb-2 text-xs text-luna-charcoal/60">
+            Laissez vide pour n&apos;utiliser que le pixel du site. Si renseigné, ce pixel reçoit les événements en plus
+            du pixel du site.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-luna-charcoal/60">Facebook Pixel ID</label>
+              <input {...register('facebookPixelId')} className="w-full rounded border border-black/20 px-2 py-1 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-luna-charcoal/60">TikTok Pixel ID</label>
+              <input {...register('tikTokPixelId')} className="w-full rounded border border-black/20 px-2 py-1 text-sm" />
+            </div>
+          </div>
         </div>
 
         <button

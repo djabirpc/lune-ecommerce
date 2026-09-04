@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { to: '/admin/orders/confirmation', label: 'Confirmation' },
   { to: '/admin/products', label: 'Produits' },
   { to: '/admin/inventory', label: 'Stock' },
+  { to: '/admin/suppliers', label: 'Fournisseurs' },
   { to: '/admin/promotions', label: 'Promotions' },
   { to: '/admin/customers', label: 'Clients' },
   { to: '/admin/shipping', label: 'Livraison' },

@@ -11,6 +11,7 @@ public class CreateProductVariantRequestValidator : AbstractValidator<CreateProd
         RuleFor(x => x.Size).NotEmpty().MaximumLength(50);
         RuleFor(x => x.Sku).NotEmpty().MaximumLength(64);
         RuleFor(x => x.PriceOverride).GreaterThan(0).When(x => x.PriceOverride.HasValue);
+        RuleFor(x => x.CostPrice).GreaterThanOrEqualTo(0).When(x => x.CostPrice.HasValue);
         RuleFor(x => x.InitialQuantity).GreaterThanOrEqualTo(0);
     }
 }

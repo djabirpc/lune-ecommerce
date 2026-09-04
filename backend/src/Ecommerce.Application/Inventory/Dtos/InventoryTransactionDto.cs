@@ -6,4 +6,7 @@ public record InventoryTransactionDto(
     string Type,
     int Quantity,
     string? Reason,
+    Guid? SupplierId,
+    string? SupplierName,
+    decimal? UnitCost,
     DateTime CreatedAtUtc);

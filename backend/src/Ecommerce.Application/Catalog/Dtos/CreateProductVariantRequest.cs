@@ -5,4 +5,5 @@ public record CreateProductVariantRequest(
     string Size,
     string Sku,
     decimal? PriceOverride,
-    int InitialQuantity);
+    int InitialQuantity,
+    decimal? CostPrice = null);

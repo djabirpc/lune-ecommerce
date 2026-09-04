@@ -21,6 +21,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<InventoryRecord> Inventory => Set<InventoryRecord>();
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
 
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
@@ -73,6 +74,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(p => p.Slug).IsRequired().HasMaxLength(220);
             entity.Property(p => p.Description).HasMaxLength(4000);
             entity.Property(p => p.Price).HasPrecision(10, 2);
+            entity.Property(p => p.FacebookPixelId).HasMaxLength(50);
+            entity.Property(p => p.TikTokPixelId).HasMaxLength(50);
             entity.HasIndex(p => p.Slug).IsUnique();
             entity.HasOne(p => p.Category)
                 .WithMany(c => c.Products)
@@ -87,6 +90,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(v => v.Size).IsRequired().HasMaxLength(50);
             entity.Property(v => v.Sku).IsRequired().HasMaxLength(64);
             entity.Property(v => v.PriceOverride).HasPrecision(10, 2);
+            entity.Property(v => v.CostPrice).HasPrecision(10, 2);
             entity.HasIndex(v => v.Sku).IsUnique();
             entity.HasOne(v => v.Product)
                 .WithMany(p => p.Variants)
@@ -120,11 +124,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.ToTable("InventoryTransactions");
             entity.Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
             entity.Property(t => t.Reason).HasMaxLength(500);
+            entity.Property(t => t.UnitCost).HasPrecision(10, 2);
             entity.HasIndex(t => t.ProductVariantId);
+            entity.HasIndex(t => t.SupplierId);
             entity.HasOne(t => t.ProductVariant)
                 .WithMany()
                 .HasForeignKey(t => t.ProductVariantId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(t => t.Supplier)
+                .WithMany()
+                .HasForeignKey(t => t.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Supplier>(entity =>
+        {
+            entity.ToTable("Suppliers");
+            entity.Property(s => s.Name).IsRequired().HasMaxLength(200);
+            entity.Property(s => s.Phone).HasMaxLength(20);
+            entity.Property(s => s.Email).HasMaxLength(256);
+            entity.Property(s => s.Address).HasMaxLength(500);
+            entity.Property(s => s.Notes).HasMaxLength(2000);
         });
 
         builder.Entity<Order>(entity =>

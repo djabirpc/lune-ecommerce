@@ -20,12 +20,26 @@ public class InventoryService(
         await dbContext.InventoryTransactions.AsNoTracking()
             .Where(t => t.ProductVariantId == variantId)
             .OrderByDescending(t => t.CreatedAtUtc)
-            .Select(t => new InventoryTransactionDto(t.Id, t.ProductVariantId, t.Type.ToString().ToUpperInvariant(), t.Quantity, t.Reason, t.CreatedAtUtc))
+            .Select(t => new InventoryTransactionDto(
+                t.Id,
+                t.ProductVariantId,
+                t.Type.ToString().ToUpperInvariant(),
+                t.Quantity,
+                t.Reason,
+                t.SupplierId,
+                t.Supplier != null ? t.Supplier.Name : null,
+                t.UnitCost,
+                t.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
     public async Task<InventoryDto> RestockAsync(RestockRequest request, CancellationToken cancellationToken = default)
     {
         await restockValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        if (request.SupplierId.HasValue && !await dbContext.Suppliers.AnyAsync(s => s.Id == request.SupplierId.Value, cancellationToken))
+        {
+            throw new NotFoundAppException("Fournisseur introuvable.");
+        }
 
         var affected = await dbContext.Inventory
             .Where(i => i.ProductVariantId == request.ProductVariantId)
@@ -36,7 +50,16 @@ public class InventoryService(
             throw new NotFoundAppException("Variante introuvable.");
         }
 
-        await LogTransactionAsync(request.ProductVariantId, InventoryTransactionType.Restock, request.Quantity, request.Reason, cancellationToken);
+        // The variant's current cost price reflects the most recent purchase — costs can change
+        // between restocks/suppliers, so this always overwrites rather than averaging.
+        if (request.UnitCost.HasValue)
+        {
+            await dbContext.ProductVariants
+                .Where(v => v.Id == request.ProductVariantId)
+                .ExecuteUpdateAsync(s => s.SetProperty(v => v.CostPrice, request.UnitCost.Value), cancellationToken);
+        }
+
+        await LogTransactionAsync(request.ProductVariantId, InventoryTransactionType.Restock, request.Quantity, request.Reason, request.SupplierId, request.UnitCost, cancellationToken);
 
         return await GetDtoAsync(request.ProductVariantId, cancellationToken);
     }
@@ -55,7 +78,7 @@ public class InventoryService(
             throw new ConflictAppException("L'ajustement rendrait le stock disponible négatif.");
         }
 
-        await LogTransactionAsync(request.ProductVariantId, InventoryTransactionType.Adjustment, request.QuantityDelta, request.Reason, cancellationToken);
+        await LogTransactionAsync(request.ProductVariantId, InventoryTransactionType.Adjustment, request.QuantityDelta, request.Reason, null, null, cancellationToken);
 
         return await GetDtoAsync(request.ProductVariantId, cancellationToken);
     }
@@ -74,7 +97,7 @@ public class InventoryService(
             throw new ConflictAppException("Stock disponible insuffisant pour réserver cette quantité.");
         }
 
-        await LogTransactionAsync(variantId, InventoryTransactionType.Reserve, quantity, null, cancellationToken);
+        await LogTransactionAsync(variantId, InventoryTransactionType.Reserve, quantity, null, null, null, cancellationToken);
     }
 
     public async Task ReleaseAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default)
@@ -91,7 +114,7 @@ public class InventoryService(
             throw new ConflictAppException("Quantité réservée insuffisante pour cette libération.");
         }
 
-        await LogTransactionAsync(variantId, InventoryTransactionType.Release, quantity, null, cancellationToken);
+        await LogTransactionAsync(variantId, InventoryTransactionType.Release, quantity, null, null, null, cancellationToken);
     }
 
     public async Task RecordSaleAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default)
@@ -108,7 +131,7 @@ public class InventoryService(
             throw new ConflictAppException("Quantité réservée insuffisante pour finaliser la vente.");
         }
 
-        await LogTransactionAsync(variantId, InventoryTransactionType.Sale, quantity, null, cancellationToken);
+        await LogTransactionAsync(variantId, InventoryTransactionType.Sale, quantity, null, null, null, cancellationToken);
     }
 
     public async Task RecordReturnAsync(Guid variantId, int quantity, CancellationToken cancellationToken = default)
@@ -125,7 +148,7 @@ public class InventoryService(
             throw new ConflictAppException("Quantité vendue insuffisante pour enregistrer ce retour.");
         }
 
-        await LogTransactionAsync(variantId, InventoryTransactionType.Return, quantity, null, cancellationToken);
+        await LogTransactionAsync(variantId, InventoryTransactionType.Return, quantity, null, null, null, cancellationToken);
     }
 
     private async Task EnsureVariantExistsAsync(Guid variantId, CancellationToken cancellationToken)
@@ -141,6 +164,8 @@ public class InventoryService(
         InventoryTransactionType type,
         int quantity,
         string? reason,
+        Guid? supplierId,
+        decimal? unitCost,
         CancellationToken cancellationToken)
     {
         dbContext.InventoryTransactions.Add(new InventoryTransaction
@@ -149,6 +174,8 @@ public class InventoryService(
             Type = type,
             Quantity = quantity,
             Reason = reason,
+            SupplierId = supplierId,
+            UnitCost = unitCost,
         });
         await dbContext.SaveChangesAsync(cancellationToken);
     }

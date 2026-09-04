@@ -205,6 +205,8 @@ public class ProductService(
             Slug = request.Slug,
             Description = request.Description,
             Price = request.Price,
+            FacebookPixelId = request.FacebookPixelId,
+            TikTokPixelId = request.TikTokPixelId,
         };
 
         foreach (var variantRequest in request.Variants)
@@ -215,6 +217,7 @@ public class ProductService(
                 Size = variantRequest.Size,
                 Sku = variantRequest.Sku,
                 PriceOverride = variantRequest.PriceOverride,
+                CostPrice = variantRequest.CostPrice,
                 Inventory = new InventoryRecord { AvailableQuantity = variantRequest.InitialQuantity },
             };
             product.Variants.Add(variant);
@@ -230,6 +233,7 @@ public class ProductService(
                 ProductVariantId = variant.Id,
                 Type = InventoryTransactionType.Restock,
                 Quantity = variant.Inventory!.AvailableQuantity,
+                UnitCost = variant.CostPrice,
                 Reason = "Stock initial à la création du produit.",
             });
         }
@@ -261,6 +265,8 @@ public class ProductService(
         product.Description = request.Description;
         product.Price = request.Price;
         product.IsActive = request.IsActive;
+        product.FacebookPixelId = request.FacebookPixelId;
+        product.TikTokPixelId = request.TikTokPixelId;
         product.UpdatedAtUtc = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -293,6 +299,7 @@ public class ProductService(
             Size = request.Size,
             Sku = request.Sku,
             PriceOverride = request.PriceOverride,
+            CostPrice = request.CostPrice,
             Inventory = new InventoryRecord { AvailableQuantity = request.InitialQuantity },
         };
 
@@ -306,6 +313,7 @@ public class ProductService(
                 ProductVariantId = variant.Id,
                 Type = InventoryTransactionType.Restock,
                 Quantity = request.InitialQuantity,
+                UnitCost = variant.CostPrice,
                 Reason = "Stock initial à la création de la variante.",
             });
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -317,6 +325,7 @@ public class ProductService(
             variant.Size,
             variant.Sku,
             variant.PriceOverride ?? (await dbContext.Products.Where(p => p.Id == productId).Select(p => p.Price).FirstAsync(cancellationToken)),
+            variant.CostPrice,
             variant.IsActive,
             variant.Inventory!.AvailableQuantity);
     }
@@ -342,7 +351,10 @@ public class ProductService(
                 v.Size,
                 v.Sku,
                 v.PriceOverride ?? product.Price,
+                v.CostPrice,
                 v.IsActive,
                 v.Inventory?.AvailableQuantity ?? 0))
-            .ToList());
+            .ToList(),
+        product.FacebookPixelId,
+        product.TikTokPixelId);
 }

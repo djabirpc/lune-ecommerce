@@ -6,4 +6,6 @@ public record CreateProductRequest(
     string Slug,
     string? Description,
     decimal Price,
-    IReadOnlyList<CreateProductVariantRequest> Variants);
+    IReadOnlyList<CreateProductVariantRequest> Variants,
+    string? FacebookPixelId = null,
+    string? TikTokPixelId = null);
