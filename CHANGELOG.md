@@ -1,5 +1,23 @@
 # Changelog
 
+## [2026-09-05]
+
+### Added
+- **Storefront redesign v2, part 2 — checkout/confirmation/order-tracking/account**: the belle-mode reference repo (see 2026-09-04 entry) received 5 more Lovable-generated pages (`checkout`, `order-confirmation/$id`, `orders/$id`, `orders/index`, `account`) covering exactly the gap the first redesign pass left open. Implemented real equivalents without customer accounts (none exist per CLAUDE.md section 11) — new `lib/orders/localOrderHistory.ts`/`lib/customer/savedCustomerInfo.ts` remember `{orderNumber, phone}` pairs and last-used delivery info locally; every lookup still goes through the real, phone-verified `GET /api/orders/track`.
+- `OrderItem` gained `ProductSlug`/`ImageUrl` snapshot fields (same philosophy as its existing `ProductName`/`Color`/`Size`/`Sku`/`UnitPrice` snapshots), so order recaps can show a real thumbnail/link without a live catalog join. Migration `AddOrderItemProductSlugAndImage`.
+- New `lib/components/OrderTimeline.tsx` — a real 7-step status tracker (current-status-only, no per-step timestamps since guest responses don't include `StatusHistory`).
+- New real pages: `OrdersPage` ("Mes commandes"), `OrderTrackingDetailPage` (`/orders/:orderNumber`), `AccountPage` ("Mon compte" — saved info + last 3 orders + favorites). Rebuilt `CheckoutPage` (prefills saved info, records order to local history), `OrderConfirmationPage`, `TrackOrderPage` (reads `?orderNumber=` for deep-linking). `MobileTabBar`'s 5th tab now points to `/account`.
+- 1 new backend test (`OrderWorkflowTests.CreateOrder_SnapshotsProductSlugAndImageUrlOnItems`); backend suite grew to 136/136 (49 unit + 87 integration).
+
+### API
+- `OrderItemDto` gained `productSlug`, `imageUrl` (nullable) — real per-item snapshots captured at order creation.
+
+### Database
+- Migration `AddOrderItemProductSlugAndImage`: adds `OrderItems.ProductSlug` (required, backfilled `""` for pre-existing rows) and `OrderItems.ImageUrl` (nullable).
+
+### Frontend
+- New `OrdersPage`, `OrderTrackingDetailPage`, real `AccountPage` (was `PagePlaceholder`), `OrderTimeline`, `lib/orders/localOrderHistory.ts`, `lib/customer/savedCustomerInfo.ts`. Rebuilt `CheckoutPage`/`OrderConfirmationPage`/`TrackOrderPage`/`OrderDetailsCard`. New route `orders/:orderNumber`.
+
 ## [2026-09-04]
 
 ### Added

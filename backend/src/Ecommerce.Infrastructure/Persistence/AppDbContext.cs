@@ -185,6 +185,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         {
             entity.ToTable("OrderItems");
             entity.Property(i => i.ProductName).IsRequired().HasMaxLength(200);
+            entity.Property(i => i.ProductSlug).IsRequired().HasMaxLength(200);
+            entity.Property(i => i.ImageUrl).HasMaxLength(2000);
             entity.Property(i => i.Color).IsRequired().HasMaxLength(100);
             entity.Property(i => i.Size).IsRequired().HasMaxLength(50);
             entity.Property(i => i.Sku).IsRequired().HasMaxLength(64);

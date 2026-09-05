@@ -177,4 +177,37 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
         var correctPhoneResponse = await guestClient.GetAsync($"/api/orders/track?orderNumber={order.OrderNumber}&phone=0559876543");
         correctPhoneResponse.EnsureSuccessStatusCode();
     }
+
+    [Fact]
+    public async Task CreateOrder_SnapshotsProductSlugAndImageUrlOnItems()
+    {
+        var adminClient = await CreateAuthenticatedClientAsync();
+        var unique = Guid.NewGuid().ToString("N")[..8];
+
+        var categoryResponse = await adminClient.PostAsJsonAsync("/api/categories", new CreateCategoryRequest($"Cat {unique}", $"cat-{unique}", null, 0));
+        var category = await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>();
+
+        var productResponse = await adminClient.PostAsJsonAsync("/api/products", new CreateProductRequest(
+            category!.Id, "Produit test", $"produit-{unique}", null, 2000m,
+            [new CreateProductVariantRequest("Noir", "M", $"SKU-{unique}", null, 5)]));
+        var product = await productResponse.Content.ReadFromJsonAsync<ProductDetailDto>();
+        var variantId = product!.Variants.Single().Id;
+
+        var uploadContent = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent([1, 2, 3, 4]);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        uploadContent.Add(fileContent, "File", "test.png");
+        uploadContent.Add(new StringContent("true"), "IsPrimary");
+        var uploadResponse = await adminClient.PostAsync($"/api/products/{product.Id}/images", uploadContent);
+        var image = await uploadResponse.Content.ReadFromJsonAsync<ProductImageDto>();
+
+        var guestClient = factory.CreateClient();
+        var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
+        orderResponse.EnsureSuccessStatusCode();
+        var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        var item = order!.Items.Single();
+        Assert.Equal(product.Slug, item.ProductSlug);
+        Assert.Equal(image!.Url, item.ImageUrl);
+    }
 }

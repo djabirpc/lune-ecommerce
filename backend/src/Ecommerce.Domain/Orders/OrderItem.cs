@@ -8,6 +8,13 @@ public class OrderItem : Entity
     public Guid ProductVariantId { get; set; }
 
     public string ProductName { get; set; } = string.Empty;
+
+    /// <summary>Snapshotted at order time, like the other fields here — the product could be renamed/deleted later.</summary>
+    public string ProductSlug { get; set; } = string.Empty;
+
+    /// <summary>Snapshotted primary product image URL at order time; null if the product had no image yet.</summary>
+    public string? ImageUrl { get; set; }
+
     public string Color { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
     public string Sku { get; set; } = string.Empty;

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, LayoutGrid, Tag, ShoppingBag, PackageSearch } from 'lucide-react';
+import { Home, LayoutGrid, Tag, ShoppingBag, User } from 'lucide-react';
 
 import { useCart } from '../../lib/cart/CartContext';
 
@@ -44,8 +44,8 @@ export function MobileTabBar() {
           )}
           Panier
         </Link>
-        <Link to="/track-order" className={isActive('/track-order') ? ACTIVE_CLASS : TAB_CLASS}>
-          <PackageSearch className="h-5 w-5" /> Suivi
+        <Link to="/account" className={isActive('/account') ? ACTIVE_CLASS : TAB_CLASS}>
+          <User className="h-5 w-5" /> Compte
         </Link>
       </div>
     </nav>

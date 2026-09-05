@@ -47,7 +47,7 @@ public class OrderService(
 
         var variantIds = request.Items.Select(i => i.ProductVariantId).ToList();
         var variants = await dbContext.ProductVariants
-            .Include(v => v.Product)
+            .Include(v => v.Product).ThenInclude(p => p.Images)
             .Where(v => variantIds.Contains(v.Id))
             .ToListAsync(cancellationToken);
 
@@ -96,6 +96,8 @@ public class OrderService(
             {
                 ProductVariantId = variant.Id,
                 ProductName = variant.Product.Name,
+                ProductSlug = variant.Product.Slug,
+                ImageUrl = variant.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault(),
                 Color = variant.Color,
                 Size = variant.Size,
                 Sku = variant.Sku,
@@ -484,7 +486,7 @@ public class OrderService(
         order.ReturnReason,
         order.CreatedAtUtc,
         order.Items
-            .Select(i => new OrderItemDto(i.Id, i.ProductVariantId, i.ProductName, i.Color, i.Size, i.Sku, i.UnitPrice, i.Quantity, i.LineTotal))
+            .Select(i => new OrderItemDto(i.Id, i.ProductVariantId, i.ProductName, i.ProductSlug, i.ImageUrl, i.Color, i.Size, i.Sku, i.UnitPrice, i.Quantity, i.LineTotal))
             .ToList(),
         includeHistory
             ? order.StatusHistory

@@ -250,6 +250,8 @@ export interface OrderItemDto {
   id: string;
   productVariantId: string;
   productName: string;
+  productSlug: string;
+  imageUrl: string | null;
   color: string;
   size: string;
   sku: string;

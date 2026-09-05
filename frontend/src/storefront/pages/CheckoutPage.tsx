@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { Loader2, ShieldCheck, Truck, Wallet } from 'lucide-react';
 
 import { ordersApi } from '../../lib/api/orders';
 import { shippingRatesApi } from '../../lib/api/shipping';
@@ -13,6 +14,8 @@ import { DELIVERY_TYPE_LABELS } from '../../lib/format/orderLabels';
 import { getStoredAttribution } from '../../lib/marketing/attribution';
 import { trackEvent } from '../../lib/marketing/pixels';
 import { ALGERIAN_WILAYAS } from '../../lib/data/wilayas';
+import { getSavedCustomerInfo, saveCustomerInfo } from '../../lib/customer/savedCustomerInfo';
+import { rememberOrder } from '../../lib/orders/localOrderHistory';
 
 const checkoutSchema = z.object({
   firstName: z.string().min(1, 'Le prénom est requis.').max(100),
@@ -27,8 +30,7 @@ const checkoutSchema = z.object({
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
-const inputClass =
-  'w-full rounded-lg border border-black/15 px-3.5 py-2.5 text-sm outline-none transition focus:border-luna-black';
+const inputClass = 'h-12 w-full rounded-sm border border-black/15 px-3.5 text-sm outline-none transition focus:border-luna-black';
 
 export function CheckoutPage() {
   const { items, subtotal, clear } = useCart();
@@ -41,11 +43,28 @@ export function CheckoutPage() {
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors },
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: { deliveryType: 'HomeDelivery' },
   });
+
+  useEffect(() => {
+    const saved = getSavedCustomerInfo();
+    if (saved) {
+      reset({
+        firstName: saved.firstName,
+        lastName: saved.lastName,
+        phone: saved.phone,
+        wilaya: saved.wilaya,
+        commune: saved.commune,
+        address: saved.address,
+        deliveryType: 'HomeDelivery',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const wilaya = useWatch({ control, name: 'wilaya' });
   const deliveryType = useWatch({ control, name: 'deliveryType' });
@@ -107,6 +126,15 @@ export function CheckoutPage() {
         marketingAttribution: getStoredAttribution(),
       });
       trackEvent('ORDER_CREATED', { value: order.total, currency: 'DZD', order_id: order.orderNumber });
+      saveCustomerInfo({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        phone: values.phone,
+        wilaya: values.wilaya,
+        commune: values.commune,
+        address: values.address,
+      });
+      rememberOrder(order.orderNumber, values.phone);
       clear();
       navigate(`/order-confirmation/${order.orderNumber}`, { state: { order } });
     } catch (error) {
@@ -117,35 +145,34 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 font-display text-2xl italic text-luna-black">Finaliser la commande</h1>
+    <div className="mx-auto max-w-5xl px-4 py-8 pb-8 sm:px-6 lg:px-8">
+      <h1 className="font-display text-4xl text-luna-black">Finaliser la commande</h1>
+      <p className="mt-2 text-sm text-luna-charcoal/70">Paiement à la livraison — vous payez le livreur à la réception.</p>
 
-      <div className="grid gap-8 sm:grid-cols-5">
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 sm:order-1 sm:col-span-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Coordonnées &amp; livraison</h2>
-
-          <div className="grid grid-cols-2 gap-3">
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 grid gap-8 lg:grid-cols-[1fr_20rem]">
+        <div className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Prénom</label>
-              <input {...register('firstName')} className={inputClass} />
+              <label className="mb-1 block text-sm font-medium text-luna-black">Prénom</label>
+              <input {...register('firstName')} className={inputClass} autoComplete="given-name" />
               {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Nom</label>
-              <input {...register('lastName')} className={inputClass} />
+              <label className="mb-1 block text-sm font-medium text-luna-black">Nom</label>
+              <input {...register('lastName')} className={inputClass} autoComplete="family-name" />
               {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>}
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Téléphone</label>
-            <input {...register('phone')} placeholder="0551234567" className={inputClass} inputMode="numeric" />
+            <label className="mb-1 block text-sm font-medium text-luna-black">Téléphone</label>
+            <input {...register('phone')} placeholder="0551234567" className={inputClass} inputMode="numeric" autoComplete="tel" />
             {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Wilaya</label>
+              <label className="mb-1 block text-sm font-medium text-luna-black">Wilaya</label>
               <select {...register('wilaya')} defaultValue="" className={inputClass}>
                 <option value="" disabled>
                   Sélectionnez une wilaya
@@ -159,25 +186,25 @@ export function CheckoutPage() {
               {errors.wilaya && <p className="mt-1 text-xs text-red-600">{errors.wilaya.message}</p>}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Commune</label>
+              <label className="mb-1 block text-sm font-medium text-luna-black">Commune</label>
               <input {...register('commune')} className={inputClass} />
               {errors.commune && <p className="mt-1 text-xs text-red-600">{errors.commune.message}</p>}
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Adresse</label>
-            <input {...register('address')} className={inputClass} />
+            <label className="mb-1 block text-sm font-medium text-luna-black">Adresse de livraison</label>
+            <input {...register('address')} placeholder="Cité, rue, immeuble, repère…" className={inputClass} />
             {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>}
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Type de livraison</label>
+            <p className="eyebrow mb-2">Type de livraison</p>
             <div className="grid grid-cols-2 gap-2">
               {(Object.keys(DELIVERY_TYPE_LABELS) as (keyof typeof DELIVERY_TYPE_LABELS)[]).map((type) => (
                 <label
                   key={type}
-                  className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-black/15 px-3 py-2.5 text-sm has-[:checked]:border-luna-black has-[:checked]:bg-luna-black has-[:checked]:text-white"
+                  className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-sm border border-black/15 px-3 text-sm has-[:checked]:border-luna-black has-[:checked]:bg-luna-black has-[:checked]:text-white"
                 >
                   <input type="radio" value={type} {...register('deliveryType')} className="sr-only" />
                   {DELIVERY_TYPE_LABELS[type]}
@@ -187,68 +214,93 @@ export function CheckoutPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Notes (facultatif)</label>
-            <textarea {...register('notes')} rows={2} className={inputClass} />
+            <label className="mb-1 block text-sm font-medium text-luna-black">Note pour le livreur (facultatif)</label>
+            <textarea
+              {...register('notes')}
+              placeholder="Appeler avant de venir, livrer après 16h…"
+              rows={3}
+              className="w-full rounded-sm border border-black/15 px-3.5 py-2.5 text-sm outline-none transition focus:border-luna-black"
+            />
           </div>
 
+          <ul className="grid gap-3 rounded-sm bg-luna-cream-dark p-4 text-xs text-luna-black sm:grid-cols-3">
+            <li className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-luna-accent" /> Paiement à la réception
+            </li>
+            <li className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-luna-accent" /> Livraison 48–72h
+            </li>
+            <li className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-luna-accent" /> Échange sous 7 jours
+            </li>
+          </ul>
+
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+        </div>
+
+        <aside className="h-fit rounded-sm border border-black/10 bg-white p-5 lg:sticky lg:top-24">
+          <h2 className="font-display text-xl text-luna-black">Votre commande</h2>
+          <ul className="mt-4 space-y-3">
+            {items.map((item) => (
+              <li key={item.variantId} className="flex gap-3">
+                <div className="h-16 w-12 shrink-0 overflow-hidden rounded-sm bg-luna-cream-dark">
+                  {item.imageUrl && <img src={item.imageUrl} alt={item.productName} className="h-full w-full object-cover" />}
+                </div>
+                <div className="min-w-0 flex-1 text-xs">
+                  <p className="line-clamp-1 text-luna-black">{item.productName}</p>
+                  <p className="text-luna-charcoal/60">
+                    {item.color} · {item.size} · x{item.quantity}
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-luna-black">{formatPrice(item.unitPrice * item.quantity)}</span>
+              </li>
+            ))}
+          </ul>
+
+          <dl className="mt-5 space-y-2 border-t border-black/10 pt-4 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-luna-charcoal/60">Sous-total</dt>
+              <dd>{formatPrice(subtotal)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-luna-charcoal/60">Livraison</dt>
+              <dd>
+                {shippingError ? (
+                  <span className="text-red-600">Indisponible</span>
+                ) : shippingCost === null ? (
+                  'Selon la wilaya'
+                ) : (
+                  formatPrice(shippingCost)
+                )}
+              </dd>
+            </div>
+            <div className="flex justify-between border-t border-black/10 pt-3 text-base font-medium text-luna-black">
+              <dt>Total à payer</dt>
+              <dd>{formatPrice(subtotal + (shippingCost ?? 0))}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-4">
+            <label className="mb-1 block text-sm font-medium text-luna-black">Code promo (facultatif)</label>
+            <input
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="CODE2024"
+              className={inputClass}
+            />
+          </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="mt-2 rounded-full bg-luna-black px-6 py-3.5 text-sm font-medium text-white transition hover:bg-luna-charcoal disabled:opacity-40"
+            className="mt-5 flex h-12 w-full items-center justify-center rounded-sm bg-luna-black text-sm font-medium text-white transition hover:bg-luna-charcoal disabled:opacity-40"
           >
-            {isSubmitting ? 'Envoi...' : 'Confirmer la commande — Paiement à la livraison'}
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting ? 'Envoi...' : 'Confirmer la commande'}
           </button>
-        </form>
-
-        <div className="sm:order-2 sm:col-span-2">
-          <div className="rounded-2xl bg-luna-cream p-5 sm:sticky sm:top-24">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-luna-charcoal/50">Résumé</h2>
-            <div className="flex flex-col divide-y divide-black/5">
-              {items.map((item) => (
-                <div key={item.variantId} className="flex items-center justify-between py-2 text-sm">
-                  <span className="pr-2 text-luna-charcoal/80">
-                    {item.productName} ({item.color}/{item.size}) × {item.quantity}
-                  </span>
-                  <span className="shrink-0 font-medium">{formatPrice(item.unitPrice * item.quantity)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center justify-between border-t border-black/10 pt-3 text-sm font-medium">
-              <span>Sous-total</span>
-              <span>{formatPrice(subtotal)}</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-sm text-luna-charcoal/60">
-              <span>Livraison</span>
-              {shippingError ? (
-                <span className="text-red-600">{shippingError}</span>
-              ) : shippingCost === null ? (
-                <span>Sélectionnez une wilaya</span>
-              ) : (
-                <span>{formatPrice(shippingCost)}</span>
-              )}
-            </div>
-            {shippingCost !== null && (
-              <div className="mt-2 flex items-center justify-between border-t border-black/10 pt-2 text-base font-semibold">
-                <span>Total estimé</span>
-                <span>{formatPrice(subtotal + shippingCost)}</span>
-              </div>
-            )}
-
-            <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium">Code promo (facultatif)</label>
-              <input
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                placeholder="CODE2024"
-                className={`${inputClass} bg-white`}
-              />
-              <p className="mt-1 text-xs text-luna-charcoal/50">La réduction sera appliquée et affichée sur la confirmation.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          <p className="mt-3 text-center text-xs text-luna-charcoal/60">Aucun paiement en ligne. Nous vous appelons pour confirmer.</p>
+        </aside>
+      </form>
     </div>
   );
 }

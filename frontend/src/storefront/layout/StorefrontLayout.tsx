@@ -133,11 +133,17 @@ export function StorefrontLayout() {
             <Link to="/promotions" className="rounded-lg px-3 py-2 text-luna-accent hover:bg-luna-cream">
               Promotions
             </Link>
+            <Link to="/orders" className="rounded-lg px-3 py-2 text-luna-charcoal hover:bg-luna-cream">
+              Mes commandes
+            </Link>
             <Link to="/track-order" className="rounded-lg px-3 py-2 text-luna-charcoal hover:bg-luna-cream">
-              Suivre ma commande
+              Suivre une commande
             </Link>
             <Link to="/favoris" className="rounded-lg px-3 py-2 text-luna-charcoal hover:bg-luna-cream">
               Mes favoris
+            </Link>
+            <Link to="/account" className="rounded-lg px-3 py-2 text-luna-charcoal hover:bg-luna-cream">
+              Mon compte
             </Link>
           </nav>
         </div>
