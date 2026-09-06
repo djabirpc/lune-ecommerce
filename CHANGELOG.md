@@ -1,5 +1,19 @@
 # Changelog
 
+## [2026-09-06]
+
+### Fixed
+- **Guest checkout showed an untranslated English validation message** (`"'Address' must not be empty."`) when the delivery address was blank or whitespace-only — a real bug reported by the user, violating CLAUDE.md section 45 (customer-facing UI must be French). `CreateOrderRequestValidator`'s `FirstName`/`LastName`/`Wilaya`/`Commune`/`Address`/`Notes`/`DeliveryType` rules had no `.WithMessage()`, so FluentValidation's built-in English defaults leaked through. Added explicit French messages to every rule.
+- The checkout form's Zod schema used `.min(1)` without `.trim()`, so a whitespace-only address passed client-side validation and reached the network before the backend caught it. Added `.trim()` to every free-text field (`firstName`/`lastName`/`wilaya`/`commune`/`address`/`notes`) so client and server now agree, and whitespace-only input is rejected instantly with no round-trip.
+- `CheckoutPage` now shows a "Vider le panier et retourner à la boutique" recovery action when checkout fails with `404` (a cart item's variant no longer exists, e.g. after a database reset) — previously the customer just saw the error with no way forward besides guessing to clear the cart manually.
+
+### Database
+- No migration — validator/frontend-only changes.
+
+### Notes
+- 2 new `CreateOrderRequestValidatorTests` (blank/whitespace address, blank first name); backend suite grew to 139/139 (52 unit + 87 integration).
+- Confirmed the *other* error the user saw (`"Une ou plusieurs variantes sont introuvables..."`) is correct, expected backend behavior, not a bug — their browser's cart still referenced variant IDs from before the 2026-09-04 database reset/reseed. The recovery button above is the real fix for the resulting dead end.
+
 ## [2026-09-05]
 
 ### Added

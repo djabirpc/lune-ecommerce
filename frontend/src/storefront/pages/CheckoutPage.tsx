@@ -18,14 +18,14 @@ import { getSavedCustomerInfo, saveCustomerInfo } from '../../lib/customer/saved
 import { rememberOrder } from '../../lib/orders/localOrderHistory';
 
 const checkoutSchema = z.object({
-  firstName: z.string().min(1, 'Le prénom est requis.').max(100),
-  lastName: z.string().min(1, 'Le nom est requis.').max(100),
+  firstName: z.string().trim().min(1, 'Le prénom est requis.').max(100),
+  lastName: z.string().trim().min(1, 'Le nom est requis.').max(100),
   phone: z.string().regex(/^0[0-9]{9}$/, 'Numéro de téléphone algérien invalide (10 chiffres, commence par 0).'),
-  wilaya: z.string().min(1, 'La wilaya est requise.').max(100),
-  commune: z.string().min(1, 'La commune est requise.').max(100),
-  address: z.string().min(1, "L'adresse est requise.").max(500),
+  wilaya: z.string().trim().min(1, 'La wilaya est requise.').max(100),
+  commune: z.string().trim().min(1, 'La commune est requise.').max(100),
+  address: z.string().trim().min(1, "L'adresse de livraison est requise.").max(500),
   deliveryType: z.enum(['HomeDelivery', 'StopDesk']),
-  notes: z.string().max(1000).optional(),
+  notes: z.string().trim().max(1000).optional(),
 });
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
@@ -36,6 +36,7 @@ export function CheckoutPage() {
   const { items, subtotal, clear } = useCart();
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [staleCartItems, setStaleCartItems] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState('');
 
@@ -116,6 +117,7 @@ export function CheckoutPage() {
 
   async function onSubmit(values: CheckoutFormValues) {
     setSubmitError(null);
+    setStaleCartItems(false);
     setIsSubmitting(true);
     try {
       const order = await ordersApi.create({
@@ -139,9 +141,18 @@ export function CheckoutPage() {
       navigate(`/order-confirmation/${order.orderNumber}`, { state: { order } });
     } catch (error) {
       setSubmitError(error instanceof ApiError ? error.message : 'Une erreur est survenue. Veuillez réessayer.');
+      // A 404 here means at least one cart item's variant no longer exists (e.g. the catalog
+      // changed since it was added) — the cart itself is unusable and needs to be cleared, not
+      // just resubmitted, so offer that directly instead of leaving the customer stuck.
+      setStaleCartItems(error instanceof ApiError && error.status === 404);
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleClearStaleCart() {
+    clear();
+    navigate('/categories');
   }
 
   return (
@@ -235,7 +246,20 @@ export function CheckoutPage() {
             </li>
           </ul>
 
-          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+          {submitError && (
+            <div className="rounded-sm bg-red-50 p-3 text-sm text-red-600">
+              <p>{submitError}</p>
+              {staleCartItems && (
+                <button
+                  type="button"
+                  onClick={handleClearStaleCart}
+                  className="mt-2 underline underline-offset-2 hover:text-red-800"
+                >
+                  Vider le panier et retourner à la boutique
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <aside className="h-fit rounded-sm border border-black/10 bg-white p-5 lg:sticky lg:top-24">

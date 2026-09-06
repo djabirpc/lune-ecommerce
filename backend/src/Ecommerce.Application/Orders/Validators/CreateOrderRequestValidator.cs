@@ -8,17 +8,27 @@ public partial class CreateOrderRequestValidator : AbstractValidator<CreateOrder
 {
     public CreateOrderRequestValidator()
     {
-        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.FirstName)
+            .NotEmpty().WithMessage("Le prénom est requis.")
+            .MaximumLength(100).WithMessage("Le prénom ne doit pas dépasser 100 caractères.");
+        RuleFor(x => x.LastName)
+            .NotEmpty().WithMessage("Le nom est requis.")
+            .MaximumLength(100).WithMessage("Le nom ne doit pas dépasser 100 caractères.");
         RuleFor(x => x.Phone)
-            .NotEmpty()
+            .NotEmpty().WithMessage("Le numéro de téléphone est requis.")
             .Matches(AlgerianPhonePattern())
             .WithMessage("Le numéro de téléphone doit être un numéro algérien valide (10 chiffres, commence par 0).");
-        RuleFor(x => x.Wilaya).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.Commune).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.Address).NotEmpty().MaximumLength(500);
-        RuleFor(x => x.DeliveryType).IsInEnum();
-        RuleFor(x => x.Notes).MaximumLength(1000);
+        RuleFor(x => x.Wilaya)
+            .NotEmpty().WithMessage("La wilaya est requise.")
+            .MaximumLength(100).WithMessage("La wilaya ne doit pas dépasser 100 caractères.");
+        RuleFor(x => x.Commune)
+            .NotEmpty().WithMessage("La commune est requise.")
+            .MaximumLength(100).WithMessage("La commune ne doit pas dépasser 100 caractères.");
+        RuleFor(x => x.Address)
+            .NotEmpty().WithMessage("L'adresse de livraison est requise.")
+            .MaximumLength(500).WithMessage("L'adresse ne doit pas dépasser 500 caractères.");
+        RuleFor(x => x.DeliveryType).IsInEnum().WithMessage("Le type de livraison est invalide.");
+        RuleFor(x => x.Notes).MaximumLength(1000).WithMessage("La note ne doit pas dépasser 1000 caractères.");
         RuleFor(x => x.Items).NotEmpty().WithMessage("La commande doit contenir au moins un article.");
         RuleForEach(x => x.Items).SetValidator(new OrderItemRequestValidator());
 
