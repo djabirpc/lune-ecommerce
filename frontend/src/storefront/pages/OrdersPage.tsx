@@ -1,13 +1,16 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Package } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { ordersApi } from '../../lib/api/orders';
 import { getOrderHistory } from '../../lib/orders/localOrderHistory';
 import { formatPrice } from '../../lib/format/price';
-import { ORDER_STATUS_LABELS } from '../../lib/format/orderLabels';
+import { useOrderStatusLabels } from '../../lib/format/orderLabels';
 
 export function OrdersPage() {
+  const { t, i18n } = useTranslation();
+  const orderStatusLabels = useOrderStatusLabels();
   const history = getOrderHistory();
 
   const { data: orders, isLoading } = useQuery({
@@ -25,25 +28,23 @@ export function OrdersPage() {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
         <Package className="h-10 w-10 text-luna-charcoal/40" />
-        <h1 className="mt-4 font-display text-3xl text-luna-black">Aucune commande</h1>
-        <p className="mt-2 text-sm text-luna-charcoal/70">
-          Vos commandes passées sur cet appareil apparaîtront ici avec leur suivi de livraison.
-        </p>
+        <h1 className="mt-4 font-display text-3xl text-luna-black">{t('orders.empty.title')}</h1>
+        <p className="mt-2 text-sm text-luna-charcoal/70">{t('orders.empty.subtitle')}</p>
         <Link to="/categories" className="mt-6 rounded-sm bg-luna-black px-7 py-3 text-sm text-white">
-          Découvrir la collection
+          {t('home.hero.discoverCta')}
         </Link>
       </div>
     );
   }
 
   if (isLoading) {
-    return <div className="px-4 py-24 text-center text-sm text-luna-charcoal/60">Chargement…</div>;
+    return <div className="px-4 py-24 text-center text-sm text-luna-charcoal/60">{t('common.loading')}</div>;
   }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <p className="eyebrow">Mon espace</p>
-      <h1 className="mt-1 font-display text-4xl text-luna-black">Mes commandes</h1>
+      <p className="eyebrow">{t('account.eyebrow')}</p>
+      <h1 className="mt-1 font-display text-4xl text-luna-black">{t('orders.title')}</h1>
 
       <ul className="mt-6 space-y-4">
         {orders?.map((order) => (
@@ -51,10 +52,12 @@ export function OrdersPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-medium text-luna-black">{order.orderNumber}</p>
-                <p className="text-xs text-luna-charcoal/60">{new Date(order.createdAtUtc).toLocaleDateString('fr-FR')}</p>
+                <p className="text-xs text-luna-charcoal/60">
+                  {new Date(order.createdAtUtc).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR')}
+                </p>
               </div>
               <span className="rounded-full bg-luna-rose px-3 py-1 text-xs text-luna-accent-dark">
-                {ORDER_STATUS_LABELS[order.status]}
+                {orderStatusLabels[order.status]}
               </span>
             </div>
 
@@ -72,7 +75,7 @@ export function OrdersPage() {
                 to={`/orders/${order.orderNumber}`}
                 className="rounded-full border border-luna-black px-4 py-1.5 text-xs text-luna-black"
               >
-                Suivre
+                {t('orders.track')}
               </Link>
             </div>
           </li>

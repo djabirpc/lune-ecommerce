@@ -8,5 +8,5 @@ public record ShipmentRequest(
     string Phone,
     string Wilaya,
     string Commune,
-    string Address,
+    string? Address,
     decimal CodAmount);

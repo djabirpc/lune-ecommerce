@@ -1,6 +1,6 @@
 import { Check, Circle } from 'lucide-react';
 
-import { ORDER_STATUS_LABELS } from '../format/orderLabels';
+import { useOrderStatusLabels } from '../format/orderLabels';
 import type { OrderStatus } from '../api/types';
 
 // The CLAUDE.md section 12 "happy path" — order-status history/reasons stay admin-only (privacy,
@@ -17,10 +17,11 @@ const ORDER_FLOW: OrderStatus[] = [
 ];
 
 export function OrderTimeline({ status }: { status: OrderStatus }) {
+  const orderStatusLabels = useOrderStatusLabels();
   const currentIndex = ORDER_FLOW.indexOf(status);
 
   if (currentIndex === -1) {
-    return <p className="text-sm text-luna-black">{ORDER_STATUS_LABELS[status]}</p>;
+    return <p className="text-sm text-luna-black">{orderStatusLabels[status]}</p>;
   }
 
   return (
@@ -36,7 +37,7 @@ export function OrderTimeline({ status }: { status: OrderStatus }) {
             >
               {done ? <Check className="h-3.5 w-3.5" /> : <Circle className="h-2 w-2" />}
             </span>
-            <p className={`text-sm ${done ? 'text-luna-black' : 'text-luna-charcoal/50'}`}>{ORDER_STATUS_LABELS[step]}</p>
+            <p className={`text-sm ${done ? 'text-luna-black' : 'text-luna-charcoal/50'}`}>{orderStatusLabels[step]}</p>
           </li>
         );
       })}

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SlidersHorizontal, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
@@ -12,12 +13,13 @@ import { ProductCard } from '../../lib/components/ProductCard';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
 
 const SORTS = [
-  { id: 'newest', label: 'Nouveautés' },
-  { id: 'price-asc', label: 'Prix croissant' },
-  { id: 'price-desc', label: 'Prix décroissant' },
+  { id: 'newest', labelKey: 'category.sort.newest' },
+  { id: 'price-asc', labelKey: 'category.sort.priceAsc' },
+  { id: 'price-desc', labelKey: 'category.sort.priceDesc' },
 ] as const;
 
 export function CategoryPage() {
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>([]);
@@ -75,16 +77,16 @@ export function CategoryPage() {
   }
 
   if (categoryQuery.isLoading || productsQuery.isLoading) {
-    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">Chargement...</div>;
+    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">{t('common.loading')}</div>;
   }
 
   if (categoryQuery.isError || !categoryQuery.data) {
-    return <PagePlaceholder title="Catégorie introuvable" />;
+    return <PagePlaceholder title={t('category.notFound')} />;
   }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <p className="eyebrow mt-2">{products.length} pièces</p>
+      <p className="eyebrow mt-2">{t('categories.piecesCount', { count: products.length })}</p>
       <h1 className="mt-1 font-display text-4xl text-luna-black">{categoryQuery.data.name}</h1>
       {categoryQuery.data.description && (
         <p className="mt-2 max-w-lg text-sm text-luna-charcoal/70">{categoryQuery.data.description}</p>
@@ -96,7 +98,7 @@ export function CategoryPage() {
           className="inline-flex shrink-0 items-center gap-2 rounded-full border border-black/15 px-4 py-2 text-xs text-luna-black"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Filtres{activeCount > 0 ? ` (${activeCount})` : ''}
+          {t('category.filters')}{activeCount > 0 ? ` (${activeCount})` : ''}
         </button>
         {SORTS.map((s) => (
           <button
@@ -106,7 +108,7 @@ export function CategoryPage() {
               sort === s.id ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 text-luna-black hover:bg-luna-cream-dark'
             }`}
           >
-            {s.label}
+            {t(s.labelKey)}
           </button>
         ))}
       </div>
@@ -115,7 +117,7 @@ export function CategoryPage() {
         <div className="mt-4 space-y-5 rounded-sm border border-black/10 bg-white p-4">
           {availableSizes.length > 0 && (
             <div>
-              <p className="eyebrow mb-2">Tailles</p>
+              <p className="eyebrow mb-2">{t('category.sizes')}</p>
               <div className="flex flex-wrap gap-2">
                 {availableSizes.map((s) => (
                   <button
@@ -134,7 +136,7 @@ export function CategoryPage() {
 
           {availableColors.length > 0 && (
             <div>
-              <p className="eyebrow mb-2">Couleurs</p>
+              <p className="eyebrow mb-2">{t('category.colors')}</p>
               <div className="flex flex-wrap gap-2">
                 {availableColors.map((c) => (
                   <button
@@ -150,7 +152,7 @@ export function CategoryPage() {
           )}
 
           <div>
-            <p className="eyebrow mb-2">Budget</p>
+            <p className="eyebrow mb-2">{t('category.budget')}</p>
             <div className="flex flex-wrap gap-2">
               {priceSteps.map((p) => (
                 <button
@@ -160,7 +162,7 @@ export function CategoryPage() {
                     maxPrice === p ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 text-luna-black'
                   }`}
                 >
-                  Moins de {formatPrice(p)}
+                  {t('category.lessThan', { price: formatPrice(p) })}
                 </button>
               ))}
               <button
@@ -169,7 +171,7 @@ export function CategoryPage() {
                   onSaleOnly ? 'border-luna-accent bg-luna-accent text-white' : 'border-black/15 text-luna-black'
                 }`}
               >
-                En promo
+                {t('category.onSale')}
               </button>
             </div>
           </div>
@@ -184,14 +186,14 @@ export function CategoryPage() {
               }}
               className="inline-flex items-center gap-1 text-xs text-luna-charcoal/70 underline"
             >
-              <X className="h-3 w-3" /> Réinitialiser les filtres
+              <X className="h-3 w-3" /> {t('category.resetFilters')}
             </button>
           )}
         </div>
       )}
 
       {products.length === 0 ? (
-        <p className="py-20 text-center text-sm text-luna-charcoal/60">Aucun article ne correspond à ces filtres.</p>
+        <p className="py-20 text-center text-sm text-luna-charcoal/60">{t('category.noMatch')}</p>
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
           {products.map((p) => (

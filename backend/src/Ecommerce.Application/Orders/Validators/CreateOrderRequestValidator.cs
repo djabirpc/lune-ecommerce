@@ -24,9 +24,8 @@ public partial class CreateOrderRequestValidator : AbstractValidator<CreateOrder
         RuleFor(x => x.Commune)
             .NotEmpty().WithMessage("La commune est requise.")
             .MaximumLength(100).WithMessage("La commune ne doit pas dépasser 100 caractères.");
-        RuleFor(x => x.Address)
-            .NotEmpty().WithMessage("L'adresse de livraison est requise.")
-            .MaximumLength(500).WithMessage("L'adresse ne doit pas dépasser 500 caractères.");
+        // Optional — a Stop Desk pickup doesn't need a street address (see Order.Address).
+        RuleFor(x => x.Address).MaximumLength(500).WithMessage("L'adresse ne doit pas dépasser 500 caractères.");
         RuleFor(x => x.DeliveryType).IsInEnum().WithMessage("Le type de livraison est invalide.");
         RuleFor(x => x.Notes).MaximumLength(1000).WithMessage("La note ne doit pas dépasser 1000 caractères.");
         RuleFor(x => x.Items).NotEmpty().WithMessage("La commande doit contenir au moins un article.");

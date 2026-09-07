@@ -13,7 +13,11 @@ public class Order : Entity
     public string Phone { get; set; } = string.Empty;
     public string Wilaya { get; set; } = string.Empty;
     public string Commune { get; set; } = string.Empty;
-    public string Address { get; set; } = string.Empty;
+
+    /// <summary>Optional — a Stop Desk pickup doesn't need a street address, and some Home Delivery
+    /// customers still just give the driver a phone-call description on arrival.</summary>
+    public string? Address { get; set; }
+
     public DeliveryType DeliveryType { get; set; }
     public string? Notes { get; set; }
 

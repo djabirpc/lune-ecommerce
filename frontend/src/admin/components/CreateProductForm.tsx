@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +32,8 @@ type ProductFormValues = z.output<typeof productSchema>;
 
 export function CreateProductForm() {
   const queryClient = useQueryClient();
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   const { data: categories } = useQuery({
     queryKey: ['admin-categories'],
@@ -51,16 +54,30 @@ export function CreateProductForm() {
   const { fields, append, remove } = useFieldArray({ control, name: 'variants' });
 
   const createProduct = useMutation({
-    mutationFn: (values: ProductFormValues) =>
-      catalogApi.createProduct({
+    mutationFn: async (values: ProductFormValues) => {
+      const product = await catalogApi.createProduct({
         ...values,
         description: values.description || null,
         variants: values.variants.map((v) => ({ ...v, priceOverride: null, costPrice: v.costPrice ?? null })),
         facebookPixelId: values.facebookPixelId || null,
         tikTokPixelId: values.tikTokPixelId || null,
-      }),
+      });
+
+      // Upload sequentially, not in parallel — the backend marks the *first* uploaded image as
+      // primary automatically, so upload order must match the order the admin picked the files in.
+      for (const file of imageFiles) {
+        try {
+          await catalogApi.uploadImage(product.id, file);
+        } catch (err) {
+          setImageUploadError(err instanceof ApiError ? err.message : "Le produit a été créé, mais l'envoi d'une image a échoué.");
+        }
+      }
+
+      return product;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      setImageFiles([]);
       reset({
         categoryId: '',
         name: '',
@@ -200,6 +217,28 @@ export function CreateProductForm() {
               <input {...register('tikTokPixelId')} className="w-full rounded border border-black/20 px-2 py-1 text-sm" />
             </div>
           </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium">Photos (optionnel)</p>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={(e) => {
+              setImageFiles(Array.from(e.target.files ?? []));
+              setImageUploadError(null);
+            }}
+            className="block w-full text-sm text-luna-charcoal/70 file:mr-3 file:rounded-full file:border-0 file:bg-luna-black file:px-4 file:py-1.5 file:text-sm file:text-white"
+          />
+          {imageFiles.length > 0 && (
+            <p className="mt-1 text-xs text-luna-charcoal/60">
+              {imageFiles.length} image{imageFiles.length > 1 ? 's' : ''} sélectionnée{imageFiles.length > 1 ? 's' : ''} — la première
+              deviendra l&apos;image principale.
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-luna-charcoal/50">JPEG, PNG ou WebP, 5 Mo maximum par image.</p>
+          {imageUploadError && <p className="mt-1 text-xs text-red-600">{imageUploadError}</p>}
         </div>
 
         <button

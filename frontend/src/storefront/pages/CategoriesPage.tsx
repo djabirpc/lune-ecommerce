@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { ProductCard } from '../../lib/components/ProductCard';
 
 export function CategoriesPage() {
+  const { t } = useTranslation();
   const { data: categories, isLoading, isError } = useQuery({
     queryKey: ['categories'],
     queryFn: () => catalogApi.getCategories(),
@@ -16,15 +18,15 @@ export function CategoriesPage() {
   });
 
   if (isLoading) {
-    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">Chargement...</div>;
+    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">{t('common.loading')}</div>;
   }
 
   if (isError) {
-    return <div className="px-4 py-16 text-center text-sm text-red-600">Impossible de charger les catégories.</div>;
+    return <div className="px-4 py-16 text-center text-sm text-red-600">{t('categories.loadError')}</div>;
   }
 
   if (!categories || categories.length === 0) {
-    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">Aucune catégorie pour le moment.</div>;
+    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">{t('categories.empty')}</div>;
   }
 
   const imageForCategory = (slug: string) => products?.items.find((p) => p.categorySlug === slug && p.primaryImageUrl)?.primaryImageUrl;
@@ -32,8 +34,8 @@ export function CategoriesPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <p className="eyebrow">La boutique</p>
-      <h1 className="mt-1 font-display text-4xl text-luna-black">Toute la collection</h1>
+      <p className="eyebrow">{t('categories.eyebrow')}</p>
+      <h1 className="mt-1 font-display text-4xl text-luna-black">{t('categories.title')}</h1>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {categories.map((category) => {
@@ -53,7 +55,7 @@ export function CategoriesPage() {
                 )}
               </div>
               <p className="mt-2 text-sm text-luna-black">{category.name}</p>
-              <p className="text-xs text-luna-charcoal/60">{countForCategory(category.slug)} pièces</p>
+              <p className="text-xs text-luna-charcoal/60">{t('categories.piecesCount', { count: countForCategory(category.slug) })}</p>
             </Link>
           );
         })}
@@ -61,7 +63,7 @@ export function CategoriesPage() {
 
       {products && products.items.length > 0 && (
         <>
-          <h2 className="mt-12 mb-5 font-display text-3xl text-luna-black">Tous les articles</h2>
+          <h2 className="mt-12 mb-5 font-display text-3xl text-luna-black">{t('categories.allProducts')}</h2>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
             {products.items.map((p) => (
               <ProductCard key={p.id} product={p} />

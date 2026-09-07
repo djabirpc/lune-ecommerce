@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, Tag, ShoppingBag, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useCart } from '../../lib/cart/CartContext';
 
@@ -11,6 +12,7 @@ const ACTIVE_CLASS = `${TAB_CLASS} text-luna-black`;
 const HIDDEN_ON = [/^\/product\//, /^\/cart$/, /^\/checkout$/];
 
 export function MobileTabBar() {
+  const { t } = useTranslation();
   const location = useLocation();
   const { itemCount } = useCart();
 
@@ -22,30 +24,30 @@ export function MobileTabBar() {
 
   return (
     <nav
-      aria-label="Navigation mobile"
+      aria-label={t('layout.mobileNav')}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
     >
       <div className="flex">
         <Link to="/" className={isActive('/') ? ACTIVE_CLASS : TAB_CLASS}>
-          <Home className="h-5 w-5" /> Accueil
+          <Home className="h-5 w-5" /> {t('layout.home')}
         </Link>
         <Link to="/categories" className={isActive('/categories') || isActive('/category') ? ACTIVE_CLASS : TAB_CLASS}>
-          <LayoutGrid className="h-5 w-5" /> Boutique
+          <LayoutGrid className="h-5 w-5" /> {t('layout.shop')}
         </Link>
         <Link to="/promotions" className={isActive('/promotions') ? ACTIVE_CLASS : TAB_CLASS}>
-          <Tag className="h-5 w-5" /> Promos
+          <Tag className="h-5 w-5" /> {t('layout.promos')}
         </Link>
         <Link to="/cart" className={`${isActive('/cart') ? ACTIVE_CLASS : TAB_CLASS} relative`}>
           <ShoppingBag className="h-5 w-5" />
           {itemCount > 0 && (
-            <span className="absolute top-0.5 right-[26%] flex h-4 min-w-4 items-center justify-center rounded-full bg-luna-accent px-1 text-[10px] text-white">
+            <span className="absolute top-0.5 end-[26%] flex h-4 min-w-4 items-center justify-center rounded-full bg-luna-accent px-1 text-[10px] text-white">
               {itemCount > 9 ? '9+' : itemCount}
             </span>
           )}
-          Panier
+          {t('layout.cart')}
         </Link>
         <Link to="/account" className={isActive('/account') ? ACTIVE_CLASS : TAB_CLASS}>
-          <User className="h-5 w-5" /> Compte
+          <User className="h-5 w-5" /> {t('layout.account')}
         </Link>
       </div>
     </nav>

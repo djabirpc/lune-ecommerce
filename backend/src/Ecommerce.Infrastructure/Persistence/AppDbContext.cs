@@ -157,7 +157,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(o => o.Phone).IsRequired().HasMaxLength(20);
             entity.Property(o => o.Wilaya).IsRequired().HasMaxLength(100);
             entity.Property(o => o.Commune).IsRequired().HasMaxLength(100);
-            entity.Property(o => o.Address).IsRequired().HasMaxLength(500);
+            entity.Property(o => o.Address).HasMaxLength(500);
             entity.Property(o => o.DeliveryType).HasConversion<string>().HasMaxLength(20);
             entity.Property(o => o.Notes).HasMaxLength(1000);
             entity.Property(o => o.PaymentMethod).IsRequired().HasMaxLength(20);

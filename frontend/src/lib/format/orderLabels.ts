@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 import type { CallAttemptResult, DeliveryType, OrderReturnReason, OrderStatus } from '../api/types';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -34,3 +36,31 @@ export const RETURN_REASON_LABELS: Record<OrderReturnReason, string> = {
   CustomerChangedMind: 'Client a changé d\'avis',
   Other: 'Autre',
 };
+
+// Storefront-facing translated variants (FR/AR) — admin stays French-only per CLAUDE.md section 45,
+// so admin pages keep using the plain consts above.
+export function useOrderStatusLabels(): Record<OrderStatus, string> {
+  const { t } = useTranslation();
+  return {
+    PendingConfirmation: t('orderStatus.pendingConfirmation'),
+    Confirmed: t('orderStatus.confirmed'),
+    Preparing: t('orderStatus.preparing'),
+    ReadyToShip: t('orderStatus.readyToShip'),
+    Shipped: t('orderStatus.shipped'),
+    OutForDelivery: t('orderStatus.outForDelivery'),
+    Delivered: t('orderStatus.delivered'),
+    Cancelled: t('orderStatus.cancelled'),
+    CustomerUnreachable: t('orderStatus.customerUnreachable'),
+    DeliveryFailed: t('orderStatus.deliveryFailed'),
+    Refused: t('orderStatus.refused'),
+    Returned: t('orderStatus.returned'),
+  };
+}
+
+export function useDeliveryTypeLabels(): Record<DeliveryType, string> {
+  const { t } = useTranslation();
+  return {
+    HomeDelivery: t('deliveryType.home'),
+    StopDesk: t('deliveryType.stopDesk'),
+  };
+}

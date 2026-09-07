@@ -1,0 +1,275 @@
+{
+  "common": {
+    "loading": "Chargement…",
+    "error": "Une erreur est survenue. Veuillez réessayer.",
+    "currency": "DA",
+    "pageComingSoon": "Cette page sera bientôt disponible."
+  },
+  "productCard": {
+    "new": "Nouveau",
+    "outOfStock": "Épuisé"
+  },
+  "layout": {
+    "announcementBar": "Livraison 58 wilayas · Paiement à la livraison",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "mobileNav": "Navigation mobile",
+    "promos": "Promos",
+    "browseShop": "Parcourir la boutique",
+    "favorites": "Favoris",
+    "viewCart": "Voir le panier",
+    "collections": "Collections",
+    "home": "Accueil",
+    "shop": "Boutique",
+    "cart": "Panier",
+    "account": "Compte",
+    "promotions": "Promotions",
+    "myOrders": "Mes commandes",
+    "trackOrder": "Suivre une commande",
+    "myFavorites": "Mes favoris",
+    "myAccount": "Mon compte",
+    "footer": {
+      "deliveryTitle": "Livraison 58 wilayas",
+      "deliveryText": "Yalidine & ZR Express, 2 à 5 jours.",
+      "codTitle": "Paiement à la livraison",
+      "codText": "Vous payez seulement à réception.",
+      "exchangeTitle": "Échange 7 jours",
+      "exchangeText": "Taille ou couleur, sans discussion.",
+      "tagline": "Prêt-à-porter féminin, pensé et livré en Algérie.",
+      "call": "Appeler",
+      "help": "Aide",
+      "trackMyOrder": "Suivre ma commande",
+      "copyright": "© {{year}} Luna — Alger, Algérie."
+    }
+  },
+  "home": {
+    "seeAll": "Tout voir",
+    "hero": {
+      "eyebrow": "Nouvelle collection",
+      "title": "La mode qui vous ressemble",
+      "subtitle": "Des pièces choisies une à une, livrées chez vous partout en Algérie.",
+      "discoverCta": "Découvrir la collection",
+      "promosCta": "Voir les promos"
+    },
+    "reassure": {
+      "delivery": "Livraison 58 wilayas",
+      "cod": "Paiement à la livraison",
+      "exchange": "Échange sous 7 jours"
+    },
+    "categories": {
+      "title": "Nos catégories"
+    },
+    "flashSale": {
+      "eyebrow": "Vente flash"
+    },
+    "newArrivals": {
+      "title": "Nouveautés"
+    },
+    "categoryPromo": {
+      "discover": "Découvrir {{name}}"
+    }
+  },
+  "categories": {
+    "eyebrow": "La boutique",
+    "title": "Toute la collection",
+    "loadError": "Impossible de charger les catégories.",
+    "empty": "Aucune catégorie pour le moment.",
+    "allProducts": "Tous les articles",
+    "piecesCount_one": "{{count}} pièce",
+    "piecesCount_other": "{{count}} pièces"
+  },
+  "category": {
+    "notFound": "Catégorie introuvable",
+    "filters": "Filtres",
+    "sizes": "Tailles",
+    "colors": "Couleurs",
+    "budget": "Budget",
+    "lessThan": "Moins de {{price}}",
+    "onSale": "En promo",
+    "resetFilters": "Réinitialiser les filtres",
+    "noMatch": "Aucun article ne correspond à ces filtres.",
+    "sort": {
+      "newest": "Nouveautés",
+      "priceAsc": "Prix croissant",
+      "priceDesc": "Prix décroissant"
+    }
+  },
+  "product": {
+    "notFound": "Produit introuvable",
+    "noImage": "Pas d'image",
+    "addToFavorites": "Ajouter aux favoris",
+    "color": "Couleur",
+    "colorWithValue": "Couleur : {{color}}",
+    "size": "Taille",
+    "lowStock": "Plus que {{count}} en stock — commandez vite",
+    "outOfStock": "Taille épuisée",
+    "decrease": "Diminuer",
+    "increase": "Augmenter",
+    "addToCart": "Ajouter au panier",
+    "buyNowCod": "Acheter maintenant — Paiement à la livraison",
+    "info": {
+      "delivery": "Livraison dans les 58 wilayas, 2 à 5 jours",
+      "cod": "Paiement à la livraison (COD), sans avance",
+      "exchange": "Échange sous 7 jours"
+    },
+    "deliveryReturns": {
+      "title": "Livraison & retours",
+      "text": "Livraison à domicile ou en point de retrait via nos partenaires. Vous payez à la réception. Échange possible sous 7 jours si l'article n'a pas été porté."
+    },
+    "youMayLike": "Vous aimerez aussi",
+    "addedBuyNow": "Ajouté — Acheter maintenant",
+    "addWithPrice": "Ajouter — {{price}}",
+    "chooseColorSize": "Choisissez une couleur et une taille"
+  },
+  "cart": {
+    "empty": {
+      "title": "Votre panier est vide",
+      "subtitle": "Découvrez la collection et payez à la livraison.",
+      "cta": "Voir la collection"
+    },
+    "title": "Panier ({{count}})",
+    "colorSize": "{{color}} · Taille {{size}}",
+    "removeItem": "Retirer l'article",
+    "summary": {
+      "title": "Récapitulatif",
+      "subtotal": "Sous-total",
+      "shipping": "Livraison",
+      "shippingCalculated": "Calculée au paiement",
+      "total": "Total"
+    },
+    "orderCod": "Commander — Paiement à la livraison",
+    "noOnlinePayment": "Aucun paiement en ligne. Vous payez le livreur.",
+    "orderWithPrice": "Commander — {{price}}"
+  },
+  "checkout": {
+    "title": "Finaliser la commande",
+    "subtitle": "Paiement à la livraison — vous payez le livreur à la réception.",
+    "emptyCart": "Votre panier est vide. Ajoutez des articles avant de commander.",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "phone": "Téléphone",
+    "wilaya": "Wilaya",
+    "selectWilaya": "Sélectionnez une wilaya",
+    "commune": "Commune",
+    "address": "Adresse de livraison",
+    "optional": "optionnel",
+    "addressPlaceholder": "Cité, rue, immeuble, repère…",
+    "deliveryType": "Type de livraison",
+    "notes": "Note pour le livreur (facultatif)",
+    "notesPlaceholder": "Appeler avant de venir, livrer après 16h…",
+    "info": {
+      "cod": "Paiement à la réception",
+      "delivery": "Livraison 48–72h",
+      "exchange": "Échange sous 7 jours"
+    },
+    "clearStaleCart": "Vider le panier et retourner à la boutique",
+    "summary": {
+      "title": "Votre commande"
+    },
+    "shippingUnavailable": "Livraison indisponible pour cette wilaya. Contactez-nous pour vérifier.",
+    "shippingUnavailableShort": "Indisponible",
+    "shippingByWilaya": "Selon la wilaya",
+    "totalToPay": "Total à payer",
+    "couponCode": "Code promo (facultatif)",
+    "sending": "Envoi...",
+    "confirmOrder": "Confirmer la commande",
+    "callToConfirm": "Aucun paiement en ligne. Nous vous appelons pour confirmer.",
+    "validation": {
+      "firstNameRequired": "Le prénom est requis.",
+      "lastNameRequired": "Le nom est requis.",
+      "phoneInvalid": "Numéro de téléphone algérien invalide (10 chiffres, commence par 0).",
+      "wilayaRequired": "La wilaya est requise.",
+      "communeRequired": "La commune est requise."
+    }
+  },
+  "account": {
+    "eyebrow": "Mon espace",
+    "title": "Mon compte",
+    "deliveryInfo": "Informations de livraison",
+    "noInfoYet": "Vos informations seront enregistrées lors de votre première commande.",
+    "recentOrders": "Dernières commandes",
+    "noOrdersYet": "Aucune commande pour le moment.",
+    "myFavorites": "Mes favoris",
+    "noFavoritesYet": "Ajoutez vos coups de cœur en touchant le cœur sur un produit."
+  },
+  "orderStatus": {
+    "pendingConfirmation": "En attente de confirmation",
+    "confirmed": "Confirmée",
+    "preparing": "En préparation",
+    "readyToShip": "Prête à expédier",
+    "shipped": "Expédiée",
+    "outForDelivery": "En cours de livraison",
+    "delivered": "Livrée",
+    "cancelled": "Annulée",
+    "customerUnreachable": "Injoignable",
+    "deliveryFailed": "Échec de livraison",
+    "refused": "Refusée",
+    "returned": "Retournée"
+  },
+  "deliveryType": {
+    "home": "Livraison à domicile",
+    "stopDesk": "Point relais (Stop Desk)"
+  },
+  "orderDetails": {
+    "discount": "Réduction",
+    "freeShipping": "Offerte",
+    "deliveryTitle": "Livraison",
+    "note": "Note : {{note}}"
+  },
+  "orderConfirmation": {
+    "thanks": "Merci pour votre commande !",
+    "thanksWithName": "Merci {{name}} !",
+    "body": "Votre commande {{orderNumber}} est enregistrée. Notre équipe vous appelle pour la confirmer.",
+    "bodyWithPhone": "Votre commande {{orderNumber}} est enregistrée. Notre équipe vous appelle au {{phone}} pour la confirmer.",
+    "confirmationCall": "Appel de confirmation",
+    "amountOnReceipt": "{{amount}} à la réception",
+    "orderNumber": "Commande {{orderNumber}}",
+    "checkPrefix": "Consultez",
+    "trackingLink": "le suivi de commande",
+    "checkSuffix": "avec votre numéro de téléphone pour voir le détail.",
+    "continueShopping": "Continuer mes achats"
+  },
+  "trackOrder": {
+    "eyebrow": "Suivi",
+    "subtitle": "Entrez votre numéro de commande et de téléphone pour voir son statut.",
+    "orderNumber": "Numéro de commande",
+    "searching": "Recherche...",
+    "search": "Rechercher",
+    "notFound": "Commande introuvable.",
+    "validation": {
+      "orderNumberRequired": "Le numéro de commande est requis.",
+      "phoneInvalid": "Numéro de téléphone algérien invalide."
+    }
+  },
+  "orders": {
+    "empty": {
+      "title": "Aucune commande",
+      "subtitle": "Vos commandes passées sur cet appareil apparaîtront ici avec leur suivi de livraison."
+    },
+    "title": "Mes commandes",
+    "track": "Suivre"
+  },
+  "orderTrackingDetail": {
+    "notFound": "Commande introuvable",
+    "confirmPhone": {
+      "title": "Confirmez votre numéro",
+      "body": "Cette commande n'est pas associée à cet appareil. Entrez votre numéro de téléphone pour la retrouver."
+    },
+    "backToOrders": "Mes commandes",
+    "placedOn": "Passée le {{date}}"
+  },
+  "favorites": {
+    "empty": {
+      "title": "Aucun favori",
+      "subtitle": "Ajoutez des articles à vos favoris en cliquant sur le cœur."
+    }
+  },
+  "promotions": {
+    "eyebrow": "Offres en cours",
+    "shipping": "Livraison",
+    "endsIn": "Se termine dans",
+    "byCategory": "Offres par catégorie",
+    "allOnSale": "Tous les articles en promo",
+    "empty": "Aucune promotion en cours pour le moment."
+  }
+}

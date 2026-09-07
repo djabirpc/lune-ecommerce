@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
@@ -15,6 +16,7 @@ import { ProductCard } from '../../lib/components/ProductCard';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
 
 export function ProductPage() {
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
@@ -69,11 +71,11 @@ export function ProductPage() {
   }, [product?.id]);
 
   if (isLoading) {
-    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">Chargement...</div>;
+    return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">{t('common.loading')}</div>;
   }
 
   if (isError || !product) {
-    return <PagePlaceholder title="Produit introuvable" />;
+    return <PagePlaceholder title={t('product.notFound')} />;
   }
 
   const primaryImage = product.images.find((i) => i.isPrimary) ?? product.images[0];
@@ -128,7 +130,7 @@ export function ProductPage() {
     <div className="mx-auto max-w-6xl px-4 pb-28 sm:px-6 sm:pb-12 lg:px-8">
       <nav className="py-4 text-xs text-luna-charcoal/60">
         <Link to="/categories" className="hover:text-luna-black">
-          Boutique
+          {t('layout.shop')}
         </Link>
         <span className="mx-1">/</span>
         <span className="text-luna-black">{product.name}</span>
@@ -140,15 +142,15 @@ export function ProductPage() {
             {displayedImage ? (
               <img src={displayedImage.url} alt={displayedImage.altText ?? product.name} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
+              <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">{t('product.noImage')}</div>
             )}
             {estimate && (
-              <span className="absolute top-3 left-3 rounded-full bg-luna-accent px-2.5 py-1 text-xs text-white">-{estimate.percent}%</span>
+              <span className="absolute top-3 start-3 rounded-full bg-luna-accent px-2.5 py-1 text-xs text-white">-{estimate.percent}%</span>
             )}
             <button
               onClick={() => toggleFavorite(product.id)}
-              aria-label="Ajouter aux favoris"
-              className="absolute top-3 right-3 rounded-full bg-white/90 p-2.5"
+              aria-label={t('product.addToFavorites')}
+              className="absolute top-3 end-3 rounded-full bg-white/90 p-2.5"
             >
               <Heart className={`h-4 w-4 ${fav ? 'fill-luna-accent text-luna-accent' : 'text-luna-black'}`} />
             </button>
@@ -186,7 +188,7 @@ export function ProductPage() {
           {product.description && <p className="mt-4 text-sm leading-relaxed text-luna-charcoal/70">{product.description}</p>}
 
           <div className="mt-6">
-            <p className="eyebrow mb-2">Couleur{selectedColor ? ` : ${selectedColor}` : ''}</p>
+            <p className="eyebrow mb-2">{selectedColor ? t('product.colorWithValue', { color: selectedColor }) : t('product.color')}</p>
             <div className="flex flex-wrap gap-2">
               {colors.map((color) => (
                 <button
@@ -203,7 +205,7 @@ export function ProductPage() {
 
           {selectedColor && (
             <div className="mt-6">
-              <p className="eyebrow mb-2">Taille</p>
+              <p className="eyebrow mb-2">{t('product.size')}</p>
               <div className="flex flex-wrap gap-2">
                 {sizesForColor.map((size) => (
                   <button
@@ -219,10 +221,10 @@ export function ProductPage() {
                 ))}
               </div>
               {selectedVariant && selectedVariant.availableQuantity > 0 && selectedVariant.availableQuantity <= 3 && (
-                <p className="mt-2 text-xs text-luna-accent">Plus que {selectedVariant.availableQuantity} en stock — commandez vite</p>
+                <p className="mt-2 text-xs text-luna-accent">{t('product.lowStock', { count: selectedVariant.availableQuantity })}</p>
               )}
               {selectedVariant && selectedVariant.availableQuantity === 0 && (
-                <p className="mt-2 text-xs text-luna-charcoal/60">Taille épuisée</p>
+                <p className="mt-2 text-xs text-luna-charcoal/60">{t('product.outOfStock')}</p>
               )}
             </div>
           )}
@@ -230,13 +232,13 @@ export function ProductPage() {
           {selectedVariant && selectedVariant.availableQuantity > 0 && (
             <div className="mt-6 flex items-center gap-3">
               <div className="flex items-center rounded-sm border border-black/15">
-                <button className="p-3" aria-label="Diminuer" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+                <button className="p-3" aria-label={t('product.decrease')} onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
                   <Minus className="h-3.5 w-3.5" />
                 </button>
                 <span className="w-8 text-center text-sm">{quantity}</span>
                 <button
                   className="p-3"
-                  aria-label="Augmenter"
+                  aria-label={t('product.increase')}
                   onClick={() => setQuantity((q) => Math.min(selectedVariant.availableQuantity, q + 1))}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -248,7 +250,7 @@ export function ProductPage() {
                 disabled={!canAddToCart}
                 className="h-12 flex-1 rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
               >
-                Ajouter au panier
+                {t('product.addToCart')}
               </button>
             </div>
           )}
@@ -259,38 +261,35 @@ export function ProductPage() {
               onClick={() => navigate('/checkout')}
               className="mt-3 hidden h-12 w-full rounded-sm bg-luna-black text-sm font-medium text-white sm:inline-flex sm:items-center sm:justify-center"
             >
-              Acheter maintenant — Paiement à la livraison
+              {t('product.buyNowCod')}
             </button>
           )}
 
           <div className="mt-6 grid gap-3 rounded-sm bg-luna-cream-dark p-4 text-xs text-luna-black">
             <p className="flex items-center gap-2">
-              <Truck className="h-4 w-4 shrink-0" /> Livraison dans les 58 wilayas, 2 à 5 jours
+              <Truck className="h-4 w-4 shrink-0" /> {t('product.info.delivery')}
             </p>
             <p className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 shrink-0" /> Paiement à la livraison (COD), sans avance
+              <ShieldCheck className="h-4 w-4 shrink-0" /> {t('product.info.cod')}
             </p>
             <p className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4 shrink-0" /> Échange sous 7 jours
+              <RefreshCw className="h-4 w-4 shrink-0" /> {t('product.info.exchange')}
             </p>
           </div>
 
           <details className="group mt-6 border-t border-black/10 py-3">
             <summary className="flex cursor-pointer list-none items-center justify-between text-sm text-luna-black">
-              Livraison &amp; retours
+              {t('product.deliveryReturns.title')}
               <span className="text-luna-charcoal/50 transition group-open:rotate-45">+</span>
             </summary>
-            <p className="mt-2 text-sm text-luna-charcoal/70">
-              Livraison à domicile ou en point de retrait via nos partenaires. Vous payez à la réception. Échange possible sous 7
-              jours si l'article n'a pas été porté.
-            </p>
+            <p className="mt-2 text-sm text-luna-charcoal/70">{t('product.deliveryReturns.text')}</p>
           </details>
         </div>
       </div>
 
       {related.length > 0 && (
         <section className="mt-16">
-          <h2 className="mb-5 font-display text-2xl text-luna-black">Vous aimerez aussi</h2>
+          <h2 className="mb-5 font-display text-2xl text-luna-black">{t('product.youMayLike')}</h2>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
             {related.map((p) => (
               <ProductCard key={p.id} product={p} />
@@ -307,7 +306,7 @@ export function ProductPage() {
             onClick={() => navigate('/checkout')}
             className="w-full rounded-sm bg-luna-accent px-6 py-3.5 text-sm font-medium text-white"
           >
-            Ajouté — Acheter maintenant
+            {t('product.addedBuyNow')}
           </button>
         ) : (
           <button
@@ -316,7 +315,7 @@ export function ProductPage() {
             disabled={!canAddToCart}
             className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
           >
-            {selectedVariant ? `Ajouter — ${formatPrice(unitPrice * quantity)}` : 'Choisissez une couleur et une taille'}
+            {selectedVariant ? t('product.addWithPrice', { price: formatPrice(unitPrice * quantity) }) : t('product.chooseColorSize')}
           </button>
         )}
       </div>

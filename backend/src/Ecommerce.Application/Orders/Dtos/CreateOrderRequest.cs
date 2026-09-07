@@ -8,7 +8,7 @@ public record CreateOrderRequest(
     string Phone,
     string Wilaya,
     string Commune,
-    string Address,
+    string? Address,
     DeliveryType DeliveryType,
     string? Notes,
     IReadOnlyList<OrderItemRequest> Items,

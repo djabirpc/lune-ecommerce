@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Heart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { formatPrice } from '../format/price';
 import { colorToHex } from '../format/colorSwatch';
@@ -12,6 +13,7 @@ import type { ProductListItemDto } from '../api/types';
 const NEW_WINDOW_DAYS = 14;
 
 export function ProductCard({ product }: { product: ProductListItemDto }) {
+  const { t } = useTranslation();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { data: activePromotions } = useQuery({
     queryKey: ['active-promotions'],
@@ -35,19 +37,19 @@ export function ProductCard({ product }: { product: ProductListItemDto }) {
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">Pas d'image</div>
+            <div className="flex h-full w-full items-center justify-center text-xs text-luna-charcoal/40">{t('product.noImage')}</div>
           )}
-          <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
+          <div className="absolute top-2 start-2 flex flex-col items-start gap-1">
             {estimate && (
               <span className="rounded-full bg-luna-accent px-2 py-0.5 text-[10px] font-medium text-white">-{estimate.percent}%</span>
             )}
             {isNew && (
-              <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] tracking-wider text-luna-black uppercase">Nouveau</span>
+              <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] tracking-wider text-luna-black uppercase">{t('productCard.new')}</span>
             )}
           </div>
           {!product.isInStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-xs tracking-[0.2em] text-luna-black uppercase">
-              Épuisé
+              {t('productCard.outOfStock')}
             </div>
           )}
         </div>
@@ -55,8 +57,8 @@ export function ProductCard({ product }: { product: ProductListItemDto }) {
 
       <button
         onClick={() => toggleFavorite(product.id)}
-        aria-label="Ajouter aux favoris"
-        className="absolute top-2 right-2 rounded-full bg-white/90 p-2"
+        aria-label={t('product.addToFavorites')}
+        className="absolute top-2 end-2 rounded-full bg-white/90 p-2"
       >
         <Heart className={`h-4 w-4 ${fav ? 'fill-luna-accent text-luna-accent' : 'text-luna-black'}`} />
       </button>

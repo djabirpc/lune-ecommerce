@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Heart, Package, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { ordersApi } from '../../lib/api/orders';
 import { catalogApi } from '../../lib/api/catalog';
@@ -8,10 +9,12 @@ import { getOrderHistory } from '../../lib/orders/localOrderHistory';
 import { getSavedCustomerInfo } from '../../lib/customer/savedCustomerInfo';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
 import { formatPrice } from '../../lib/format/price';
-import { ORDER_STATUS_LABELS } from '../../lib/format/orderLabels';
+import { useOrderStatusLabels } from '../../lib/format/orderLabels';
 import { ProductCard } from '../../lib/components/ProductCard';
 
 export function AccountPage() {
+  const { t, i18n } = useTranslation();
+  const orderStatusLabels = useOrderStatusLabels();
   const customer = getSavedCustomerInfo();
   const history = getOrderHistory().slice(0, 3);
   const { favorites } = useFavorites();
@@ -34,12 +37,12 @@ export function AccountPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <p className="eyebrow">Mon espace</p>
-      <h1 className="mt-1 font-display text-4xl text-luna-black">Mon compte</h1>
+      <p className="eyebrow">{t('account.eyebrow')}</p>
+      <h1 className="mt-1 font-display text-4xl text-luna-black">{t('account.title')}</h1>
 
       <section className="mt-8 rounded-sm border border-black/10 bg-white p-5">
         <h2 className="flex items-center gap-2 font-display text-xl text-luna-black">
-          <User className="h-4 w-4" /> Informations de livraison
+          <User className="h-4 w-4" /> {t('account.deliveryInfo')}
         </h2>
         {customer ? (
           <div className="mt-3 text-sm text-luna-black">
@@ -48,25 +51,25 @@ export function AccountPage() {
             </p>
             <p className="text-luna-charcoal/60">{customer.phone}</p>
             <p className="text-luna-charcoal/60">
-              {customer.address}, {customer.commune}, {customer.wilaya}
+              {[customer.address, customer.commune, customer.wilaya].filter(Boolean).join(', ')}
             </p>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-luna-charcoal/60">Vos informations seront enregistrées lors de votre première commande.</p>
+          <p className="mt-3 text-sm text-luna-charcoal/60">{t('account.noInfoYet')}</p>
         )}
       </section>
 
       <section className="mt-6 rounded-sm border border-black/10 bg-white p-5">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 font-display text-xl text-luna-black">
-            <Package className="h-4 w-4" /> Dernières commandes
+            <Package className="h-4 w-4" /> {t('account.recentOrders')}
           </h2>
           <Link to="/orders" className="text-xs text-luna-charcoal/60 underline underline-offset-2 hover:text-luna-black">
-            Tout voir
+            {t('home.seeAll')}
           </Link>
         </div>
         {!recentOrders || recentOrders.length === 0 ? (
-          <p className="mt-3 text-sm text-luna-charcoal/60">Aucune commande pour le moment.</p>
+          <p className="mt-3 text-sm text-luna-charcoal/60">{t('account.noOrdersYet')}</p>
         ) : (
           <ul className="mt-3 divide-y divide-black/10">
             {recentOrders.map((order) => (
@@ -76,7 +79,8 @@ export function AccountPage() {
                     {order.orderNumber}
                   </Link>
                   <p className="text-xs text-luna-charcoal/60">
-                    {new Date(order.createdAtUtc).toLocaleDateString('fr-FR')} · {ORDER_STATUS_LABELS[order.status]}
+                    {new Date(order.createdAtUtc).toLocaleDateString(i18n.language === 'ar' ? 'ar-DZ' : 'fr-FR')} ·{' '}
+                    {orderStatusLabels[order.status]}
                   </p>
                 </div>
                 <span className="text-luna-black">{formatPrice(order.total)}</span>
@@ -88,10 +92,10 @@ export function AccountPage() {
 
       <section className="mt-6">
         <h2 className="flex items-center gap-2 font-display text-xl text-luna-black">
-          <Heart className="h-4 w-4" /> Mes favoris
+          <Heart className="h-4 w-4" /> {t('account.myFavorites')}
         </h2>
         {favoriteProducts.length === 0 ? (
-          <p className="mt-3 text-sm text-luna-charcoal/60">Ajoutez vos coups de cœur en touchant le cœur sur un produit.</p>
+          <p className="mt-3 text-sm text-luna-charcoal/60">{t('account.noFavoritesYet')}</p>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             {favoriteProducts.map((p) => (

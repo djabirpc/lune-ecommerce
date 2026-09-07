@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Truck, ShieldCheck, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
@@ -9,6 +10,7 @@ import { ProductCard } from '../../lib/components/ProductCard';
 import { Countdown } from '../../lib/components/Countdown';
 
 export function HomePage() {
+  const { t } = useTranslation();
   const { data: categories } = useQuery({
     queryKey: ['home-categories'],
     queryFn: () => catalogApi.getCategories(),
@@ -42,19 +44,17 @@ export function HomePage() {
           {heroImage && <img src={heroImage} alt="Collection Luna" className="h-full w-full object-cover opacity-80" />}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-5 pb-10">
-            <p className="eyebrow text-white/80">Nouvelle collection</p>
+            <p className="eyebrow text-white/80">{t('home.hero.eyebrow')}</p>
             <h1 className="mt-2 max-w-xl font-display text-4xl leading-tight text-white sm:text-6xl">
-              La mode qui vous ressemble
+              {t('home.hero.title')}
             </h1>
-            <p className="mt-3 max-w-sm text-sm text-white/85">
-              Des pièces choisies une à une, livrées chez vous partout en Algérie.
-            </p>
+            <p className="mt-3 max-w-sm text-sm text-white/85">{t('home.hero.subtitle')}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/categories" className="rounded-sm bg-white px-6 py-3 text-sm text-luna-black">
-                Découvrir la collection
+                {t('home.hero.discoverCta')}
               </Link>
               <Link to="/promotions" className="rounded-sm border border-white px-6 py-3 text-sm text-white">
-                Voir les promos
+                {t('home.hero.promosCta')}
               </Link>
             </div>
           </div>
@@ -64,15 +64,15 @@ export function HomePage() {
       {/* Reassurance */}
       <section className="border-b border-black/10 bg-white">
         <div className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4 py-5 text-center sm:px-6 lg:px-8">
-          <Reassure icon={<Truck className="h-4 w-4" />} text="Livraison 58 wilayas" />
-          <Reassure icon={<ShieldCheck className="h-4 w-4" />} text="Paiement à la livraison" />
-          <Reassure icon={<RotateCcw className="h-4 w-4" />} text="Échange sous 7 jours" />
+          <Reassure icon={<Truck className="h-4 w-4" />} text={t('home.reassure.delivery')} />
+          <Reassure icon={<ShieldCheck className="h-4 w-4" />} text={t('home.reassure.cod')} />
+          <Reassure icon={<RotateCcw className="h-4 w-4" />} text={t('home.reassure.exchange')} />
         </div>
       </section>
 
       {/* Categories */}
       {categories && categories.length > 0 && (
-        <Section title="Nos catégories" href="/categories" linkLabel="Tout voir">
+        <Section title={t('home.categories.title')} href="/categories" linkLabel={t('home.seeAll')}>
           <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-5">
             {categories.map((c) => (
               <Link key={c.id} to={`/category/${c.slug}`} className="group w-40 shrink-0 snap-start sm:w-auto">
@@ -104,7 +104,7 @@ export function HomePage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="eyebrow text-white/70">Vente flash</p>
+                <p className="eyebrow text-white/70">{t('home.flashSale.eyebrow')}</p>
                 <h2 className="font-display text-3xl">{flash.name}</h2>
               </div>
               <Countdown endsAt={flash.endsAtUtc} dark />
@@ -122,7 +122,7 @@ export function HomePage() {
 
       {/* New arrivals */}
       {arrivals.length > 0 && (
-        <Section title="Nouveautés" href="/categories" linkLabel="Tout voir">
+        <Section title={t('home.newArrivals.title')} href="/categories" linkLabel={t('home.seeAll')}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
             {arrivals.map((p) => (
               <ProductCard key={p.id} product={p} />
@@ -145,7 +145,7 @@ export function HomePage() {
               <h2 className="font-display text-4xl sm:text-5xl">{categoryPromo.name}</h2>
               {categoryPromo.description && <p className="mt-2 text-sm text-white/85">{categoryPromo.description}</p>}
               <span className="mt-5 inline-flex items-center gap-2 rounded-sm bg-white px-5 py-2.5 text-sm text-luna-black">
-                Découvrir {categoryPromoTarget.name} <ArrowRight className="h-4 w-4" />
+                {t('home.categoryPromo.discover', { name: categoryPromoTarget.name })} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
               </span>
             </div>
           </Link>

@@ -9,7 +9,7 @@ export interface SavedCustomerInfo {
   phone: string;
   wilaya: string;
   commune: string;
-  address: string;
+  address: string | null;
 }
 
 const STORAGE_KEY = 'luna-customer-info';

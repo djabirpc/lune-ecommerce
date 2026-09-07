@@ -140,7 +140,7 @@ export function OrderDetailPage() {
           </p>
           <p className="text-sm">{order.phone}</p>
           <p className="text-sm">
-            {order.address}, {order.commune}, {order.wilaya}
+            {[order.address, order.commune, order.wilaya].filter(Boolean).join(', ')}
           </p>
           <p className="text-sm">{DELIVERY_TYPE_LABELS[order.deliveryType]}</p>
           {order.notes && <p className="mt-1 text-sm text-luna-charcoal/70">Note : {order.notes}</p>}

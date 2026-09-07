@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Truck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
@@ -9,6 +10,7 @@ import { ProductCard } from '../../lib/components/ProductCard';
 import { Countdown } from '../../lib/components/Countdown';
 
 export function PromotionsPage() {
+  const { t } = useTranslation();
   const { data: promotions, isLoading } = useQuery({
     queryKey: ['active-promotions'],
     queryFn: () => promotionsApi.getActive(),
@@ -40,15 +42,15 @@ export function PromotionsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <p className="eyebrow">Offres en cours</p>
-      <h1 className="mt-1 font-display text-4xl text-luna-black">Promotions</h1>
+      <p className="eyebrow">{t('promotions.eyebrow')}</p>
+      <h1 className="mt-1 font-display text-4xl text-luna-black">{t('layout.promotions')}</h1>
 
-      {isLoading && <p className="mt-6 text-sm text-luna-charcoal/60">Chargement...</p>}
+      {isLoading && <p className="mt-6 text-sm text-luna-charcoal/60">{t('common.loading')}</p>}
 
       {freeShipping && (
         <div className="mt-6 max-w-sm rounded-sm bg-luna-cream-dark p-5">
           <p className="eyebrow flex items-center gap-2">
-            <Truck className="h-3.5 w-3.5" /> Livraison
+            <Truck className="h-3.5 w-3.5" /> {t('promotions.shipping')}
           </p>
           <p className="mt-1 font-display text-xl text-luna-black">{freeShipping.name}</p>
           {freeShipping.description && <p className="mt-1 text-sm text-luna-charcoal/70">{freeShipping.description}</p>}
@@ -59,12 +61,12 @@ export function PromotionsPage() {
         <section className="mt-12 rounded-sm bg-luna-black p-5 text-white md:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="eyebrow opacity-70">Vente flash</p>
+              <p className="eyebrow opacity-70">{t('home.flashSale.eyebrow')}</p>
               <h2 className="mt-1 font-display text-3xl">{flash.name}</h2>
               {flash.description && <p className="mt-1 text-sm opacity-80">{flash.description}</p>}
             </div>
             <div>
-              <p className="mb-1 text-[10px] tracking-[0.2em] text-white/70 uppercase">Se termine dans</p>
+              <p className="mb-1 text-[10px] tracking-[0.2em] text-white/70 uppercase">{t('promotions.endsIn')}</p>
               <Countdown endsAt={flash.endsAtUtc} dark />
             </div>
           </div>
@@ -78,7 +80,7 @@ export function PromotionsPage() {
 
       {categoryPromos.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-5 font-display text-2xl text-luna-black">Offres par catégorie</h2>
+          <h2 className="mb-5 font-display text-2xl text-luna-black">{t('promotions.byCategory')}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {categoryPromos.map((promo) => {
               const category = categories?.find((c) => promo.categoryIds.includes(c.id));
@@ -99,7 +101,7 @@ export function PromotionsPage() {
                       to={`/category/${category.slug}`}
                       className="mt-3 inline-flex w-fit items-center gap-2 rounded-sm bg-white px-4 py-2 text-sm text-luna-black"
                     >
-                      Découvrir {category.name}
+                      {t('home.categoryPromo.discover', { name: category.name })}
                     </Link>
                   </div>
                 </div>
@@ -111,7 +113,7 @@ export function PromotionsPage() {
 
       {onSale.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-5 font-display text-2xl text-luna-black">Tous les articles en promo</h2>
+          <h2 className="mb-5 font-display text-2xl text-luna-black">{t('promotions.allOnSale')}</h2>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
             {onSale.map(({ product }) => (
               <ProductCard key={product.id} product={product} />
@@ -121,7 +123,7 @@ export function PromotionsPage() {
       )}
 
       {!isLoading && (promotions?.length ?? 0) === 0 && (
-        <p className="mt-8 text-sm text-luna-charcoal/70">Aucune promotion en cours pour le moment.</p>
+        <p className="mt-8 text-sm text-luna-charcoal/70">{t('promotions.empty')}</p>
       )}
     </div>
   );

@@ -1,10 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
 
 export function CartPage() {
+  const { t } = useTranslation();
   const { items, removeItem, setQuantity, subtotal, itemCount } = useCart();
   const navigate = useNavigate();
 
@@ -12,10 +14,10 @@ export function CartPage() {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
         <ShoppingBag className="h-10 w-10 text-luna-charcoal/40" />
-        <h1 className="mt-4 font-display text-3xl text-luna-black">Votre panier est vide</h1>
-        <p className="mt-2 text-sm text-luna-charcoal/70">Découvrez la collection et payez à la livraison.</p>
+        <h1 className="mt-4 font-display text-3xl text-luna-black">{t('cart.empty.title')}</h1>
+        <p className="mt-2 text-sm text-luna-charcoal/70">{t('cart.empty.subtitle')}</p>
         <Link to="/categories" className="mt-6 rounded-sm bg-luna-black px-7 py-3 text-sm text-white">
-          Voir la collection
+          {t('cart.empty.cta')}
         </Link>
       </div>
     );
@@ -23,7 +25,7 @@ export function CartPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 pb-28 sm:pb-8">
-      <h1 className="font-display text-4xl text-luna-black">Panier ({itemCount})</h1>
+      <h1 className="font-display text-4xl text-luna-black">{t('cart.title', { count: itemCount })}</h1>
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_20rem]">
         <ul className="divide-y divide-black/10 border-y border-black/10">
@@ -38,13 +40,11 @@ export function CartPage() {
                     <Link to={`/product/${item.productSlug}`} className="line-clamp-1 text-sm text-luna-black">
                       {item.productName}
                     </Link>
-                    <p className="mt-0.5 text-xs text-luna-charcoal/60">
-                      {item.color} · Taille {item.size}
-                    </p>
+                    <p className="mt-0.5 text-xs text-luna-charcoal/60">{t('cart.colorSize', { color: item.color, size: item.size })}</p>
                   </div>
                   <button
                     onClick={() => removeItem(item.variantId)}
-                    aria-label="Retirer l'article"
+                    aria-label={t('cart.removeItem')}
                     className="p-1 text-luna-charcoal/50"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -54,7 +54,7 @@ export function CartPage() {
                   <div className="flex items-center rounded-sm border border-black/15">
                     <button
                       className="p-2"
-                      aria-label="Diminuer"
+                      aria-label={t('product.decrease')}
                       onClick={() => setQuantity(item.variantId, item.quantity - 1)}
                     >
                       <Minus className="h-3.5 w-3.5" />
@@ -62,7 +62,7 @@ export function CartPage() {
                     <span className="w-7 text-center text-sm">{item.quantity}</span>
                     <button
                       className="p-2"
-                      aria-label="Augmenter"
+                      aria-label={t('product.increase')}
                       onClick={() => setQuantity(item.variantId, item.quantity + 1)}
                     >
                       <Plus className="h-3.5 w-3.5" />
@@ -76,18 +76,18 @@ export function CartPage() {
         </ul>
 
         <aside className="h-fit rounded-sm border border-black/10 bg-white p-5 lg:sticky lg:top-24">
-          <h2 className="font-display text-xl text-luna-black">Récapitulatif</h2>
+          <h2 className="font-display text-xl text-luna-black">{t('cart.summary.title')}</h2>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-luna-charcoal/60">Sous-total</dt>
+              <dt className="text-luna-charcoal/60">{t('cart.summary.subtotal')}</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-luna-charcoal/60">Livraison</dt>
-              <dd>Calculée au paiement</dd>
+              <dt className="text-luna-charcoal/60">{t('cart.summary.shipping')}</dt>
+              <dd>{t('cart.summary.shippingCalculated')}</dd>
             </div>
             <div className="flex justify-between border-t border-black/10 pt-3 text-base font-medium text-luna-black">
-              <dt>Total</dt>
+              <dt>{t('cart.summary.total')}</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
           </dl>
@@ -96,9 +96,9 @@ export function CartPage() {
             onClick={() => navigate('/checkout')}
             className="mt-5 h-12 w-full rounded-sm bg-luna-black text-sm font-medium text-white transition hover:bg-luna-charcoal"
           >
-            Commander — Paiement à la livraison
+            {t('cart.orderCod')}
           </button>
-          <p className="mt-3 text-center text-xs text-luna-charcoal/60">Aucun paiement en ligne. Vous payez le livreur.</p>
+          <p className="mt-3 text-center text-xs text-luna-charcoal/60">{t('cart.noOnlinePayment')}</p>
         </aside>
       </div>
 
@@ -109,7 +109,7 @@ export function CartPage() {
           onClick={() => navigate('/checkout')}
           className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white"
         >
-          Commander — {formatPrice(subtotal)}
+          {t('cart.orderWithPrice', { price: formatPrice(subtotal) })}
         </button>
       </div>
     </div>

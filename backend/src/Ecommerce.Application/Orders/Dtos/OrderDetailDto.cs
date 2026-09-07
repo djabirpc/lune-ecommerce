@@ -12,7 +12,7 @@ public record OrderDetailDto(
     string Phone,
     string Wilaya,
     string Commune,
-    string Address,
+    string? Address,
     DeliveryType DeliveryType,
     string? Notes,
     string PaymentMethod,

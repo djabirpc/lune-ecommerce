@@ -238,7 +238,7 @@ export interface CreateOrderRequest {
   phone: string;
   wilaya: string;
   commune: string;
-  address: string;
+  address: string | null;
   deliveryType: DeliveryType;
   notes: string | null;
   items: OrderItemRequest[];
@@ -365,7 +365,7 @@ export interface OrderDetailDto {
   phone: string;
   wilaya: string;
   commune: string;
-  address: string;
+  address: string | null;
   deliveryType: DeliveryType;
   notes: string | null;
   paymentMethod: string;

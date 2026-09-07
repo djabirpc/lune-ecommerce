@@ -1,0 +1,279 @@
+{
+  "common": {
+    "loading": "جارٍ التحميل…",
+    "error": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    "currency": "دج",
+    "pageComingSoon": "هذه الصفحة ستكون متاحة قريباً."
+  },
+  "productCard": {
+    "new": "جديد",
+    "outOfStock": "نفدت الكمية"
+  },
+  "layout": {
+    "announcementBar": "التوصيل إلى 58 ولاية · الدفع عند الاستلام",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "mobileNav": "التنقل عبر الهاتف",
+    "promos": "التخفيضات",
+    "browseShop": "تصفح المتجر",
+    "favorites": "المفضلة",
+    "viewCart": "عرض السلة",
+    "collections": "المجموعات",
+    "home": "الرئيسية",
+    "shop": "المتجر",
+    "cart": "السلة",
+    "account": "الحساب",
+    "promotions": "العروض",
+    "myOrders": "طلباتي",
+    "trackOrder": "تتبع طلب",
+    "myFavorites": "مفضلتي",
+    "myAccount": "حسابي",
+    "footer": {
+      "deliveryTitle": "التوصيل إلى 58 ولاية",
+      "deliveryText": "ياليدين و ZR Express، من يومين إلى 5 أيام.",
+      "codTitle": "الدفع عند الاستلام",
+      "codText": "تدفعون فقط عند استلام الطلب.",
+      "exchangeTitle": "إمكانية التبديل خلال 7 أيام",
+      "exchangeText": "المقاس أو اللون، بكل بساطة.",
+      "tagline": "أزياء نسائية، مصممة وموصلة في الجزائر.",
+      "call": "اتصال",
+      "help": "المساعدة",
+      "trackMyOrder": "تتبع طلبي",
+      "copyright": "© {{year}} Luna — الجزائر العاصمة، الجزائر."
+    }
+  },
+  "home": {
+    "seeAll": "عرض الكل",
+    "hero": {
+      "eyebrow": "مجموعة جديدة",
+      "title": "الموضة التي تشبهك",
+      "subtitle": "قطع مختارة بعناية، توصَل إليكم في كل أنحاء الجزائر.",
+      "discoverCta": "اكتشفي المجموعة",
+      "promosCta": "عرض التخفيضات"
+    },
+    "reassure": {
+      "delivery": "التوصيل إلى 58 ولاية",
+      "cod": "الدفع عند الاستلام",
+      "exchange": "التبديل خلال 7 أيام"
+    },
+    "categories": {
+      "title": "فئاتنا"
+    },
+    "flashSale": {
+      "eyebrow": "تخفيضات سريعة"
+    },
+    "newArrivals": {
+      "title": "وصل حديثاً"
+    },
+    "categoryPromo": {
+      "discover": "اكتشفي {{name}}"
+    }
+  },
+  "categories": {
+    "eyebrow": "المتجر",
+    "title": "كل المجموعة",
+    "loadError": "تعذّر تحميل الفئات.",
+    "empty": "لا توجد فئات حالياً.",
+    "allProducts": "كل المنتجات",
+    "piecesCount_zero": "{{count}} قطعة",
+    "piecesCount_one": "قطعة واحدة",
+    "piecesCount_two": "قطعتان",
+    "piecesCount_few": "{{count}} قطع",
+    "piecesCount_many": "{{count}} قطعة",
+    "piecesCount_other": "{{count}} قطعة"
+  },
+  "category": {
+    "notFound": "الفئة غير موجودة",
+    "filters": "الفلاتر",
+    "sizes": "المقاسات",
+    "colors": "الألوان",
+    "budget": "الميزانية",
+    "lessThan": "أقل من {{price}}",
+    "onSale": "عروض",
+    "resetFilters": "إعادة ضبط الفلاتر",
+    "noMatch": "لا توجد منتجات مطابقة لهذه الفلاتر.",
+    "sort": {
+      "newest": "وصل حديثاً",
+      "priceAsc": "السعر تصاعدياً",
+      "priceDesc": "السعر تنازلياً"
+    }
+  },
+  "product": {
+    "notFound": "المنتج غير موجود",
+    "noImage": "لا توجد صورة",
+    "addToFavorites": "أضف إلى المفضلة",
+    "color": "اللون",
+    "colorWithValue": "اللون: {{color}}",
+    "size": "المقاس",
+    "lowStock": "لم يتبق سوى {{count}} في المخزون — اطلبي بسرعة",
+    "outOfStock": "هذا المقاس غير متوفر",
+    "decrease": "إنقاص",
+    "increase": "زيادة",
+    "addToCart": "أضف إلى السلة",
+    "buyNowCod": "اشتري الآن — الدفع عند الاستلام",
+    "info": {
+      "delivery": "التوصيل إلى 58 ولاية، من يومين إلى 5 أيام",
+      "cod": "الدفع عند الاستلام (COD)، بدون دفع مسبق",
+      "exchange": "التبديل خلال 7 أيام"
+    },
+    "deliveryReturns": {
+      "title": "التوصيل والإرجاع",
+      "text": "التوصيل إلى المنزل أو عبر نقاط الاستلام لدى شركائنا. تدفعون عند الاستلام. يمكن التبديل خلال 7 أيام إذا لم يتم ارتداء المنتج."
+    },
+    "youMayLike": "قد يعجبك أيضاً",
+    "addedBuyNow": "تمت الإضافة — اشتري الآن",
+    "addWithPrice": "أضف — {{price}}",
+    "chooseColorSize": "اختاري اللون والمقاس"
+  },
+  "cart": {
+    "empty": {
+      "title": "سلتك فارغة",
+      "subtitle": "اكتشفي المجموعة وادفعي عند الاستلام.",
+      "cta": "عرض المجموعة"
+    },
+    "title": "السلة ({{count}})",
+    "colorSize": "{{color}} · المقاس {{size}}",
+    "removeItem": "إزالة المنتج",
+    "summary": {
+      "title": "ملخص الطلب",
+      "subtotal": "المجموع الفرعي",
+      "shipping": "التوصيل",
+      "shippingCalculated": "يُحسب عند الدفع",
+      "total": "المجموع"
+    },
+    "orderCod": "اطلبي الآن — الدفع عند الاستلام",
+    "noOnlinePayment": "لا يوجد دفع إلكتروني. تدفعين للموزّع عند الاستلام.",
+    "orderWithPrice": "اطلبي — {{price}}"
+  },
+  "checkout": {
+    "title": "إتمام الطلب",
+    "subtitle": "الدفع عند الاستلام — تدفعين للموزّع عند استلام الطلب.",
+    "emptyCart": "سلتك فارغة. أضيفي منتجات قبل إتمام الطلب.",
+    "firstName": "الاسم الأول",
+    "lastName": "اللقب",
+    "phone": "رقم الهاتف",
+    "wilaya": "الولاية",
+    "selectWilaya": "اختاري ولاية",
+    "commune": "البلدية",
+    "address": "عنوان التوصيل",
+    "optional": "اختياري",
+    "addressPlaceholder": "الحي، الشارع، العمارة، علامة مميزة…",
+    "deliveryType": "نوع التوصيل",
+    "notes": "ملاحظة للموزّع (اختياري)",
+    "notesPlaceholder": "الاتصال قبل الوصول، التوصيل بعد الساعة 16h…",
+    "info": {
+      "cod": "الدفع عند الاستلام",
+      "delivery": "التوصيل خلال 48–72 ساعة",
+      "exchange": "التبديل خلال 7 أيام"
+    },
+    "clearStaleCart": "إفراغ السلة والعودة إلى المتجر",
+    "summary": {
+      "title": "طلبك"
+    },
+    "shippingUnavailable": "التوصيل غير متوفر لهذه الولاية. تواصلي معنا للتأكد.",
+    "shippingUnavailableShort": "غير متوفر",
+    "shippingByWilaya": "حسب الولاية",
+    "totalToPay": "المجموع المطلوب دفعه",
+    "couponCode": "رمز الخصم (اختياري)",
+    "sending": "جارٍ الإرسال...",
+    "confirmOrder": "تأكيد الطلب",
+    "callToConfirm": "لا يوجد دفع إلكتروني. سنتصل بك للتأكيد.",
+    "validation": {
+      "firstNameRequired": "الاسم الأول مطلوب.",
+      "lastNameRequired": "اللقب مطلوب.",
+      "phoneInvalid": "رقم هاتف جزائري غير صالح (10 أرقام، يبدأ بـ 0).",
+      "wilayaRequired": "الولاية مطلوبة.",
+      "communeRequired": "البلدية مطلوبة."
+    }
+  },
+  "account": {
+    "eyebrow": "مساحتي",
+    "title": "حسابي",
+    "deliveryInfo": "معلومات التوصيل",
+    "noInfoYet": "سيتم تسجيل معلوماتك عند إتمام أول طلب.",
+    "recentOrders": "آخر الطلبات",
+    "noOrdersYet": "لا توجد طلبات حالياً.",
+    "myFavorites": "مفضلتي",
+    "noFavoritesYet": "أضيفي منتجاتك المفضلة بالضغط على القلب."
+  },
+  "orderStatus": {
+    "pendingConfirmation": "بانتظار التأكيد",
+    "confirmed": "مؤكدة",
+    "preparing": "قيد التحضير",
+    "readyToShip": "جاهزة للشحن",
+    "shipped": "تم الشحن",
+    "outForDelivery": "قيد التوصيل",
+    "delivered": "تم التسليم",
+    "cancelled": "ملغاة",
+    "customerUnreachable": "تعذّر الاتصال",
+    "deliveryFailed": "فشل التوصيل",
+    "refused": "مرفوضة",
+    "returned": "مرتجعة"
+  },
+  "deliveryType": {
+    "home": "التوصيل إلى المنزل",
+    "stopDesk": "نقطة استلام (Stop Desk)"
+  },
+  "orderDetails": {
+    "discount": "خصم",
+    "freeShipping": "مجاني",
+    "deliveryTitle": "التوصيل",
+    "note": "ملاحظة: {{note}}"
+  },
+  "orderConfirmation": {
+    "thanks": "شكراً على طلبك!",
+    "thanksWithName": "شكراً {{name}}!",
+    "body": "تم تسجيل طلبك {{orderNumber}}. سيتصل بك فريقنا لتأكيده.",
+    "bodyWithPhone": "تم تسجيل طلبك {{orderNumber}}. سيتصل بك فريقنا على الرقم {{phone}} لتأكيده.",
+    "confirmationCall": "مكالمة التأكيد",
+    "amountOnReceipt": "{{amount}} عند الاستلام",
+    "orderNumber": "الطلب {{orderNumber}}",
+    "checkPrefix": "راجعي",
+    "trackingLink": "تتبع الطلب",
+    "checkSuffix": "باستخدام رقم هاتفك لعرض التفاصيل.",
+    "continueShopping": "متابعة التسوق"
+  },
+  "trackOrder": {
+    "eyebrow": "التتبع",
+    "subtitle": "أدخلي رقم طلبك ورقم هاتفك لمعرفة حالته.",
+    "orderNumber": "رقم الطلب",
+    "searching": "جارٍ البحث...",
+    "search": "بحث",
+    "notFound": "الطلب غير موجود.",
+    "validation": {
+      "orderNumberRequired": "رقم الطلب مطلوب.",
+      "phoneInvalid": "رقم هاتف جزائري غير صالح."
+    }
+  },
+  "orders": {
+    "empty": {
+      "title": "لا توجد طلبات",
+      "subtitle": "ستظهر هنا طلباتك السابقة من هذا الجهاز مع تتبع التوصيل."
+    },
+    "title": "طلباتي",
+    "track": "تتبع"
+  },
+  "orderTrackingDetail": {
+    "notFound": "الطلب غير موجود",
+    "confirmPhone": {
+      "title": "أكدي رقم هاتفك",
+      "body": "هذا الطلب غير مرتبط بهذا الجهاز. أدخلي رقم هاتفك لاسترجاعه."
+    },
+    "backToOrders": "طلباتي",
+    "placedOn": "تم الطلب بتاريخ {{date}}"
+  },
+  "favorites": {
+    "empty": {
+      "title": "لا توجد مفضلة",
+      "subtitle": "أضيفي منتجات إلى المفضلة بالضغط على القلب."
+    }
+  },
+  "promotions": {
+    "eyebrow": "العروض الحالية",
+    "shipping": "التوصيل",
+    "endsIn": "تنتهي خلال",
+    "byCategory": "عروض حسب الفئة",
+    "allOnSale": "كل المنتجات المخفّضة",
+    "empty": "لا توجد عروض حالياً."
+  }
+}

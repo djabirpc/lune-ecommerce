@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026-09-07]
+
+### Added
+- **Admin: product photo upload directly from the create-product form.** `CreateProductForm` gained a multi-file picker (`accept="image/jpeg,image/png,image/webp"`); on submit, the product is created first, then every selected file is uploaded sequentially (upload order matters — the backend marks the *first* uploaded image primary). A per-file upload failure is shown inline without blocking the product creation or the other files. Previously, adding photos required creating the product first, then navigating to its separate "Images" panel.
+- **Full bilingual FR/AR storefront with RTL.** New `i18next`/`react-i18next` infrastructure (`frontend/src/lib/i18n/`: `index.ts`, `fr.json`, `ar.json`, `LanguageSwitcher.tsx`), wired into the header and mobile nav drawer. Every storefront page and shared component now reads its copy via `t()` — zero hardcoded French strings remain in `storefront/` or `lib/components/`. Language choice persists in `localStorage` and drives `document.documentElement.dir`/`lang`. RTL layout achieved via Tailwind logical-property utilities (`ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`) plus `rtl:`/`ltr:` variants for the few remaining directional cases (drawer slide, back-arrow icons) — no separate RTL stylesheet. Admin stays French-only (unchanged, per CLAUDE.md section 45).
+
+### Changed
+- **Checkout delivery address is now always optional**, for every delivery type (previously required with a proper French error message as of 2026-09-06; the requirement itself is now reversed, per explicit user instruction). `Order.Address`/`CreateOrderRequest.Address`/`OrderDetailDto.Address` became `string?`; the `NotEmpty()` validator rule was dropped (kept `MaximumLength(500)`, still with a French message).
+- `OrderDetailsCard`, admin `OrderDetailPage`, and `AccountPage` now render `[address, commune, wilaya].filter(Boolean).join(', ')` instead of a literal template string, avoiding a stray leading comma when the address is empty.
+
+### Database
+- Migration `MakeOrderAddressOptional`: `Orders.Address` becomes nullable (`character varying(500)`).
+
+### API
+- `POST /api/orders`: `address` is now an optional field.
+
+### Frontend
+- New `lib/i18n/` module; `LanguageSwitcher` component; `useOrderStatusLabels()`/`useDeliveryTypeLabels()` translated-hook variants in `lib/format/orderLabels.ts` for storefront components (admin keeps the original plain consts). `CreateProductForm` gained the photo picker described above. `types.ts`/`savedCustomerInfo.ts` `address` fields became `string | null`.
+
+### Notes
+- Backend suite 141/141 (54 unit + 87 integration) — `CreateOrderRequestValidatorTests` updated: blank/missing address now asserted **valid**; added a too-long-address regression test.
+- Verified end-to-end with a real headless-browser session against the rebuilt Docker stack: language switch toggles `dir`/`lang`/copy and persists across reload; a checkout with a blank address creates a real order; the admin create-product form uploads a real image that the API confirms landed as the product's primary image.
+
 ## [2026-09-06]
 
 ### Fixed
