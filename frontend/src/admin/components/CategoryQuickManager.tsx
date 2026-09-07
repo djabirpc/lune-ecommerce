@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { ApiError } from '../../lib/api/client';
-import { slugSchema } from '../../lib/format/slug';
+import { slugSchema, slugify } from '../../lib/format/slug';
 import type { CategoryDto } from '../../lib/api/types';
 
 const categorySchema = z.object({
@@ -35,14 +35,29 @@ export function CategoryQuickManager() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    control,
     formState: { errors },
   } = useForm<CategoryFormInput, unknown, CategoryFormValues>({
     resolver: zodResolver(categorySchema),
     defaultValues: emptyValues,
   });
 
+  // Auto-derive the slug from the name while creating a new category, unless the admin has
+  // manually edited the slug themselves. Never auto-touches the slug while editing an existing
+  // category — renaming shouldn't silently change an already-shared URL.
+  const slugTouchedRef = useRef(false);
+  const nameValue = useWatch({ control, name: 'name' });
+  useEffect(() => {
+    if (!editing && !slugTouchedRef.current) {
+      setValue('slug', slugify(nameValue ?? ''), { shouldValidate: false });
+    }
+  }, [nameValue, editing, setValue]);
+  const slugRegister = register('slug');
+
   function startEditing(category: CategoryDto) {
     setEditing(category);
+    slugTouchedRef.current = true;
     reset({
       name: category.name,
       slug: category.slug,
@@ -54,6 +69,7 @@ export function CategoryQuickManager() {
 
   function cancelEditing() {
     setEditing(null);
+    slugTouchedRef.current = false;
     reset(emptyValues);
   }
 
@@ -67,6 +83,7 @@ export function CategoryQuickManager() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
+      slugTouchedRef.current = false;
       reset(emptyValues);
     },
   });
@@ -118,7 +135,15 @@ export function CategoryQuickManager() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">Slug</label>
-          <input {...register('slug')} className="rounded border border-black/20 px-2 py-1 text-sm" />
+          <input
+            {...slugRegister}
+            onChange={(e) => {
+              slugTouchedRef.current = true;
+              slugRegister.onChange(e);
+            }}
+            className="rounded border border-black/20 px-2 py-1 text-sm"
+          />
+          {!editing && <p className="mt-1 text-[11px] text-luna-charcoal/50">Auto-généré à partir du nom.</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">Ordre</label>

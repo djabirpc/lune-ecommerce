@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { to: '/admin/dashboard', label: 'Tableau de bord' },
   { to: '/admin/orders', label: 'Commandes' },
   { to: '/admin/orders/confirmation', label: 'Confirmation' },
+  { to: '/admin/categories', label: 'Catégories' },
   { to: '/admin/products', label: 'Produits' },
   { to: '/admin/inventory', label: 'Stock' },
   { to: '/admin/suppliers', label: 'Fournisseurs' },

@@ -23,6 +23,7 @@ import { OrdersPage as AdminOrdersPage } from '../admin/pages/OrdersPage';
 import { OrderDetailPage } from '../admin/pages/OrderDetailPage';
 import { OrderConfirmationCenterPage } from '../admin/pages/OrderConfirmationCenterPage';
 import { ProductsPage } from '../admin/pages/ProductsPage';
+import { CategoriesPage as AdminCategoriesPage } from '../admin/pages/CategoriesPage';
 import { InventoryPage } from '../admin/pages/InventoryPage';
 import { SuppliersPage } from '../admin/pages/SuppliersPage';
 import { PromotionsPage as AdminPromotionsPage } from '../admin/pages/PromotionsPage';
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
           { path: 'orders/confirmation', element: <OrderConfirmationCenterPage /> },
           { path: 'orders/:id', element: <OrderDetailPage /> },
           { path: 'products', element: <ProductsPage /> },
+          { path: 'categories', element: <AdminCategoriesPage /> },
           { path: 'inventory', element: <InventoryPage /> },
           { path: 'suppliers', element: <SuppliersPage /> },
           { path: 'promotions', element: <AdminPromotionsPage /> },

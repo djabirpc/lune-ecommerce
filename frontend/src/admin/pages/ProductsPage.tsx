@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { formatPrice } from '../../lib/format/price';
-import { CategoryQuickManager } from '../components/CategoryQuickManager';
 import { CreateProductForm } from '../components/CreateProductForm';
 import { EditProductForm } from '../components/EditProductForm';
 import { ProductImagesPanel } from '../components/ProductImagesPanel';
@@ -32,8 +31,6 @@ export function ProductsPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Produits</h1>
-
-      <CategoryQuickManager />
 
       <CreateProductForm />
 

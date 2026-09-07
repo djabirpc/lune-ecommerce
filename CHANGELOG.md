@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-07] (2)
+
+### Added
+- **Admin: `/admin/categories` is now a separate page**, split out of `/admin/products` — `CategoryQuickManager` moved to a new `admin/pages/CategoriesPage.tsx`, with a matching "Catégories" nav link. `/admin/products` is now product-only.
+- **Auto-generated slugs.** Both the product-create form and the category-create form now derive the slug live from the Name field (new `slugify()` helper in `lib/format/slug.ts` — strips accents, lowercases, hyphenates). Manually editing the slug stops the auto-sync for that field. Editing an *existing* product/category still uses a fully manual slug field — never auto-changed on rename, to avoid silently breaking an already-shared URL.
+
+### Frontend
+- New `admin/pages/CategoriesPage.tsx`; new route `/admin/categories`. `CreateProductForm`/`CategoryQuickManager` gained the auto-slug behavior described above.
+
+### Notes
+- Frontend-only change, no backend/API/database impact. Verified end-to-end with a real headless-browser session: `/admin/categories` renders as its own page with no leftover category manager on `/admin/products`; typing a name live-populates the slug on both create forms (including correct handling of accented/punctuated French text); a manually-edited slug survives a further name change; editing an existing category's name does not change its already-set slug.
+
 ## [2026-09-07]
 
 ### Added

@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { ApiError } from '../../lib/api/client';
-import { slugSchema } from '../../lib/format/slug';
+import { slugSchema, slugify } from '../../lib/format/slug';
 
 const variantSchema = z.object({
   color: z.string().min(1, 'Requis').max(100),
@@ -45,6 +45,7 @@ export function CreateProductForm() {
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -52,6 +53,17 @@ export function CreateProductForm() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'variants' });
+
+  // Auto-derive the slug from the name as the admin types, unless they've manually edited the
+  // slug field themselves — then their input wins and stops being overwritten.
+  const slugTouchedRef = useRef(false);
+  const nameValue = useWatch({ control, name: 'name' });
+  useEffect(() => {
+    if (!slugTouchedRef.current) {
+      setValue('slug', slugify(nameValue ?? ''), { shouldValidate: false });
+    }
+  }, [nameValue, setValue]);
+  const slugRegister = register('slug');
 
   const createProduct = useMutation({
     mutationFn: async (values: ProductFormValues) => {
@@ -78,6 +90,7 @@ export function CreateProductForm() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       setImageFiles([]);
+      slugTouchedRef.current = false;
       reset({
         categoryId: '',
         name: '',
@@ -104,7 +117,15 @@ export function CreateProductForm() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium">Slug</label>
-            <input {...register('slug')} className="w-full rounded border border-black/20 px-2 py-1 text-sm" />
+            <input
+              {...slugRegister}
+              onChange={(e) => {
+                slugTouchedRef.current = true;
+                slugRegister.onChange(e);
+              }}
+              className="w-full rounded border border-black/20 px-2 py-1 text-sm"
+            />
+            <p className="mt-1 text-[11px] text-luna-charcoal/50">Généré automatiquement à partir du nom — modifiable si besoin.</p>
             {errors.slug && <p className="text-xs text-red-600">{errors.slug.message}</p>}
           </div>
           <div>
