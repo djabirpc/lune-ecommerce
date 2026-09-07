@@ -55,6 +55,16 @@ public class OrderCallAttemptService(
                 new ChangeOrderStatusRequest(OrderStatus.Cancelled, "Annulée suite à un appel client."),
                 agentUserId,
                 cancellationToken),
+            // Only the *first* NoAnswer (while still PendingConfirmation) actually transitions the order —
+            // a later NoAnswer recorded while the order is already CustomerUnreachable just appends another
+            // attempt to the log without trying (and failing, since CustomerUnreachable → CustomerUnreachable
+            // isn't a valid transition) to re-apply the same status. This is what lets an agent record "still
+            // unreachable" on a 2nd/3rd call without any special-casing on their end.
+            CallAttemptResult.NoAnswer when order.Status == OrderStatus.PendingConfirmation => await orderService.ChangeStatusAsync(
+                orderId,
+                new ChangeOrderStatusRequest(OrderStatus.CustomerUnreachable, "Injoignable après appel (sans réponse)."),
+                agentUserId,
+                cancellationToken),
             _ => await orderService.GetByIdAsync(orderId, cancellationToken),
         };
     }

@@ -64,7 +64,7 @@ public class OrderCallAttemptTests(AuthWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
-    public async Task RecordNoAnswerAttempt_LeavesStatusUnchanged_AndAppendsCallAttempt()
+    public async Task RecordFirstNoAnswerAttempt_TransitionsOrderToCustomerUnreachable_AndAppendsCallAttempt()
     {
         var adminClient = await CreateAuthenticatedClientAsync();
         var guestClient = factory.CreateClient();
@@ -77,10 +77,39 @@ public class OrderCallAttemptTests(AuthWebApplicationFactory factory) : IClassFi
         response.EnsureSuccessStatusCode();
 
         var updated = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
-        Assert.Equal(OrderStatus.PendingConfirmation, updated!.Status);
+        Assert.Equal(OrderStatus.CustomerUnreachable, updated!.Status);
         Assert.Single(updated.CallAttempts);
         Assert.Equal(1, updated.CallAttempts[0].AttemptNumber);
         Assert.Equal(CallAttemptResult.NoAnswer, updated.CallAttempts[0].Result);
+        Assert.Contains(updated.StatusHistory, h => h.NewStatus == OrderStatus.CustomerUnreachable);
+    }
+
+    [Fact]
+    public async Task RecordSecondNoAnswerAttempt_WhileAlreadyCustomerUnreachable_StaysUnreachable_AndAppendsSecondAttempt()
+    {
+        var adminClient = await CreateAuthenticatedClientAsync();
+        var guestClient = factory.CreateClient();
+        var order = await CreatePendingOrderAsync(adminClient, guestClient);
+
+        var firstResponse = await adminClient.PostAsJsonAsync(
+            $"/api/orders/{order.Id}/call-attempts",
+            new RecordCallAttemptRequest(CallAttemptResult.NoAnswer, "Pas de réponse", null),
+            JsonOptions);
+        firstResponse.EnsureSuccessStatusCode();
+
+        // The customer is still unreachable on a follow-up call — this must not throw (there is no
+        // CustomerUnreachable -> CustomerUnreachable transition) and must simply log attempt #2.
+        var secondResponse = await adminClient.PostAsJsonAsync(
+            $"/api/orders/{order.Id}/call-attempts",
+            new RecordCallAttemptRequest(CallAttemptResult.NoAnswer, "Toujours pas de réponse", null),
+            JsonOptions);
+        secondResponse.EnsureSuccessStatusCode();
+
+        var updated = await secondResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+        Assert.Equal(OrderStatus.CustomerUnreachable, updated!.Status);
+        Assert.Equal(2, updated.CallAttempts.Count);
+        Assert.Equal(2, updated.CallAttempts[1].AttemptNumber);
+        Assert.Equal(CallAttemptResult.NoAnswer, updated.CallAttempts[1].Result);
     }
 
     [Fact]

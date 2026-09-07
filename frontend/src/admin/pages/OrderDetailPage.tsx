@@ -11,6 +11,7 @@ import { CALL_ATTEMPT_RESULT_LABELS, DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS, 
 import { NORMALIZED_SHIPPING_STATUS_LABELS, SHIPPING_CARRIER_LABELS } from '../../lib/format/shippingLabels';
 import { ALLOWED_TRANSITIONS, ORDER_ACTION_LABELS, requiresReason } from '../../lib/orders/transitions';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
+import { ReasonModal } from '../components/ReasonModal';
 
 const CALLABLE_STATUSES: OrderStatus[] = ['PendingConfirmation', 'CustomerUnreachable'];
 const CALL_ATTEMPT_RESULTS: CallAttemptResult[] = ['NoAnswer', 'Confirmed', 'Cancelled', 'CallbackScheduled'];
@@ -28,6 +29,7 @@ export function OrderDetailPage() {
   const [label, setLabel] = useState<string | null>(null);
   const [returnReason, setReturnReason] = useState<OrderReturnReason>('WrongSize');
   const [returnNote, setReturnNote] = useState('');
+  const [pendingTransition, setPendingTransition] = useState<OrderStatus | null>(null);
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: ['admin-order', id],
@@ -106,12 +108,17 @@ export function OrderDetailPage() {
   const nextStatuses = ALLOWED_TRANSITIONS[order.status];
 
   function handleTransition(newStatus: OrderStatus) {
-    let reason: string | null = null;
     if (requiresReason(newStatus)) {
-      reason = window.prompt(`Raison pour "${ORDER_ACTION_LABELS[newStatus]}" :`);
-      if (reason === null) return;
+      setPendingTransition(newStatus);
+      return;
     }
-    changeStatus.mutate({ newStatus, reason: reason || null });
+    changeStatus.mutate({ newStatus, reason: null });
+  }
+
+  function confirmPendingTransition(reason: string) {
+    if (!pendingTransition) return;
+    changeStatus.mutate({ newStatus: pendingTransition, reason: reason || null });
+    setPendingTransition(null);
   }
 
   function handleReturnSubmit(e: React.FormEvent) {
@@ -280,6 +287,12 @@ export function OrderDetailPage() {
                   </option>
                 ))}
               </select>
+              {callResult === 'NoAnswer' && order.status === 'PendingConfirmation' && (
+                <span className="text-xs text-luna-charcoal/60">
+                  Marquera automatiquement la commande « Injoignable ». Vous pouvez enregistrer d'autres appels
+                  « Pas de réponse » ensuite sans que le statut change.
+                </span>
+              )}
             </label>
 
             {callResult === 'CallbackScheduled' && (
@@ -465,6 +478,14 @@ export function OrderDetailPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {pendingTransition && (
+        <ReasonModal
+          title={`Raison pour "${ORDER_ACTION_LABELS[pendingTransition]}"`}
+          onConfirm={confirmPendingTransition}
+          onCancel={() => setPendingTransition(null)}
+        />
       )}
     </div>
   );

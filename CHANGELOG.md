@@ -1,5 +1,20 @@
 # Changelog
 
+## [2026-09-07] (3)
+
+### Fixed
+- **Confirmation center: an agent could not cleanly log a customer being unreachable across multiple calls.** `OrderCallAttemptService.RecordAsync` now transitions the order `PendingConfirmation → CustomerUnreachable` automatically on the *first* `NoAnswer` call attempt. A follow-up `NoAnswer` recorded while the order is already `CustomerUnreachable` no longer needs a separate manual action — it just appends another entry to the call log (attempt #2, #3, ...) without touching status again. The existing "Marquer injoignable" quick-action button is unchanged, still available as a manual override.
+
+### Changed
+- **Admin status-change reason is now a real modal**, not `window.prompt()`. New `admin/components/ReasonModal.tsx`; `OrderDetailPage` opens it for any transition that needs a reason (Cancelled/CustomerUnreachable/DeliveryFailed/Refused) instead of blocking on the browser's native prompt.
+
+### Database
+- No migration — behavior-only change.
+
+### Notes
+- `OrderCallAttemptTests.cs`: the old "NoAnswer leaves status unchanged" test now asserts the new behavior (transitions to CustomerUnreachable); added a new test covering the 2nd-call-stays-unreachable case. Backend suite 142/142.
+- Verified end-to-end with a real headless-browser session: a 1st "Pas de réponse" call auto-marks an order Injoignable; a 2nd "Pas de réponse" call on the same order logs attempt #2 with no error; the reason modal opens (confirmed no native browser dialog fires) and a typed reason is saved correctly to the order's status history.
+
 ## [2026-09-07] (2)
 
 ### Added
