@@ -8,6 +8,7 @@ using Ecommerce.Infrastructure.Persistence;
 using Ecommerce.Infrastructure.Storage;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -100,8 +101,9 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(
-        sp => sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured."),
+        sp => PostgresConnectionString.Normalize(
+            sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.")),
         name: "postgresql");
 
 var app = builder.Build();
@@ -123,6 +125,20 @@ if (builder.Configuration.GetValue<bool>("ApplyMigrationsOnStartup"))
 }
 
 app.UseSerilogRequestLogging();
+
+// Render (and most container platforms) terminate TLS at their edge and forward plain HTTP to the
+// container, setting X-Forwarded-Proto: https on the way in. Without this, UseHttpsRedirection()
+// below never sees the request as HTTPS and redirects every single request, which can loop forever
+// behind a proxy that doesn't re-send the original scheme back. KnownNetworks/KnownProxies are
+// cleared because the proxy's IP isn't a fixed address we can pin down on a managed platform — this
+// is the standard pattern for a single-hop, platform-managed reverse proxy (Render/Heroku/Fly/etc.).
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseHttpsRedirection();
 

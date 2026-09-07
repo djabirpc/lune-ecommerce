@@ -1,0 +1,115 @@
+# Render Blueprint — deploys Luna's 3 services (Postgres + .NET backend + React static
+# site) in one shot from the Render dashboard: "New +" -> "Blueprint" -> point at this repo.
+#
+# A handful of values below are `sync: false` on purpose: either real secrets that
+# shouldn't live in git, or URLs that only exist *after* the backend/frontend services
+# have been created for the first time (a one-time chicken-and-egg problem — Render
+# assigns the *.onrender.com hostname only once a service exists). After the first
+# deploy:
+#   1. Copy the frontend's URL into the backend's Cors__AllowedOrigins__0.
+#   2. Copy the backend's own URL into its own FileStorage__PublicBaseUrl.
+#   3. Copy the backend's URL into the frontend's VITE_API_URL.
+#   4. Redeploy both services.
+#
+# Free-plan caveats (see PROJECT_CONTEXT.md for the full writeup):
+#   - luna-db (free Postgres) is deleted automatically after a fixed retention period —
+#     check Render's current limit before treating this as durable production storage.
+#   - luna-backend (free web service) spins down after ~15 min idle; the next request
+#     pays a cold-start penalty.
+#   - Free web services have no persistent disk — files written to /app/uploads (product
+#     photos) do NOT survive a redeploy or restart. Fine for a demo, not for production;
+#     migrate to real cloud storage (S3/Cloudinary/Azure Blob) before launch, per
+#     CLAUDE.md section 28 / IFileStorageService.
+#
+# Render's Blueprint YAML schema does evolve over time — if a deploy fails to parse this
+# file, cross-check the keys below against the current spec at
+# https://render.com/docs/blueprint-spec before assuming the app itself is broken.
+
+databases:
+  - name: luna-db
+    databaseName: luna
+    user: luna
+    plan: free
+    region: frankfurt
+
+services:
+  - type: web
+    name: luna-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ApplyMigrationsOnStartup
+        value: "true"
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: luna-db
+          property: connectionString
+      - key: Jwt__Issuer
+        value: Luna.Api
+      - key: Jwt__Audience
+        value: Luna.Client
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__AccessTokenExpiryMinutes
+        value: "60"
+      - key: Jwt__RefreshTokenExpiryDays
+        value: "7"
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      - key: InitialAdmin__Email
+        sync: false
+      - key: InitialAdmin__Password
+        sync: false
+      - key: InitialAdmin__FirstName
+        sync: false
+      - key: InitialAdmin__LastName
+        sync: false
+      - key: ShippingSync__Enabled
+        value: "true"
+      - key: ShippingSync__IntervalSeconds
+        value: "300"
+      - key: FileStorage__LocalPath
+        value: /app/uploads
+      - key: FileStorage__PublicBaseUrl
+        sync: false
+      - key: Yalidine__BaseUrl
+        sync: false
+      - key: Yalidine__ApiId
+        sync: false
+      - key: Yalidine__ApiToken
+        sync: false
+      - key: ZRExpress__BaseUrl
+        sync: false
+      - key: ZRExpress__ApiKey
+        sync: false
+
+  - type: web
+    name: luna-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_META_PIXEL_ID
+        sync: false
+      - key: VITE_TIKTOK_PIXEL_ID
+        sync: false
+      - key: VITE_INSTAGRAM_URL
+        sync: false
+      - key: VITE_TIKTOK_URL
+        sync: false
+      - key: VITE_FACEBOOK_URL
+        sync: false
+      - key: VITE_STORE_PHONE
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

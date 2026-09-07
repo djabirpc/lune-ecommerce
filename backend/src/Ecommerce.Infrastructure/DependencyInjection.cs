@@ -33,7 +33,7 @@ public static class DependencyInjection
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(PostgresConnectionString.Normalize(connectionString));
         });
 
         services

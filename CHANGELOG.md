@@ -1,5 +1,21 @@
 # Changelog
 
+## [2026-09-07] (4)
+
+### Added
+- **`render.yaml`** at the repo root — a Render Blueprint deploying Postgres, the backend as a Docker Web Service, and the frontend as a Static Site, per the user's request for a free-tier Render deployment (one resource per tier). Env vars mapped 1:1 from `.env.example`/`docker-compose.yml`; a few (secrets, and the backend/frontend cross-service URLs) are `sync: false` placeholders filled in manually after the first deploy — see the file's header comment for the exact steps and the free-tier caveats (ephemeral DB retention, cold starts, no persistent disk for uploads).
+
+### Fixed
+- **Backend now accepts a `postgres://user:pass@host:port/db`-style connection string**, not just the ADO.NET `Host=...;Username=...` format — new `Ecommerce.Infrastructure.Persistence.PostgresConnectionString.Normalize()`, needed because Render (and most managed Postgres hosts) hand out credentials in URI form, which Npgsql doesn't parse directly. An already-ADO.NET-format string (local dev, Docker Compose) passes through unchanged.
+- **Added `UseForwardedHeaders` in front of `UseHttpsRedirection`** — without it, a request forwarded by Render's TLS-terminating edge proxy is never seen as HTTPS by the app, causing an unnecessary redirect on every request (risking a loop). Standard fix for deploying behind any managed reverse proxy.
+
+### Database
+- No migration — connection-string handling and middleware changes only.
+
+### Notes
+- 5 new unit tests (`PostgresConnectionStringTests.cs`); backend suite grew to 147/147.
+- Not yet deployed to a live Render environment — this is deploy-prep only, verified locally via `dotnet test` and a full local build.
+
 ## [2026-09-07] (3)
 
 ### Fixed
