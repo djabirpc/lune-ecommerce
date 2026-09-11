@@ -467,6 +467,80 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task FreeShippingWithMinQuantity_DoesNotApplyBelowThreshold()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        // "2 for 1500 DA" bundle, plus free shipping only once 4+ units are bought.
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m);
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Livraison gratuite dès 4",
+            null,
+            PromotionType.FreeShipping,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [productId],
+            [],
+            MinQuantity: 4));
+
+        // Quantity 2 = one bundle (1500 DA) but under the 4-unit free-shipping threshold.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(600m, order!.ShippingCost);
+        Assert.Equal(500m, order.DiscountTotal);
+        Assert.Equal(2100m, order.Total); // 2000 - 500 + 600
+    }
+
+    [Fact]
+    public async Task FreeShippingWithMinQuantity_AppliesAtThreshold()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m);
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Livraison gratuite dès 4",
+            null,
+            PromotionType.FreeShipping,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [productId],
+            [],
+            MinQuantity: 4));
+
+        // Quantity 4 = two bundles (1000 DA discount) AND reaches the free-shipping threshold.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 4), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, order!.ShippingCost);
+        Assert.Equal(1600m, order.DiscountTotal); // 1000 (bundle) + 600 (shipping)
+        Assert.Equal(2400m, order.Total); // 4000 - 1600 + 0 (2 bundles of 1500 DA = 3000 DA + free shipping)
+        Assert.Equal(2, order.AppliedPromotions.Count);
+    }
+
+    [Fact]
     public async Task GetActive_ReturnsProductAndCategoryScoping()
     {
         // Regression test: GetActiveAsync/GetPagedAsync originally queried Promotions without

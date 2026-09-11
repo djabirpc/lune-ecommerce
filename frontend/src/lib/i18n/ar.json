@@ -124,7 +124,8 @@
     "addedBuyNow": "تمت الإضافة — اشتري الآن",
     "addWithPrice": "أضف — {{price}}",
     "chooseColorSize": "اختاري اللون والمقاس",
-    "bundleOffer": "عرض: شراء {{quantity}} قطع = {{price}}"
+    "bundleOffer": "عرض: شراء {{quantity}} قطع = {{price}}",
+    "bundleOfferWithFreeShipping": "عرض: شراء {{quantity}} قطع = {{price}} + توصيل مجاني"
   },
   "cart": {
     "empty": {
@@ -174,6 +175,7 @@
     "shippingUnavailable": "التوصيل غير متوفر لهذه الولاية. تواصلي معنا للتأكد.",
     "shippingUnavailableShort": "غير متوفر",
     "shippingByWilaya": "حسب الولاية",
+    "shippingFree": "مجانية",
     "totalToPay": "المجموع المطلوب دفعه",
     "couponCode": "رمز الخصم (اختياري)",
     "sending": "جارٍ الإرسال...",

@@ -38,6 +38,7 @@ interface FormState {
   getQuantity: string;
   bundleQuantity: string;
   bundleTotalPrice: string;
+  minQuantity: string;
   couponCode: string;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -60,6 +61,7 @@ function emptyForm(): FormState {
     getQuantity: '',
     bundleQuantity: '',
     bundleTotalPrice: '',
+    minQuantity: '',
     couponCode: '',
     startsAtUtc: toDateTimeLocal(now.toISOString()),
     endsAtUtc: toDateTimeLocal(inAWeek.toISOString()),
@@ -81,6 +83,7 @@ function toFormState(p: PromotionDetailDto): FormState {
     getQuantity: p.getQuantity?.toString() ?? '',
     bundleQuantity: p.bundleQuantity?.toString() ?? '',
     bundleTotalPrice: p.bundleTotalPrice?.toString() ?? '',
+    minQuantity: p.minQuantity?.toString() ?? '',
     couponCode: p.couponCode ?? '',
     startsAtUtc: toDateTimeLocal(p.startsAtUtc),
     endsAtUtc: toDateTimeLocal(p.endsAtUtc),
@@ -102,6 +105,7 @@ function toRequest(form: FormState): SavePromotionRequest {
     getQuantity: form.getQuantity ? Number(form.getQuantity) : null,
     bundleQuantity: form.bundleQuantity ? Number(form.bundleQuantity) : null,
     bundleTotalPrice: form.bundleTotalPrice ? Number(form.bundleTotalPrice) : null,
+    minQuantity: form.minQuantity ? Number(form.minQuantity) : null,
     couponCode: form.couponCode || null,
     startsAtUtc: new Date(form.startsAtUtc).toISOString(),
     endsAtUtc: new Date(form.endsAtUtc).toISOString(),
@@ -297,6 +301,24 @@ export function PromotionsPage() {
               </div>
             )}
 
+            {form.type === 'FreeShipping' && (
+              <div>
+                <label className="mb-1 block text-xs font-medium">Quantité minimale (optionnel)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.minQuantity}
+                  onChange={(e) => setForm({ ...form, minQuantity: e.target.value })}
+                  placeholder="laisser vide = toute quantité"
+                  className="w-full rounded border border-black/20 px-2 py-1 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-luna-charcoal/50">
+                  Ex. : associée à une offre "2 articles = 1500 DA", une quantité minimale de 4 offre la
+                  livraison gratuite à partir de 4 articles achetés (soit 2 lots).
+                </p>
+              </div>
+            )}
+
             {form.type === 'Coupon' && (
               <>
                 <div>
@@ -332,9 +354,11 @@ export function PromotionsPage() {
               </>
             )}
 
-            {form.type === 'BundlePrice' && (
+            {(form.type === 'BundlePrice' || form.type === 'FreeShipping') && (
               <div>
-                <label className="mb-1 block text-xs font-medium">Produits concernés</label>
+                <label className="mb-1 block text-xs font-medium">
+                  Produits concernés {form.type === 'FreeShipping' && '(laisser vide = tout le site)'}
+                </label>
                 <div className="max-h-40 overflow-y-auto rounded border border-black/20 p-2">
                   {products?.items.map((p) => (
                     <label key={p.id} className="flex items-center gap-2 py-0.5 text-xs">

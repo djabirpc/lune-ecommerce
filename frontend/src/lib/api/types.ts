@@ -484,6 +484,7 @@ export interface PromotionDto {
   priority: number;
   productIds: string[];
   categoryIds: string[];
+  minQuantity: number | null;
 }
 
 export interface PromotionDetailDto {
@@ -504,6 +505,7 @@ export interface PromotionDetailDto {
   priority: number;
   productIds: string[];
   categoryIds: string[];
+  minQuantity: number | null;
 }
 
 export interface SavePromotionRequest {
@@ -523,4 +525,5 @@ export interface SavePromotionRequest {
   priority: number;
   productIds: string[];
   categoryIds: string[];
+  minQuantity: number | null;
 }

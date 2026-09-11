@@ -197,6 +197,36 @@ public class SavePromotionRequestValidatorTests
     }
 
     [Fact]
+    public async Task FreeShipping_WithoutMinQuantity_PassesValidation()
+    {
+        var request = ValidPercentageRequest() with { Type = PromotionType.FreeShipping, PercentageValue = null };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task FreeShipping_WithPositiveMinQuantity_PassesValidation()
+    {
+        var request = ValidPercentageRequest() with { Type = PromotionType.FreeShipping, PercentageValue = null, MinQuantity = 4 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task FreeShipping_WithZeroMinQuantity_FailsValidation()
+    {
+        var request = ValidPercentageRequest() with { Type = PromotionType.FreeShipping, PercentageValue = null, MinQuantity = 0 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
     public async Task ProductDiscount_WithoutProductIds_FailsValidation()
     {
         var request = ValidPercentageRequest() with { Type = PromotionType.ProductDiscount };

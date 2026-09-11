@@ -69,10 +69,29 @@ export function isFreeShippingActiveFor(
   activePromotions: PromotionDto[],
   productId: string,
   categoryId: string,
+  quantity: number,
 ): boolean {
   return activePromotions
     .filter((p) => p.type === 'FreeShipping')
-    .some((p) => isScopedTo(p, productId, categoryId));
+    .filter((p) => isScopedTo(p, productId, categoryId))
+    .some((p) => !p.minQuantity || quantity >= p.minQuantity);
+}
+
+/**
+ * The FreeShipping promotion (if any) scoped to this product that requires a minimum quantity —
+ * used to surface "free shipping from N items" as a second tier alongside a BundlePrice offer (e.g.
+ * "2 for 1500 DA" + "4 items also ships free"). Promotions with no minimum aren't returned here since
+ * they don't need a quantity threshold to be surfaced as their own tier.
+ */
+export function findFreeShippingThreshold(
+  activePromotions: PromotionDto[],
+  productId: string,
+  categoryId: string,
+): PromotionDto | undefined {
+  return activePromotions
+    .filter((p) => p.type === 'FreeShipping' && p.minQuantity && p.minQuantity > 0)
+    .filter((p) => isScopedTo(p, productId, categoryId))
+    .sort((a, b) => a.minQuantity! - b.minQuantity!)[0];
 }
 
 /**
@@ -90,6 +109,25 @@ export function findBundleOffer(
     .filter((p) => p.type === 'BundlePrice' && p.bundleQuantity && p.bundleTotalPrice)
     .filter((p) => isScopedTo(p, productId, categoryId))
     .sort((a, b) => b.priority - a.priority)[0];
+}
+
+/**
+ * Client-side preview of whether any active FreeShipping promotion covers the current cart —
+ * mirrors OrderService.IsFreeShippingEligible: sums the quantity of items scoped to each candidate
+ * promotion and, if it sets a MinQuantity, requires that threshold to be reached. Preview only; the
+ * backend recalculates authoritatively at order creation (CLAUDE.md section 41) — this exists so the
+ * checkout summary doesn't show a shipping fee the order won't actually be charged.
+ */
+export function estimateFreeShipping(items: CartItem[], activePromotions: PromotionDto[]): boolean {
+  return activePromotions
+    .filter((p) => p.type === 'FreeShipping')
+    .some((p) => {
+      const scopedQuantity = items
+        .filter((i) => isScopedTo(p, i.productId, i.categoryId))
+        .reduce((sum, i) => sum + i.quantity, 0);
+      if (scopedQuantity === 0) return false;
+      return !p.minQuantity || scopedQuantity >= p.minQuantity;
+    });
 }
 
 export interface CartDiscountEstimate {

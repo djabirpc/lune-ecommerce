@@ -53,6 +53,10 @@ public class SavePromotionRequestValidator : AbstractValidator<SavePromotionRequ
             .GreaterThan(0)
             .When(x => x.Type == PromotionType.BundlePrice);
 
+        RuleFor(x => x.MinQuantity)
+            .GreaterThan(0).WithMessage("La quantité minimale doit être supérieure à 0.")
+            .When(x => x.Type == PromotionType.FreeShipping && x.MinQuantity.HasValue);
+
         RuleFor(x => x.CouponCode)
             .NotEmpty().WithMessage("Un code promo est requis pour ce type de promotion.")
             .MaximumLength(50)

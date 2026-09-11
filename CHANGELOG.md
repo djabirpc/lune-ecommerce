@@ -1,5 +1,24 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (7)
+
+### Added
+- **`FreeShipping` promotions gained an optional `MinQuantity` threshold** — pairs with a `BundlePrice` offer to reward buying more of the same product, e.g. "2 for 1500 DA" + "4+ items also ships free". `Promotion.MinQuantity` (migration `AddPromotionMinQuantity`), `OrderService.IsFreeShippingEligible` (sums scoped-item quantity across the whole cart, not per line). `SavePromotionRequest`/`PromotionDto`/`PromotionDetailDto` gained `MinQuantity`.
+- Admin `PromotionsPage`: "Quantité minimale (optionnel)" field for `FreeShipping`, plus a product-scoping checklist (previously missing entirely for this type).
+- Storefront `ProductPage`: a second offer tier button appears when a product has both a `BundlePrice` offer and a higher-threshold `FreeShipping` promo ("4 articles achetés = 10 000 DA + livraison gratuite").
+
+### Fixed
+- **`CheckoutPage`'s order summary never reflected `FreeShipping` promotions** — the shipping line always showed the raw per-wilaya quote, only correcting itself after the order was actually placed. New `estimateFreeShipping()` preview helper; the shipping line now shows "Gratuite" and the total excludes it whenever the cart qualifies. Pre-existing gap (any `FreeShipping` promo, not just the new tiered kind), found while verifying the `MinQuantity` feature above.
+
+### Database
+- Full local dev-database reset and reseed (`docker compose down -v` + rebuild), per direct request for fresh product photography, no orders, and both an offer and promotions. Re-ran the scratchpad `seed-belle-mode-catalog.js` (5 categories / 16 products / real belle-mode photos) with 2 new promotions added (Top satin: 2 for 5000 DA bundle + 4-item free-shipping pair) alongside the original 3 — 5 promotions total, 0 orders, 0 stock reservations.
+- Migration: `AddPromotionMinQuantity`.
+
+### Notes
+- 5 new backend tests (2 checkout integration, 3 validator unit); backend suite grew to 161/161 (61 unit + 100 integration).
+- Verified end-to-end: both offer tiers render with correct stock-clamping; a real 4-item guest checkout showed "Livraison — Gratuite" and 10 000 DA in the preview, then the placed order charged exactly 9 400 DA (11 600 − 2 200 combined discount + 0 shipping), matching the preview. The one test order created during verification was deleted (SQL) and its orphaned stock reservation manually released to keep the "zero orders" requirement intact.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-11] (on `dev` branch) (6)
 
 ### Changed

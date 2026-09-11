@@ -378,7 +378,7 @@ public class OrderService(
 
         var freeShipping = candidates
             .Where(p => p.Type == PromotionType.FreeShipping)
-            .Where(p => items.Any(i => IsScopedTo(p, variantsById[i.ProductVariantId].ProductId, variantsById[i.ProductVariantId].Product.CategoryId)))
+            .Where(p => IsFreeShippingEligible(p, items, variantsById))
             .OrderByDescending(p => p.Priority)
             .FirstOrDefault();
 
@@ -420,6 +420,26 @@ public class OrderService(
             .ToList();
 
         return (discountTotal, finalShippingCost, appliedPromotions);
+    }
+
+    /// <summary>
+    /// A FreeShipping promotion is eligible once at least one scoped item is in the cart, and (if
+    /// MinQuantity is set) the total quantity of scoped items reaches that threshold — e.g. pairing a
+    /// "2 for 1500 DA" BundlePrice offer with a separate FreeShipping promotion (MinQuantity: 4) on the
+    /// same product to reward "4+ items also ships free" without a bespoke tiered-bundle model.
+    /// </summary>
+    private static bool IsFreeShippingEligible(Promotion promotion, ICollection<OrderItem> items, Dictionary<Guid, ProductVariant> variantsById)
+    {
+        var scopedQuantity = items
+            .Where(i => IsScopedTo(promotion, variantsById[i.ProductVariantId].ProductId, variantsById[i.ProductVariantId].Product.CategoryId))
+            .Sum(i => i.Quantity);
+
+        if (scopedQuantity == 0)
+        {
+            return false;
+        }
+
+        return promotion.MinQuantity is not > 0 || scopedQuantity >= promotion.MinQuantity.Value;
     }
 
     private static bool IsScopedTo(Promotion promotion, Guid productId, Guid categoryId) =>

@@ -14,7 +14,7 @@ import { ApiError } from '../../lib/api/client';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
 import { useDeliveryTypeLabels } from '../../lib/format/orderLabels';
-import { estimateCartDiscount } from '../../lib/promotions/estimate';
+import { estimateCartDiscount, estimateFreeShipping } from '../../lib/promotions/estimate';
 import { getStoredAttribution } from '../../lib/marketing/attribution';
 import { trackEvent } from '../../lib/marketing/pixels';
 import { ALGERIAN_WILAYAS } from '../../lib/data/wilayas';
@@ -87,7 +87,9 @@ export function CheckoutPage() {
     queryFn: () => promotionsApi.getActive(),
   });
   const discount = estimateCartDiscount(items, activePromotions ?? []);
-  const estimatedTotal = subtotal - discount.discountTotal + (shippingCost ?? 0);
+  const freeShippingActive = estimateFreeShipping(items, activePromotions ?? []);
+  const effectiveShippingCost = freeShippingActive ? 0 : shippingCost;
+  const estimatedTotal = subtotal - discount.discountTotal + (effectiveShippingCost ?? 0);
 
   useEffect(() => {
     if (items.length > 0) {
@@ -319,6 +321,8 @@ export function CheckoutPage() {
               <dd>
                 {shippingError ? (
                   <span className="text-red-600">{t('checkout.shippingUnavailableShort')}</span>
+                ) : freeShippingActive ? (
+                  <span className="text-luna-accent-dark">{t('checkout.shippingFree')}</span>
                 ) : shippingCost === null ? (
                   t('checkout.shippingByWilaya')
                 ) : (

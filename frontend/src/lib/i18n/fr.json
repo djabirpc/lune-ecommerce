@@ -120,7 +120,8 @@
     "addedBuyNow": "Ajouté — Acheter maintenant",
     "addWithPrice": "Ajouter — {{price}}",
     "chooseColorSize": "Choisissez une couleur et une taille",
-    "bundleOffer": "Offre : {{quantity}} articles achetés = {{price}}"
+    "bundleOffer": "Offre : {{quantity}} articles achetés = {{price}}",
+    "bundleOfferWithFreeShipping": "Offre : {{quantity}} articles achetés = {{price}} + livraison gratuite"
   },
   "cart": {
     "empty": {
@@ -170,6 +171,7 @@
     "shippingUnavailable": "Livraison indisponible pour cette wilaya. Contactez-nous pour vérifier.",
     "shippingUnavailableShort": "Indisponible",
     "shippingByWilaya": "Selon la wilaya",
+    "shippingFree": "Gratuite",
     "totalToPay": "Total à payer",
     "couponCode": "Code promo (facultatif)",
     "sending": "Envoi...",

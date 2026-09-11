@@ -19,4 +19,5 @@ public record PromotionDto(
     bool IsActive,
     int Priority,
     IReadOnlyList<Guid> ProductIds,
-    IReadOnlyList<Guid> CategoryIds);
+    IReadOnlyList<Guid> CategoryIds,
+    int? MinQuantity);

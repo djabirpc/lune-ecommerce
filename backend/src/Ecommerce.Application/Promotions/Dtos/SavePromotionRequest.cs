@@ -18,4 +18,5 @@ public record SavePromotionRequest(
     bool IsActive,
     int Priority,
     IReadOnlyList<Guid> ProductIds,
-    IReadOnlyList<Guid> CategoryIds);
+    IReadOnlyList<Guid> CategoryIds,
+    int? MinQuantity = null);

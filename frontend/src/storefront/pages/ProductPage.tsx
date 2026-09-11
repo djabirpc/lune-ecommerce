@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
-import { estimatePrice, findBundleOffer, computeBundlePriceDiscount } from '../../lib/promotions/estimate';
+import { estimatePrice, findBundleOffer, findFreeShippingThreshold, computeBundlePriceDiscount } from '../../lib/promotions/estimate';
 import { colorToHex } from '../../lib/format/colorSwatch';
 import { useCart } from '../../lib/cart/CartContext';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
@@ -95,6 +95,16 @@ export function ProductPage() {
   const basePrice = selectedVariant?.price ?? product.price;
   const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: basePrice }, activePromotions) : null;
   const bundleOffer = activePromotions ? findBundleOffer(activePromotions, product.id, product.categoryId) : undefined;
+  const freeShippingThreshold = activePromotions
+    ? findFreeShippingThreshold(activePromotions, product.id, product.categoryId)
+    : undefined;
+  // A second, higher-quantity tier is only worth its own button when it needs more units than the
+  // base bundle already requires (e.g. "2 for 1500 DA" + "4 items also ships free") — otherwise the
+  // free shipping already applies at the same quantity as the first tier and needs no separate pick.
+  const freeShippingTierQuantity =
+    bundleOffer?.bundleQuantity && freeShippingThreshold?.minQuantity && freeShippingThreshold.minQuantity > bundleOffer.bundleQuantity
+      ? freeShippingThreshold.minQuantity
+      : null;
   const unitPrice = estimate ? estimate.discountedPrice : basePrice;
   const bundleDiscount =
     bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice
@@ -238,6 +248,35 @@ export function ProductPage() {
                 {t('product.bundleOffer', {
                   quantity: bundleOffer.bundleQuantity,
                   price: formatPrice(bundleOffer.bundleTotalPrice),
+                })}
+              </span>
+            </button>
+          )}
+
+          {bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice && freeShippingTierQuantity && (
+            <button
+              type="button"
+              onClick={() => handleTakeOffer(freeShippingTierQuantity)}
+              aria-pressed={quantity === freeShippingTierQuantity}
+              className={`mt-2 flex w-full items-center gap-2.5 rounded-sm border px-3 py-2.5 text-start text-sm transition ${
+                quantity === freeShippingTierQuantity
+                  ? 'border-luna-accent bg-luna-rose text-luna-accent-dark'
+                  : 'border-black/15 bg-white text-luna-black hover:border-luna-accent/50 hover:bg-luna-rose/40'
+              }`}
+            >
+              {quantity === freeShippingTierQuantity ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-luna-accent" />
+              ) : (
+                <Circle className="h-5 w-5 shrink-0 text-luna-charcoal/30" />
+              )}
+              <Truck className="h-4 w-4 shrink-0 text-luna-accent" />
+              <span className="flex-1">
+                {t('product.bundleOfferWithFreeShipping', {
+                  quantity: freeShippingTierQuantity,
+                  price: formatPrice(
+                    basePrice * freeShippingTierQuantity -
+                      computeBundlePriceDiscount(bundleOffer.bundleQuantity, bundleOffer.bundleTotalPrice, basePrice, freeShippingTierQuantity),
+                  ),
                 })}
               </span>
             </button>
