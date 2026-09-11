@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw, Tag, Check } from 'lucide-react';
+import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw, Tag, CheckCircle2, Circle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
@@ -221,24 +221,25 @@ export function ProductPage() {
             <button
               type="button"
               onClick={() => handleTakeOffer(bundleOffer.bundleQuantity!)}
-              className={`mt-3 flex w-full items-start gap-2 rounded-sm px-3 py-2.5 text-start text-sm transition ${
+              aria-pressed={quantity === bundleOffer.bundleQuantity}
+              className={`mt-3 flex w-full items-center gap-2.5 rounded-sm border px-3 py-2.5 text-start text-sm transition ${
                 quantity === bundleOffer.bundleQuantity
-                  ? 'bg-luna-accent text-white'
-                  : 'bg-luna-rose text-luna-accent-dark hover:bg-luna-rose/70'
+                  ? 'border-luna-accent bg-luna-rose text-luna-accent-dark'
+                  : 'border-black/15 bg-white text-luna-black hover:border-luna-accent/50 hover:bg-luna-rose/40'
               }`}
             >
-              <Tag className="mt-0.5 h-4 w-4 shrink-0" />
+              {quantity === bundleOffer.bundleQuantity ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-luna-accent" />
+              ) : (
+                <Circle className="h-5 w-5 shrink-0 text-luna-charcoal/30" />
+              )}
+              <Tag className="h-4 w-4 shrink-0 text-luna-accent" />
               <span className="flex-1">
                 {t('product.bundleOffer', {
                   quantity: bundleOffer.bundleQuantity,
                   price: formatPrice(bundleOffer.bundleTotalPrice),
                 })}
               </span>
-              {quantity === bundleOffer.bundleQuantity ? (
-                <Check className="mt-0.5 h-4 w-4 shrink-0" />
-              ) : (
-                <span className="shrink-0 text-xs font-medium underline underline-offset-2">{t('product.takeOffer')}</span>
-              )}
             </button>
           )}
 

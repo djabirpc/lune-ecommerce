@@ -120,8 +120,7 @@
     "addedBuyNow": "Ajouté — Acheter maintenant",
     "addWithPrice": "Ajouter — {{price}}",
     "chooseColorSize": "Choisissez une couleur et une taille",
-    "bundleOffer": "Offre : {{quantity}} articles achetés = {{price}}",
-    "takeOffer": "Profiter"
+    "bundleOffer": "Offre : {{quantity}} articles achetés = {{price}}"
   },
   "cart": {
     "empty": {

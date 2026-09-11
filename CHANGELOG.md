@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (4)
+
+### Changed
+- Bundle-offer button on `ProductPage` now shows a real check/circle-check toggle indicator (`Circle` when unselected, accent-colored `CheckCircle2` when the quantity matches the offer) instead of a plain "selected" text/color change, plus a proper card look (border + background swap). Dropped the now-unused `product.takeOffer` i18n key.
+
+### Notes
+- Frontend-only. Re-verified the full offer-selection/price-bug flow end-to-end after the UI change; still on `dev`, not merged to `main`.
+
 ## [2026-09-11] (on `dev` branch) (3)
 
 ### Fixed

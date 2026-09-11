@@ -124,8 +124,7 @@
     "addedBuyNow": "تمت الإضافة — اشتري الآن",
     "addWithPrice": "أضف — {{price}}",
     "chooseColorSize": "اختاري اللون والمقاس",
-    "bundleOffer": "عرض: شراء {{quantity}} قطع = {{price}}",
-    "takeOffer": "استفيدي"
+    "bundleOffer": "عرض: شراء {{quantity}} قطع = {{price}}"
   },
   "cart": {
     "empty": {
