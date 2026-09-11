@@ -136,6 +136,36 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task ChangeStatus_CustomerUnreachable_CanBeMarkedRepeatedly()
+    {
+        var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 5);
+        var guestClient = factory.CreateClient();
+
+        var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
+        var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        var firstResponse = await adminClient.PostAsJsonAsync(
+            $"/api/orders/{order!.Id}/status",
+            new ChangeOrderStatusRequest(OrderStatus.CustomerUnreachable, "1er appel, pas de réponse"),
+            JsonOptions);
+        firstResponse.EnsureSuccessStatusCode();
+
+        // Marking "still unreachable" a second time (a real self-transition, not a no-op) must not
+        // throw a 409 — it's how an agent records each follow-up call without a separate call-log form.
+        var secondResponse = await adminClient.PostAsJsonAsync(
+            $"/api/orders/{order.Id}/status",
+            new ChangeOrderStatusRequest(OrderStatus.CustomerUnreachable, "2e appel, toujours pas de réponse"),
+            JsonOptions);
+        secondResponse.EnsureSuccessStatusCode();
+        var updated = await secondResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(OrderStatus.CustomerUnreachable, updated!.Status);
+        Assert.Equal(2, updated.StatusHistory.Count);
+        Assert.All(updated.StatusHistory, h => Assert.Equal(OrderStatus.CustomerUnreachable, h.NewStatus));
+        Assert.Equal("2e appel, toujours pas de réponse", updated.StatusHistory[^1].Reason);
+    }
+
+    [Fact]
     public async Task CreateOrder_InsufficientStockOnOneItem_RollsBackWholeOrderAndDoesNotTouchOtherItemStock()
     {
         var (scarceVariantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 1);

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (6)
+
+### Changed
+- **"Marquer injoignable" is now repeatable directly from Actions**, replacing the previous call-attempt-form workflow entirely per explicit request ("on n'a pas besoin dans notre cas"). `OrderService.AllowedTransitions[CustomerUnreachable]` gained a real `CustomerUnreachable → CustomerUnreachable` self-transition — each click appends a fresh status-history entry (with its own optional reason via the existing reason modal), which now serves as the call-attempt log.
+- Deleted `OrderDetailPage`'s entire "Enregistrer un appel" form and "Journal d'appels" section.
+
+### Notes
+- Backend-only for the transition-map change; frontend-only for the UI removal. The `OrderCallAttempt` entity/service/endpoint/tests are **unchanged and still fully functional** — just no longer called from the admin UI (see PROJECT_CONTEXT.md Important Decision #99 for why it wasn't deleted outright).
+- New backend test `OrderWorkflowTests.ChangeStatus_CustomerUnreachable_CanBeMarkedRepeatedly`; suite grew to 156/156 (58 unit + 98 integration).
+- Verified end-to-end: marked a fresh order Injoignable twice in a row from Actions with no error, confirmed the button stays available, confirmed both transitions appear in Historique with their own reasons.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-11] (on `dev` branch) (5)
 
 ### Fixed

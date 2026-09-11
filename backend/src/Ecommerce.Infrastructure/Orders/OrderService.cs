@@ -26,7 +26,12 @@ public class OrderService(
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
     {
         [OrderStatus.PendingConfirmation] = [OrderStatus.Confirmed, OrderStatus.CustomerUnreachable, OrderStatus.Cancelled],
-        [OrderStatus.CustomerUnreachable] = [OrderStatus.Confirmed, OrderStatus.Cancelled],
+        // CustomerUnreachable -> CustomerUnreachable is a deliberate self-transition (not a no-op
+        // guard elsewhere) so an agent can repeatedly mark "still unreachable" after each follow-up
+        // call — each click appends a fresh OrderStatusHistory row (with its own optional reason),
+        // which doubles as the call-attempt log per the user's request to simplify this workflow
+        // instead of using the separate OrderCallAttempt form.
+        [OrderStatus.CustomerUnreachable] = [OrderStatus.Confirmed, OrderStatus.Cancelled, OrderStatus.CustomerUnreachable],
         [OrderStatus.Confirmed] = [OrderStatus.Preparing, OrderStatus.Cancelled],
         [OrderStatus.Preparing] = [OrderStatus.ReadyToShip, OrderStatus.Cancelled],
         [OrderStatus.ReadyToShip] = [OrderStatus.Shipped, OrderStatus.Cancelled],

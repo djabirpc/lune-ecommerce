@@ -4,7 +4,9 @@ import type { OrderStatus } from '../api/types';
 // Kept in sync by hand (no shared codegen) — if the backend map changes, update this too.
 export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PendingConfirmation: ['Confirmed', 'CustomerUnreachable', 'Cancelled'],
-  CustomerUnreachable: ['Confirmed', 'Cancelled'],
+  // Self-transition, deliberate — lets an agent mark "still unreachable" repeatedly after each
+  // follow-up call; each click appends a fresh entry to the order's status history.
+  CustomerUnreachable: ['Confirmed', 'Cancelled', 'CustomerUnreachable'],
   Confirmed: ['Preparing', 'Cancelled'],
   Preparing: ['ReadyToShip', 'Cancelled'],
   ReadyToShip: ['Shipped', 'Cancelled'],
