@@ -43,6 +43,16 @@ public class SavePromotionRequestValidator : AbstractValidator<SavePromotionRequ
             .GreaterThan(0)
             .When(x => x.Type == PromotionType.BuyXGetY);
 
+        RuleFor(x => x.BundleQuantity)
+            .NotNull().WithMessage("La quantité du lot est requise pour ce type de promotion.")
+            .GreaterThan(1).WithMessage("La quantité du lot doit être d'au moins 2.")
+            .When(x => x.Type == PromotionType.BundlePrice);
+
+        RuleFor(x => x.BundleTotalPrice)
+            .NotNull().WithMessage("Le prix du lot est requis pour ce type de promotion.")
+            .GreaterThan(0)
+            .When(x => x.Type == PromotionType.BundlePrice);
+
         RuleFor(x => x.CouponCode)
             .NotEmpty().WithMessage("Un code promo est requis pour ce type de promotion.")
             .MaximumLength(50)
@@ -55,7 +65,10 @@ public class SavePromotionRequestValidator : AbstractValidator<SavePromotionRequ
 
         RuleFor(x => x.ProductIds)
             .NotEmpty().WithMessage("Sélectionnez au moins un produit pour ce type de promotion.")
-            .When(x => x.Type == PromotionType.ProductDiscount);
+            // BundlePrice charges a fixed absolute total for N units — left unscoped, it would apply
+            // that same fixed price to every product's line regardless of its real price, which is
+            // almost certainly a costly merchant mistake rather than an intentional storewide offer.
+            .When(x => x.Type is PromotionType.ProductDiscount or PromotionType.BundlePrice);
 
         RuleFor(x => x.CategoryIds)
             .NotEmpty().WithMessage("Sélectionnez au moins une catégorie pour ce type de promotion.")

@@ -15,6 +15,7 @@ const PROMOTION_TYPES: PromotionType[] = [
   'PercentageDiscount',
   'FixedAmountDiscount',
   'BuyXGetY',
+  'BundlePrice',
   'FreeShipping',
   'Coupon',
 ];
@@ -35,6 +36,8 @@ interface FormState {
   fixedAmountValue: string;
   buyQuantity: string;
   getQuantity: string;
+  bundleQuantity: string;
+  bundleTotalPrice: string;
   couponCode: string;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -55,6 +58,8 @@ function emptyForm(): FormState {
     fixedAmountValue: '',
     buyQuantity: '',
     getQuantity: '',
+    bundleQuantity: '',
+    bundleTotalPrice: '',
     couponCode: '',
     startsAtUtc: toDateTimeLocal(now.toISOString()),
     endsAtUtc: toDateTimeLocal(inAWeek.toISOString()),
@@ -74,6 +79,8 @@ function toFormState(p: PromotionDetailDto): FormState {
     fixedAmountValue: p.fixedAmountValue?.toString() ?? '',
     buyQuantity: p.buyQuantity?.toString() ?? '',
     getQuantity: p.getQuantity?.toString() ?? '',
+    bundleQuantity: p.bundleQuantity?.toString() ?? '',
+    bundleTotalPrice: p.bundleTotalPrice?.toString() ?? '',
     couponCode: p.couponCode ?? '',
     startsAtUtc: toDateTimeLocal(p.startsAtUtc),
     endsAtUtc: toDateTimeLocal(p.endsAtUtc),
@@ -93,6 +100,8 @@ function toRequest(form: FormState): SavePromotionRequest {
     fixedAmountValue: form.fixedAmountValue ? Number(form.fixedAmountValue) : null,
     buyQuantity: form.buyQuantity ? Number(form.buyQuantity) : null,
     getQuantity: form.getQuantity ? Number(form.getQuantity) : null,
+    bundleQuantity: form.bundleQuantity ? Number(form.bundleQuantity) : null,
+    bundleTotalPrice: form.bundleTotalPrice ? Number(form.bundleTotalPrice) : null,
     couponCode: form.couponCode || null,
     startsAtUtc: new Date(form.startsAtUtc).toISOString(),
     endsAtUtc: new Date(form.endsAtUtc).toISOString(),
@@ -258,6 +267,36 @@ export function PromotionsPage() {
               </div>
             )}
 
+            {form.type === 'BundlePrice' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Quantité du lot</label>
+                  <input
+                    type="number"
+                    min={2}
+                    value={form.bundleQuantity}
+                    onChange={(e) => setForm({ ...form, bundleQuantity: e.target.value })}
+                    placeholder="ex. 2"
+                    className="w-full rounded border border-black/20 px-2 py-1 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Prix du lot (DA)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.bundleTotalPrice}
+                    onChange={(e) => setForm({ ...form, bundleTotalPrice: e.target.value })}
+                    placeholder="ex. 1500"
+                    className="w-full rounded border border-black/20 px-2 py-1 text-sm"
+                  />
+                </div>
+                <p className="col-span-2 text-[11px] text-luna-charcoal/50">
+                  Ex. : quantité 2, prix 1500 DA → "2 articles achetés = 1500 DA" au lieu du prix normal.
+                </p>
+              </div>
+            )}
+
             {form.type === 'Coupon' && (
               <>
                 <div>
@@ -291,6 +330,31 @@ export function PromotionsPage() {
                   </div>
                 </div>
               </>
+            )}
+
+            {form.type === 'BundlePrice' && (
+              <div>
+                <label className="mb-1 block text-xs font-medium">Produits concernés</label>
+                <div className="max-h-40 overflow-y-auto rounded border border-black/20 p-2">
+                  {products?.items.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 py-0.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={form.productIds.includes(p.id)}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            productIds: e.target.checked
+                              ? [...form.productIds, p.id]
+                              : form.productIds.filter((id) => id !== p.id),
+                          })
+                        }
+                      />
+                      {p.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
             )}
 
             {form.type === 'ProductDiscount' && (

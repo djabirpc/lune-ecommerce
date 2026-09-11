@@ -463,7 +463,8 @@ export type PromotionType =
   | 'FixedAmountDiscount'
   | 'BuyXGetY'
   | 'FreeShipping'
-  | 'Coupon';
+  | 'Coupon'
+  | 'BundlePrice';
 
 export interface PromotionDto {
   id: string;
@@ -474,6 +475,8 @@ export interface PromotionDto {
   fixedAmountValue: number | null;
   buyQuantity: number | null;
   getQuantity: number | null;
+  bundleQuantity: number | null;
+  bundleTotalPrice: number | null;
   hasCouponCode: boolean;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -492,6 +495,8 @@ export interface PromotionDetailDto {
   fixedAmountValue: number | null;
   buyQuantity: number | null;
   getQuantity: number | null;
+  bundleQuantity: number | null;
+  bundleTotalPrice: number | null;
   couponCode: string | null;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -509,6 +514,8 @@ export interface SavePromotionRequest {
   fixedAmountValue: number | null;
   buyQuantity: number | null;
   getQuantity: number | null;
+  bundleQuantity: number | null;
+  bundleTotalPrice: number | null;
   couponCode: string | null;
   startsAtUtc: string;
   endsAtUtc: string;

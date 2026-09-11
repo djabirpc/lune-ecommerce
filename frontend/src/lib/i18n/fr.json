@@ -119,7 +119,8 @@
     "youMayLike": "Vous aimerez aussi",
     "addedBuyNow": "Ajouté — Acheter maintenant",
     "addWithPrice": "Ajouter — {{price}}",
-    "chooseColorSize": "Choisissez une couleur et une taille"
+    "chooseColorSize": "Choisissez une couleur et une taille",
+    "bundleOffer": "Offre : {{quantity}} articles achetés = {{price}}"
   },
   "cart": {
     "empty": {

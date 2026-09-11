@@ -27,6 +27,8 @@ public class PromotionService(
             FixedAmountValue = request.FixedAmountValue,
             BuyQuantity = request.BuyQuantity,
             GetQuantity = request.GetQuantity,
+            BundleQuantity = request.BundleQuantity,
+            BundleTotalPrice = request.BundleTotalPrice,
             CouponCode = request.CouponCode,
             StartsAtUtc = request.StartsAtUtc,
             EndsAtUtc = request.EndsAtUtc,
@@ -60,6 +62,8 @@ public class PromotionService(
         promotion.FixedAmountValue = request.FixedAmountValue;
         promotion.BuyQuantity = request.BuyQuantity;
         promotion.GetQuantity = request.GetQuantity;
+        promotion.BundleQuantity = request.BundleQuantity;
+        promotion.BundleTotalPrice = request.BundleTotalPrice;
         promotion.CouponCode = request.CouponCode;
         promotion.StartsAtUtc = request.StartsAtUtc;
         promotion.EndsAtUtc = request.EndsAtUtc;
@@ -170,6 +174,8 @@ public class PromotionService(
         p.FixedAmountValue,
         p.BuyQuantity,
         p.GetQuantity,
+        p.BundleQuantity,
+        p.BundleTotalPrice,
         !string.IsNullOrEmpty(p.CouponCode),
         p.StartsAtUtc,
         p.EndsAtUtc,
@@ -187,6 +193,8 @@ public class PromotionService(
         p.FixedAmountValue,
         p.BuyQuantity,
         p.GetQuantity,
+        p.BundleQuantity,
+        p.BundleTotalPrice,
         p.CouponCode,
         p.StartsAtUtc,
         p.EndsAtUtc,

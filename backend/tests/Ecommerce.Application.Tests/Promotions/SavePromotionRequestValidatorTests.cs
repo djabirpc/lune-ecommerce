@@ -17,6 +17,8 @@ public class SavePromotionRequestValidatorTests
         null,
         null,
         null,
+        null,
+        null,
         DateTime.UtcNow,
         DateTime.UtcNow.AddDays(7),
         true,
@@ -99,6 +101,65 @@ public class SavePromotionRequestValidatorTests
     public async Task BuyXGetY_WithQuantities_PassesValidation()
     {
         var request = ValidPercentageRequest() with { Type = PromotionType.BuyXGetY, PercentageValue = null, BuyQuantity = 2, GetQuantity = 1 };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task BundlePrice_WithoutBundleFields_FailsValidation()
+    {
+        var request = ValidPercentageRequest() with { Type = PromotionType.BundlePrice, PercentageValue = null };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task BundlePrice_WithBundleQuantityOfOne_FailsValidation()
+    {
+        var request = ValidPercentageRequest() with
+        {
+            Type = PromotionType.BundlePrice,
+            PercentageValue = null,
+            BundleQuantity = 1,
+            BundleTotalPrice = 900m,
+        };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task BundlePrice_WithoutProductIds_FailsValidation()
+    {
+        var request = ValidPercentageRequest() with
+        {
+            Type = PromotionType.BundlePrice,
+            PercentageValue = null,
+            BundleQuantity = 2,
+            BundleTotalPrice = 1500m,
+        };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task BundlePrice_WithValidFields_PassesValidation()
+    {
+        var request = ValidPercentageRequest() with
+        {
+            Type = PromotionType.BundlePrice,
+            PercentageValue = null,
+            BundleQuantity = 2,
+            BundleTotalPrice = 1500m,
+            ProductIds = [Guid.NewGuid()],
+        };
 
         var result = await _validator.ValidateAsync(request);
 

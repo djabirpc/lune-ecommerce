@@ -242,6 +242,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(p => p.Type).HasConversion<string>().HasMaxLength(30);
             entity.Property(p => p.PercentageValue).HasPrecision(5, 2);
             entity.Property(p => p.FixedAmountValue).HasPrecision(10, 2);
+            entity.Property(p => p.BundleTotalPrice).HasPrecision(10, 2);
             entity.Property(p => p.CouponCode).HasMaxLength(50);
             entity.HasIndex(p => p.CouponCode).IsUnique().HasFilter("\"CouponCode\" IS NOT NULL");
             entity.HasIndex(p => new { p.IsActive, p.StartsAtUtc, p.EndsAtUtc });

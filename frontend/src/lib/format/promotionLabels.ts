@@ -9,4 +9,5 @@ export const PROMOTION_TYPE_LABELS: Record<PromotionType, string> = {
   BuyXGetY: 'Achetez X, obtenez Y',
   FreeShipping: 'Livraison gratuite',
   Coupon: 'Code promo',
+  BundlePrice: 'Offre par lot (N pour un prix fixe)',
 };

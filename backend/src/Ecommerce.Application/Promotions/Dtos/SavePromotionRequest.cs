@@ -10,6 +10,8 @@ public record SavePromotionRequest(
     decimal? FixedAmountValue,
     int? BuyQuantity,
     int? GetQuantity,
+    int? BundleQuantity,
+    decimal? BundleTotalPrice,
     string? CouponCode,
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,

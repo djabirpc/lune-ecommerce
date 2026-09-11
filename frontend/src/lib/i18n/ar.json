@@ -123,7 +123,8 @@
     "youMayLike": "قد يعجبك أيضاً",
     "addedBuyNow": "تمت الإضافة — اشتري الآن",
     "addWithPrice": "أضف — {{price}}",
-    "chooseColorSize": "اختاري اللون والمقاس"
+    "chooseColorSize": "اختاري اللون والمقاس",
+    "bundleOffer": "عرض: شراء {{quantity}} قطع = {{price}}"
   },
   "cart": {
     "empty": {

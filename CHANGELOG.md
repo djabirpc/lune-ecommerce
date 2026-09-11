@@ -1,5 +1,23 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch)
+
+### Added
+- **New `dev` branch** for active development, separate from `main` (production/Render). See PROJECT_CONTEXT.md "Current Feature" for the branching model.
+- **`BundlePrice` promotion type — "N units for a fixed total price"** (e.g. "2 for 1500 DA" on a 1000 DA item). New `Promotion.BundleQuantity`/`BundleTotalPrice` fields (migration `AddBundlePricePromotion`); checkout-time math in `OrderService.ComputeBundlePriceDiscount` (per-line, complete-bundles-only, mirrors `ComputeBuyXGetYDiscount`'s shape). `ProductIds` is required for this type. Admin `PromotionsPage` gained the quantity/price fields + a product picker for `BundlePrice`. Storefront `ProductPage` shows a new "Offre : N articles achetés = X DA" banner when an active bundle offer applies to the product being viewed.
+- Admin **`OrderConfirmationCenterPage` redesign**: stat summary cards (En attente / Injoignables counts), icon-labeled queue cards, an inline `tel:` call button per row, a chevron link to the order detail, skeleton loading rows, and a real empty state.
+
+### Database
+- Migration `AddBundlePricePromotion`: adds `Promotions.BundleQuantity` (nullable int) and `Promotions.BundleTotalPrice` (nullable numeric(10,2)).
+
+### API
+- `POST /api/promotions`/`PUT /api/promotions/{id}` accept optional `bundleQuantity`/`bundleTotalPrice`, required together when `type` is `BundlePrice` (also requires a non-empty `productIds`). `PromotionDto`/`PromotionDetailDto` gained the matching fields.
+
+### Notes
+- 8 new backend tests (4 checkout-calculation integration tests, 4 validator unit tests); backend suite grew to 155/155 (58 unit + 97 integration).
+- Verified end-to-end with a real headless-browser session against a freshly rebuilt local Docker stack on `dev`: created a real bundle-price promotion via the admin UI, confirmed the storefront banner, placed a real quantity-2 order and confirmed the exact expected discount via a direct API check, and screenshotted the modernized confirmation center with both queues populated.
+- Not yet merged to `main` / not yet deployed to Render.
+
 ## [2026-09-07] (4)
 
 ### Added

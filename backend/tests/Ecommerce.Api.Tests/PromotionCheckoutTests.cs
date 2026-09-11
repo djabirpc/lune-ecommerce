@@ -86,6 +86,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
+            null,
+            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -118,6 +120,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
+            null,
+            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -146,6 +150,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             PromotionType.Coupon,
             null,
             100m,
+            null,
+            null,
             null,
             null,
             couponCode,
@@ -190,6 +196,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
+            null,
+            null,
             DateTime.UtcNow.AddDays(-10),
             DateTime.UtcNow.AddDays(-1),
             true,
@@ -220,6 +228,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
+            null,
+            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -232,6 +242,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             PromotionType.ProductDiscount,
             25m,
+            null,
+            null,
             null,
             null,
             null,
@@ -261,6 +273,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             buyQuantity,
             getQuantity,
+            null,
+            null,
             null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
@@ -324,6 +338,99 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         Assert.Empty(order.AppliedPromotions);
     }
 
+    private async Task<PromotionDetailDto> CreateBundlePricePromotionAsync(HttpClient adminClient, Guid productId, int bundleQuantity, decimal bundleTotalPrice) =>
+        await CreatePromotionAsync(adminClient, new SavePromotionRequest(
+            "Offre lot",
+            null,
+            PromotionType.BundlePrice,
+            null,
+            null,
+            null,
+            null,
+            bundleQuantity,
+            bundleTotalPrice,
+            null,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddDays(1),
+            true,
+            0,
+            [productId],
+            []));
+
+    [Fact]
+    public async Task BundlePrice_CompleteBundle_ChargesBundlePrice()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        // "2 for 1500 DA" — buying exactly 2 should be discounted by 500 (2000 -> 1500).
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m);
+
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(2000m, order!.Subtotal);
+        Assert.Equal(500m, order.DiscountTotal);
+        Assert.Equal(2100m, order.Total); // 2000 - 500 + 600
+        Assert.Single(order.AppliedPromotions);
+    }
+
+    [Fact]
+    public async Task BundlePrice_MultipleCompleteBundles_MultipliesDiscount()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m);
+
+        // Quantity 4 = two complete bundles = 1000 DA discount (2 x 500).
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 4), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(4000m, order!.Subtotal);
+        Assert.Equal(1000m, order.DiscountTotal);
+        Assert.Equal(3600m, order.Total); // 4000 - 1000 + 600
+    }
+
+    [Fact]
+    public async Task BundlePrice_IncompleteBundle_NoDiscount()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m);
+
+        // Quantity 1 never reaches the 2-unit bundle — full price, no discount.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, order!.DiscountTotal);
+        Assert.Equal(1600m, order.Total); // 1000 - 0 + 600
+        Assert.Empty(order.AppliedPromotions);
+    }
+
+    [Fact]
+    public async Task BundlePrice_RemainderUnitsStayAtFullPrice()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m);
+
+        // Quantity 3 = one complete bundle (1500) + 1 remainder unit at full price (1000) = 2500,
+        // i.e. still only 500 DA discount, not 750 (the remainder isn't partially discounted).
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 3), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(3000m, order!.Subtotal);
+        Assert.Equal(500m, order.DiscountTotal);
+        Assert.Equal(3100m, order.Total); // 3000 - 500 + 600
+    }
+
     [Fact]
     public async Task FreeShippingPromotion_ZeroesOutShippingCost()
     {
@@ -334,6 +441,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             "Livraison gratuite",
             null,
             PromotionType.FreeShipping,
+            null,
+            null,
             null,
             null,
             null,
@@ -376,6 +485,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
+            null,
+            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -388,6 +499,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             PromotionType.CategoryDiscount,
             20m,
+            null,
+            null,
             null,
             null,
             null,

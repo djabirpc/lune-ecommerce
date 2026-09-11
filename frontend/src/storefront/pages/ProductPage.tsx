@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw, Tag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
-import { estimatePrice } from '../../lib/promotions/estimate';
+import { estimatePrice, findBundleOffer } from '../../lib/promotions/estimate';
 import { colorToHex } from '../../lib/format/colorSwatch';
 import { useCart } from '../../lib/cart/CartContext';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
@@ -81,6 +81,7 @@ export function ProductPage() {
   const primaryImage = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const displayedImage = product.images.find((i) => i.id === selectedImageId) ?? primaryImage;
   const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: product.price }, activePromotions) : null;
+  const bundleOffer = activePromotions ? findBundleOffer(activePromotions, product.id, product.categoryId) : undefined;
   const unitPrice = selectedVariant?.price ?? (estimate ? estimate.discountedPrice : product.price);
   const fav = isFavorite(product.id);
   const related = (relatedProducts?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
@@ -184,6 +185,18 @@ export function ProductPage() {
               <span className="text-sm text-luna-charcoal/50 line-through">{formatPrice(estimate.compareAtPrice)}</span>
             )}
           </div>
+
+          {bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice && (
+            <div className="mt-3 flex items-start gap-2 rounded-sm bg-luna-rose px-3 py-2.5 text-sm text-luna-accent-dark">
+              <Tag className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {t('product.bundleOffer', {
+                  quantity: bundleOffer.bundleQuantity,
+                  price: formatPrice(bundleOffer.bundleTotalPrice),
+                })}
+              </span>
+            </div>
+          )}
 
           {product.description && <p className="mt-4 text-sm leading-relaxed text-luna-charcoal/70">{product.description}</p>}
 

@@ -434,9 +434,12 @@ public class OrderService(
     /// line), so it's dispatched separately rather than folded into ComputeDiscount.
     /// </summary>
     private static decimal ComputeItemDiscount(Promotion promotion, OrderItem item) =>
-        promotion.Type == PromotionType.BuyXGetY
-            ? ComputeBuyXGetYDiscount(promotion, item)
-            : ComputeDiscount(promotion, item.LineTotal);
+        promotion.Type switch
+        {
+            PromotionType.BuyXGetY => ComputeBuyXGetYDiscount(promotion, item),
+            PromotionType.BundlePrice => ComputeBundlePriceDiscount(promotion, item),
+            _ => ComputeDiscount(promotion, item.LineTotal),
+        };
 
     /// <summary>
     /// "Buy X, Get Y" — every complete bundle of (BuyQuantity + GetQuantity) matching units in this
@@ -458,6 +461,33 @@ public class OrderService(
         var freeUnits = completeBundles * promotion.GetQuantity.Value;
 
         return freeUnits * item.UnitPrice;
+    }
+
+    /// <summary>
+    /// "N for a fixed total price" (e.g. "2 for 1500 DA" on a 1000 DA item). Every complete bundle of
+    /// BundleQuantity matching units in this line is charged BundleTotalPrice instead of
+    /// BundleQuantity * UnitPrice; any remainder units (an incomplete bundle) stay at full price.
+    /// Same per-line-only evaluation as BuyXGetY (see ComputeBuyXGetYDiscount) — e.g. "2 for 1500"
+    /// needs 2+ units of the SAME variant in one line. Floors at 0 so a misconfigured bundle price
+    /// higher than the regular price can never produce a negative "discount".
+    /// </summary>
+    private static decimal ComputeBundlePriceDiscount(Promotion promotion, OrderItem item)
+    {
+        if (promotion.BundleQuantity is not > 1 || promotion.BundleTotalPrice is not > 0)
+        {
+            return 0m;
+        }
+
+        var completeBundles = item.Quantity / promotion.BundleQuantity.Value;
+        if (completeBundles == 0)
+        {
+            return 0m;
+        }
+
+        var regularPriceForBundledUnits = completeBundles * promotion.BundleQuantity.Value * item.UnitPrice;
+        var bundlePriceForBundledUnits = completeBundles * promotion.BundleTotalPrice.Value;
+
+        return Math.Max(regularPriceForBundledUnits - bundlePriceForBundledUnits, 0m);
     }
 
     private static void Accumulate(Dictionary<Guid, (string Name, decimal Amount)> totals, Guid id, string name, decimal amount)

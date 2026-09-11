@@ -61,3 +61,20 @@ export function isFreeShippingActiveFor(
     .filter((p) => p.type === 'FreeShipping')
     .some((p) => isScopedTo(p, productId, categoryId));
 }
+
+/**
+ * The active "N for a fixed total price" offer for a product, if any (e.g. "2 pour 1500 DA").
+ * Unlike estimatePrice, this isn't a per-unit price change — it only makes sense with the real
+ * quantity/unit-price math the backend applies at checkout (OrderService.ComputeBundlePriceDiscount),
+ * so it's surfaced as its own informational banner rather than folded into the product-card badge.
+ */
+export function findBundleOffer(
+  activePromotions: PromotionDto[],
+  productId: string,
+  categoryId: string,
+): PromotionDto | undefined {
+  return activePromotions
+    .filter((p) => p.type === 'BundlePrice' && p.bundleQuantity && p.bundleTotalPrice)
+    .filter((p) => isScopedTo(p, productId, categoryId))
+    .sort((a, b) => b.priority - a.priority)[0];
+}

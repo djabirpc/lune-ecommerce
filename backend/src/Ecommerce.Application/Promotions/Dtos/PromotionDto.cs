@@ -11,6 +11,8 @@ public record PromotionDto(
     decimal? FixedAmountValue,
     int? BuyQuantity,
     int? GetQuantity,
+    int? BundleQuantity,
+    decimal? BundleTotalPrice,
     bool HasCouponCode,
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,

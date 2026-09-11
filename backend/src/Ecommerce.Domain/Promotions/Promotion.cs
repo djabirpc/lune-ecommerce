@@ -14,6 +14,11 @@ public class Promotion : Entity
     public int? GetQuantity { get; set; }
     public string? CouponCode { get; set; }
 
+    /// <summary>BundlePrice only: buy this many matching units in one line to trigger the bundle price.</summary>
+    public int? BundleQuantity { get; set; }
+    /// <summary>BundlePrice only: total price charged for one complete bundle of BundleQuantity units.</summary>
+    public decimal? BundleTotalPrice { get; set; }
+
     public DateTime StartsAtUtc { get; set; }
     public DateTime EndsAtUtc { get; set; }
     public bool IsActive { get; set; } = true;
