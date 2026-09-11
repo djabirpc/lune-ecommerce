@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (5)
+
+### Fixed
+- **Admin: unclear how to log a repeated "Injoignable" call.** The ability already existed (a `NoAnswer` call attempt logged while already `CustomerUnreachable` doesn't error and doesn't need a status change — see the 2026-09-07 confirmation-center fix), but nothing in the UI said so once the "Marquer injoignable" quick-action button correctly disappeared. `OrderDetailPage` now shows an explanatory note above the call form when the order is already `CustomerUnreachable`, and a green "Appel enregistré (tentative #N)." confirmation after logging a call.
+
+### Notes
+- Frontend-only, no backend change. Verified against the exact order the user reported (`LUNA-260911-9925`): logged a 2nd "Pas de réponse" call, status stayed Injoignable, confirmation shown, call log updated.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-11] (on `dev` branch) (4)
 
 ### Changed

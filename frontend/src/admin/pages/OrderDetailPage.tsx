@@ -267,6 +267,13 @@ export function OrderDetailPage() {
       {CALLABLE_STATUSES.includes(order.status) && (
         <div className="mt-6">
           <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Enregistrer un appel</h2>
+          {order.status === 'CustomerUnreachable' && (
+            <p className="mb-2 text-xs text-luna-charcoal/60">
+              Cette commande est déjà marquée <span className="font-medium text-luna-black">Injoignable</span>. Pour un
+              nouvel appel toujours sans réponse, enregistrez-le ci-dessous avec le résultat « Pas de réponse » — le
+              statut reste Injoignable, seule la tentative s'ajoute au journal d'appels.
+            </p>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -287,10 +294,11 @@ export function OrderDetailPage() {
                   </option>
                 ))}
               </select>
-              {callResult === 'NoAnswer' && order.status === 'PendingConfirmation' && (
+              {callResult === 'NoAnswer' && (
                 <span className="text-xs text-luna-charcoal/60">
-                  Marquera automatiquement la commande « Injoignable ». Vous pouvez enregistrer d'autres appels
-                  « Pas de réponse » ensuite sans que le statut change.
+                  {order.status === 'PendingConfirmation'
+                    ? 'Marquera automatiquement la commande « Injoignable ». Vous pourrez enregistrer d\'autres appels « Pas de réponse » ensuite sans que le statut change.'
+                    : 'Ajoute une nouvelle tentative au journal d\'appels — le statut reste Injoignable.'}
                 </span>
               )}
             </label>
@@ -327,6 +335,9 @@ export function OrderDetailPage() {
             </button>
 
             {callError && <p className="text-sm text-red-600">{callError}</p>}
+            {recordCallAttempt.isSuccess && !callError && (
+              <p className="text-sm text-green-700">Appel enregistré (tentative #{order.callAttempts.length}).</p>
+            )}
           </form>
         </div>
       )}
