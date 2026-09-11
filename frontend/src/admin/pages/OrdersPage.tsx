@@ -36,23 +36,31 @@ export function OrdersPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Commandes</h1>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as OrderStatus | '');
-            setPage(1);
-          }}
-          className="rounded border border-black/20 px-3 py-2 text-sm"
-        >
-          <option value="">Tous les statuts</option>
-          {ALL_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {ORDER_STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as OrderStatus | '');
+              setPage(1);
+            }}
+            className="rounded border border-black/20 px-3 py-2 text-sm"
+          >
+            <option value="">Tous les statuts</option>
+            {ALL_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {ORDER_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+          <Link
+            to="/admin/orders/new"
+            className="whitespace-nowrap rounded-full bg-luna-black px-4 py-2 text-sm text-white"
+          >
+            + Nouvelle commande
+          </Link>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-luna-charcoal/60">Chargement...</p>}

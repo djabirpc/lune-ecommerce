@@ -13,6 +13,8 @@ import type {
 export const ordersApi = {
   create: (request: CreateOrderRequest) => apiClient.post<OrderDetailDto>('/api/orders', request),
 
+  createAdmin: (request: CreateOrderRequest) => apiClient.post<OrderDetailDto>('/api/orders/admin', request),
+
   track: (orderNumber: string, phone: string) =>
     apiClient.get<OrderDetailDto>(
       `/api/orders/track?orderNumber=${encodeURIComponent(orderNumber)}&phone=${encodeURIComponent(phone)}`,

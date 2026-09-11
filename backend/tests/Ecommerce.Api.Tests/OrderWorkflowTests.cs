@@ -88,6 +88,50 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task CreateAdminOrder_StartsConfirmed_ReservesStock_RecordsCreator()
+    {
+        var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 10);
+
+        var response = await adminClient.PostAsJsonAsync("/api/orders/admin", BuildOrderRequest(variantId, 2), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        // A phone order starts Confirmed directly — the call itself is the confirmation, so there's
+        // no PendingConfirmation step to work through, unlike a normal guest checkout.
+        Assert.Equal(OrderStatus.Confirmed, order!.Status);
+        Assert.NotNull(order.CreatedByUserId);
+
+        var inventoryAfterOrder = await (await adminClient.GetAsync($"/api/inventory/{variantId}")).Content.ReadFromJsonAsync<InventoryDto>();
+        Assert.Equal(8, inventoryAfterOrder!.AvailableQuantity);
+        Assert.Equal(2, inventoryAfterOrder.ReservedQuantity);
+    }
+
+    [Fact]
+    public async Task CreateAdminOrder_Unauthenticated_ReturnsUnauthorized()
+    {
+        var (variantId, _) = await CreateProductWithStockAsync(initialQuantity: 5);
+        var guestClient = factory.CreateClient();
+
+        var response = await guestClient.PostAsJsonAsync("/api/orders/admin", BuildOrderRequest(variantId, 1), JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateOrder_GuestCheckout_HasNoCreatedByUserId()
+    {
+        var (variantId, _) = await CreateProductWithStockAsync(initialQuantity: 5);
+        var guestClient = factory.CreateClient();
+
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Null(order!.CreatedByUserId);
+        Assert.Equal(OrderStatus.PendingConfirmation, order.Status);
+    }
+
+    [Fact]
     public async Task CreateOrder_ReserveStock_ConfirmPrepareShipDeliver_RecordsSale()
     {
         var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 5);

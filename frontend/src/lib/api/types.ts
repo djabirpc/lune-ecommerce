@@ -382,6 +382,7 @@ export interface OrderDetailDto {
   appliedPromotions: OrderPromotionDto[];
   shipment: ShipmentDto | null;
   marketingAttribution: MarketingAttributionDto | null;
+  createdByUserId: string | null;
 }
 
 export interface MarketingAttributionDto {

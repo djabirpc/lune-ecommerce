@@ -44,7 +44,17 @@ public class OrderService(
         [OrderStatus.Returned] = [],
     };
 
-    public async Task<OrderDetailDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken = default)
+    public Task<OrderDetailDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken = default) =>
+        CreateOrderCoreAsync(request, OrderStatus.PendingConfirmation, null, cancellationToken);
+
+    public Task<OrderDetailDto> CreateAdminOrderAsync(CreateOrderRequest request, Guid createdByUserId, CancellationToken cancellationToken = default) =>
+        CreateOrderCoreAsync(request, OrderStatus.Confirmed, createdByUserId, cancellationToken);
+
+    private async Task<OrderDetailDto> CreateOrderCoreAsync(
+        CreateOrderRequest request,
+        OrderStatus initialStatus,
+        Guid? createdByUserId,
+        CancellationToken cancellationToken)
     {
         await createValidator.ValidateAndThrowAsync(request, cancellationToken);
 
@@ -70,7 +80,8 @@ public class OrderService(
         var order = new Order
         {
             OrderNumber = await GenerateUniqueOrderNumberAsync(cancellationToken),
-            Status = OrderStatus.PendingConfirmation,
+            Status = initialStatus,
+            CreatedByUserId = createdByUserId,
             FirstName = request.FirstName,
             LastName = request.LastName,
             Phone = request.Phone,
@@ -559,7 +570,8 @@ public class OrderService(
             .Select(p => new OrderPromotionDto(p.Id, p.PromotionId, p.PromotionName, p.DiscountAmount))
             .ToList(),
         ToShipmentDto(order.Shipment),
-        ToMarketingAttributionDto(order));
+        ToMarketingAttributionDto(order),
+        order.CreatedByUserId);
 
     private static MarketingAttributionDto? ToMarketingAttributionDto(Order order)
     {

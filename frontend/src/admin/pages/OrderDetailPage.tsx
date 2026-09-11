@@ -109,9 +109,16 @@ export function OrderDetailPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{order.orderNumber}</h1>
-        <span className="rounded-full bg-luna-cream px-3 py-1 text-sm font-medium">
-          {ORDER_STATUS_LABELS[order.status]}
-        </span>
+        <div className="flex items-center gap-2">
+          {order.createdByUserId && (
+            <span className="rounded-full bg-luna-rose px-3 py-1 text-sm font-medium text-luna-accent-dark">
+              Commande téléphonique
+            </span>
+          )}
+          <span className="rounded-full bg-luna-cream px-3 py-1 text-sm font-medium">
+            {ORDER_STATUS_LABELS[order.status]}
+          </span>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">

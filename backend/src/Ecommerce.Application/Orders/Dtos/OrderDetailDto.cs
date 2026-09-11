@@ -28,4 +28,5 @@ public record OrderDetailDto(
     IReadOnlyList<OrderCallAttemptDto> CallAttempts,
     IReadOnlyList<OrderPromotionDto> AppliedPromotions,
     ShipmentDto? Shipment,
-    MarketingAttributionDto? MarketingAttribution);
+    MarketingAttributionDto? MarketingAttribution,
+    Guid? CreatedByUserId);

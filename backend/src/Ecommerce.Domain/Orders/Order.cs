@@ -8,6 +8,11 @@ public class Order : Entity
     public string OrderNumber { get; set; } = string.Empty;
     public OrderStatus Status { get; set; } = OrderStatus.PendingConfirmation;
 
+    /// <summary>Null for a normal guest/customer checkout. Set when a staff member creates the order
+    /// on the customer's behalf (e.g. a phone call: "I want this dress in this size") via the admin
+    /// panel — those orders start life already Confirmed, since the call itself is the confirmation.</summary>
+    public Guid? CreatedByUserId { get; set; }
+
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;

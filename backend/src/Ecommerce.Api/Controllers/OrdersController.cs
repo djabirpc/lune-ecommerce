@@ -26,6 +26,16 @@ public class OrdersController(
         return CreatedAtAction(nameof(Track), new { orderNumber = order.OrderNumber, phone = order.Phone }, order);
     }
 
+    [HttpPost("admin")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<OrderDetailDto>> CreateAdminOrder(CreateOrderRequest request, CancellationToken cancellationToken)
+    {
+        var agentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var order = await orderService.CreateAdminOrderAsync(request, agentUserId, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+    }
+
     [HttpGet("track")]
     [AllowAnonymous]
     public async Task<ActionResult<OrderDetailDto>> Track(

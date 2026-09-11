@@ -1,5 +1,20 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (8)
+
+### Added
+- **Admin can now manually create an order** for phone orders ("client calls and says they want this dress in this size"). New `admin/pages/CreateOrderPage.tsx` (`/admin/orders/new`, linked from a "+ Nouvelle commande" button on the orders list) — search/pick a product and variant with live stock counts, build up a line-item cart with a shipping-cost quote, fill in customer info, submit.
+- Backend: `POST /api/orders/admin` (`OrderManagers` role), reuses the existing `CreateOrderRequest` shape. **Admin-created orders start already Confirmed** (not `PendingConfirmation`) — the phone call is the confirmation, so there's no redundant callback step.
+- `Order.CreatedByUserId` (nullable, migration `AddOrderCreatedByUserId`) — null for guest checkouts, set to the staff member's ID for admin-created orders. `OrderDetailPage` shows a "Commande téléphonique" badge when set.
+
+### Database
+- Migration: `AddOrderCreatedByUserId`.
+
+### Notes
+- 3 new backend tests; suite grew to 164/164 (61 unit + 103 integration).
+- Verified end-to-end: created a real phone order through the admin UI, landed on its detail page showing "Commande téléphonique" + "Confirmée" with only `Confirmed`'s normal next actions available.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-11] (on `dev` branch) (7)
 
 ### Added

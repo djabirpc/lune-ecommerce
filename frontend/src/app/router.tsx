@@ -21,6 +21,7 @@ import { LoginPage as AdminLoginPage } from '../admin/pages/LoginPage';
 import { DashboardPage } from '../admin/pages/DashboardPage';
 import { OrdersPage as AdminOrdersPage } from '../admin/pages/OrdersPage';
 import { OrderDetailPage } from '../admin/pages/OrderDetailPage';
+import { CreateOrderPage } from '../admin/pages/CreateOrderPage';
 import { OrderConfirmationCenterPage } from '../admin/pages/OrderConfirmationCenterPage';
 import { ProductsPage } from '../admin/pages/ProductsPage';
 import { CategoriesPage as AdminCategoriesPage } from '../admin/pages/CategoriesPage';
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardPage /> },
           { path: 'dashboard', element: <DashboardPage /> },
           { path: 'orders', element: <AdminOrdersPage /> },
+          { path: 'orders/new', element: <CreateOrderPage /> },
           { path: 'orders/confirmation', element: <OrderConfirmationCenterPage /> },
           { path: 'orders/:id', element: <OrderDetailPage /> },
           { path: 'products', element: <ProductsPage /> },

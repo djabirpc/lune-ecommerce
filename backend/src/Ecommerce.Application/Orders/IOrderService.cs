@@ -8,6 +8,11 @@ public interface IOrderService
 {
     Task<OrderDetailDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Staff-created order (e.g. a phone call): reuses the same validation/stock-reservation/
+    /// promotion logic as a guest checkout, but starts the order already Confirmed (the call itself is
+    /// the confirmation, so there's no PendingConfirmation step to work through) and records who created it.</summary>
+    Task<OrderDetailDto> CreateAdminOrderAsync(CreateOrderRequest request, Guid createdByUserId, CancellationToken cancellationToken = default);
+
     /// <summary>Guest order tracking: requires the phone number to match, to avoid order-number enumeration.</summary>
     Task<OrderDetailDto> TrackAsync(string orderNumber, string phone, CancellationToken cancellationToken = default);
 
