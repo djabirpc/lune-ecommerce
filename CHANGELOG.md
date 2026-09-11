@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (3)
+
+### Fixed
+- **Product page price stopped reflecting active promotions once a color/size variant was selected.** `unitPrice` always resolved to the variant's raw price (`ProductVariantDto.price` is never null, so the promotion-estimate fallback was dead code) — the discounted price and strikethrough "compare at" price only showed before picking a variant. Fixed by computing the promotion estimate against the selected variant's actual price and always preferring it when one applies.
+
+### Added
+- **The bundle-offer banner on `ProductPage` is now a button ("Profiter")** — clicking it sets the quantity to the offer's bundle quantity directly, so the customer doesn't have to work out and manually set the right quantity with the +/- stepper. Shows an active/checked state once the current quantity matches. The choice now survives picking color/size afterward (previously, selecting a variant silently reset quantity back to 1). The "Ajouter au panier" price now reflects the real bundle-adjusted total.
+
+### Notes
+- Frontend-only. New exported `computeBundlePriceDiscount()` in `lib/promotions/estimate.ts`, shared between the cart-discount estimate and this new pre-add-to-cart total preview (one implementation, not duplicated).
+- Verified end-to-end with a real headless-browser session: a real 20%-off promotion's price/strikethrough now persist after selecting a variant; clicking "Profiter" before choosing color/size, then choosing them, still shows quantity 2 and "Ajouter — 1500 DA" (not 2000 DA).
+- Still on `dev`, not merged to `main` / not deployed.
+
 ## [2026-09-11] (on `dev` branch) (2)
 
 ### Fixed

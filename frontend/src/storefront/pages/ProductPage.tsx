@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw, Tag } from 'lucide-react';
+import { Heart, Minus, Plus, Truck, ShieldCheck, RefreshCw, Tag, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
-import { estimatePrice, findBundleOffer } from '../../lib/promotions/estimate';
+import { estimatePrice, findBundleOffer, computeBundlePriceDiscount } from '../../lib/promotions/estimate';
 import { colorToHex } from '../../lib/format/colorSwatch';
 import { useCart } from '../../lib/cart/CartContext';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
@@ -42,6 +42,9 @@ export function ProductPage() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  // Tracks a bundle-offer quantity chosen before (or independently of) color/size, so picking a
+  // variant afterward doesn't silently reset it back to 1 — only a manual +/- click clears it.
+  const [offerQuantity, setOfferQuantity] = useState<number | null>(null);
   const [justAdded, setJustAdded] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
@@ -70,6 +73,15 @@ export function ProductPage() {
     setSelectedImageId(null);
   }, [product?.id]);
 
+  // Re-clamp quantity once a full variant is resolved — needed because a bundle-offer quantity can
+  // be chosen before color/size (see handleTakeOffer) and may exceed that specific variant's stock.
+  useEffect(() => {
+    if (selectedVariant) {
+      setQuantity((q) => Math.min(q, Math.max(1, selectedVariant.availableQuantity)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVariant]);
+
   if (isLoading) {
     return <div className="px-4 py-16 text-center text-sm text-luna-charcoal/60">{t('common.loading')}</div>;
   }
@@ -80,23 +92,40 @@ export function ProductPage() {
 
   const primaryImage = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const displayedImage = product.images.find((i) => i.id === selectedImageId) ?? primaryImage;
-  const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: product.price }, activePromotions) : null;
+  const basePrice = selectedVariant?.price ?? product.price;
+  const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: basePrice }, activePromotions) : null;
   const bundleOffer = activePromotions ? findBundleOffer(activePromotions, product.id, product.categoryId) : undefined;
-  const unitPrice = selectedVariant?.price ?? (estimate ? estimate.discountedPrice : product.price);
+  const unitPrice = estimate ? estimate.discountedPrice : basePrice;
+  const bundleDiscount =
+    bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice
+      ? computeBundlePriceDiscount(bundleOffer.bundleQuantity, bundleOffer.bundleTotalPrice, basePrice, quantity)
+      : 0;
+  const displayTotal = unitPrice * quantity - bundleDiscount;
   const fav = isFavorite(product.id);
   const related = (relatedProducts?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
   function handleColorSelect(color: string) {
     setSelectedColor(color);
     setSelectedSize(null);
-    setQuantity(1);
+    setQuantity(offerQuantity ?? 1);
     setJustAdded(false);
   }
 
   function handleSizeSelect(size: string) {
     setSelectedSize(size);
-    setQuantity(1);
+    setQuantity(offerQuantity ?? 1);
     setJustAdded(false);
+  }
+
+  function handleTakeOffer(bundleQuantity: number) {
+    setOfferQuantity(bundleQuantity);
+    setQuantity(selectedVariant ? Math.min(bundleQuantity, selectedVariant.availableQuantity) : bundleQuantity);
+    setJustAdded(false);
+  }
+
+  function adjustQuantity(next: number) {
+    setOfferQuantity(null);
+    setQuantity(next);
   }
 
   function handleAddToCart() {
@@ -183,21 +212,34 @@ export function ProductPage() {
 
           <div className="mt-4 flex items-baseline gap-3">
             <span className="text-2xl font-medium text-luna-black">{formatPrice(unitPrice)}</span>
-            {estimate && !selectedVariant?.price && (
+            {estimate && (
               <span className="text-sm text-luna-charcoal/50 line-through">{formatPrice(estimate.compareAtPrice)}</span>
             )}
           </div>
 
           {bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice && (
-            <div className="mt-3 flex items-start gap-2 rounded-sm bg-luna-rose px-3 py-2.5 text-sm text-luna-accent-dark">
+            <button
+              type="button"
+              onClick={() => handleTakeOffer(bundleOffer.bundleQuantity!)}
+              className={`mt-3 flex w-full items-start gap-2 rounded-sm px-3 py-2.5 text-start text-sm transition ${
+                quantity === bundleOffer.bundleQuantity
+                  ? 'bg-luna-accent text-white'
+                  : 'bg-luna-rose text-luna-accent-dark hover:bg-luna-rose/70'
+              }`}
+            >
               <Tag className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
+              <span className="flex-1">
                 {t('product.bundleOffer', {
                   quantity: bundleOffer.bundleQuantity,
                   price: formatPrice(bundleOffer.bundleTotalPrice),
                 })}
               </span>
-            </div>
+              {quantity === bundleOffer.bundleQuantity ? (
+                <Check className="mt-0.5 h-4 w-4 shrink-0" />
+              ) : (
+                <span className="shrink-0 text-xs font-medium underline underline-offset-2">{t('product.takeOffer')}</span>
+              )}
+            </button>
           )}
 
           {product.description && <p className="mt-4 text-sm leading-relaxed text-luna-charcoal/70">{product.description}</p>}
@@ -247,14 +289,14 @@ export function ProductPage() {
           {selectedVariant && selectedVariant.availableQuantity > 0 && (
             <div className="mt-6 flex items-center gap-3">
               <div className="flex items-center rounded-sm border border-black/15">
-                <button className="p-3" aria-label={t('product.decrease')} onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+                <button className="p-3" aria-label={t('product.decrease')} onClick={() => adjustQuantity(Math.max(1, quantity - 1))}>
                   <Minus className="h-3.5 w-3.5" />
                 </button>
                 <span className="w-8 text-center text-sm">{quantity}</span>
                 <button
                   className="p-3"
                   aria-label={t('product.increase')}
-                  onClick={() => setQuantity((q) => Math.min(selectedVariant.availableQuantity, q + 1))}
+                  onClick={() => adjustQuantity(Math.min(selectedVariant.availableQuantity, quantity + 1))}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -330,7 +372,7 @@ export function ProductPage() {
             disabled={!canAddToCart}
             className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
           >
-            {selectedVariant ? t('product.addWithPrice', { price: formatPrice(unitPrice * quantity) }) : t('product.chooseColorSize')}
+            {selectedVariant ? t('product.addWithPrice', { price: formatPrice(displayTotal) }) : t('product.chooseColorSize')}
           </button>
         )}
       </div>

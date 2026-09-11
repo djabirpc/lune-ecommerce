@@ -97,6 +97,25 @@ export interface CartDiscountEstimate {
   promotionNames: string[];
 }
 
+/**
+ * "N for a fixed total price" bundle math, shared between the cart-line estimate below and
+ * ProductPage's pre-add-to-cart total preview. Complete bundles only — a remainder that doesn't
+ * reach bundleQuantity stays at full price, never partially discounted (mirrors
+ * OrderService.ComputeBundlePriceDiscount exactly).
+ */
+export function computeBundlePriceDiscount(
+  bundleQuantity: number,
+  bundleTotalPrice: number,
+  unitPrice: number,
+  quantity: number,
+): number {
+  const completeBundles = Math.floor(quantity / bundleQuantity);
+  if (completeBundles === 0) return 0;
+  const regularPrice = completeBundles * bundleQuantity * unitPrice;
+  const bundlePrice = completeBundles * bundleTotalPrice;
+  return Math.max(regularPrice - bundlePrice, 0);
+}
+
 function computeLineDiscount(promotion: PromotionDto, item: CartItem): number {
   if (promotion.type === 'BuyXGetY') {
     if (!promotion.buyQuantity || !promotion.getQuantity) return 0;
@@ -107,11 +126,7 @@ function computeLineDiscount(promotion: PromotionDto, item: CartItem): number {
 
   if (promotion.type === 'BundlePrice') {
     if (!promotion.bundleQuantity || !promotion.bundleTotalPrice) return 0;
-    const completeBundles = Math.floor(item.quantity / promotion.bundleQuantity);
-    if (completeBundles === 0) return 0;
-    const regularPrice = completeBundles * promotion.bundleQuantity * item.unitPrice;
-    const bundlePrice = completeBundles * promotion.bundleTotalPrice;
-    return Math.max(regularPrice - bundlePrice, 0);
+    return computeBundlePriceDiscount(promotion.bundleQuantity, promotion.bundleTotalPrice, item.unitPrice, item.quantity);
   }
 
   const lineTotal = item.unitPrice * item.quantity;
