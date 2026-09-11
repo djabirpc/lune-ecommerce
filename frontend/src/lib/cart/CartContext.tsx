@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 export interface CartItem {
   variantId: string;
+  productId: string;
+  categoryId: string;
   productSlug: string;
   productName: string;
   color: string;

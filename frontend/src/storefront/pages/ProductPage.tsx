@@ -105,6 +105,8 @@ export function ProductPage() {
     addItem(
       {
         variantId: selectedVariant.id,
+        productId: product!.id,
+        categoryId: product!.categoryId,
         productSlug: product!.slug,
         productName: product!.name,
         color: selectedVariant.color,

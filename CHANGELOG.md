@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-09-11] (on `dev` branch) (2)
+
+### Fixed
+- **Cart and checkout never showed any promotion discount before the order was placed** — reported by the user immediately after testing the new `BundlePrice` offer (added a "2 for 1500 DA" item, cart still showed 2000 DA). Root cause: `CartPage`/`CheckoutPage` never fetched active promotions and computed the subtotal as a naive `Σ(unitPrice × quantity)`, with zero promotion awareness — true for every promotion type, not just the new one. `CartItem` also didn't carry `productId`/`categoryId`, so there was no way to match a cart line against a promotion's scope.
+- `CartItem` gained `productId`/`categoryId` (set at add-to-cart time). New `lib/promotions/estimate.ts` function `estimateCartDiscount()` mirrors the backend's per-line promotion selection and discount math (percentage/fixed, `BuyXGetY` bundle math, `BundlePrice` bundle math) client-side. `CartPage`/`CheckoutPage` now fetch active promotions and show a "Réduction (promotion name)" line, with the displayed total including it. Still a preview only — the backend recalculates authoritatively at order creation, unchanged.
+
+### Notes
+- Frontend-only, no backend/API/database changes. Verified end-to-end with a real headless-browser session reproducing the user's exact steps: cart now shows Sous-total 2000 DA / Réduction −500 DA / Total 1500 DA, and checkout shows the same discount line and correct "Total à payer".
+- Found (not fixed, documented in PROJECT_CONTEXT.md Important Decision #97 / Next Recommended Steps #21) a related but separate pre-existing bug: on `ProductPage`, once a color+size variant is selected, the displayed unit price stops reflecting active percentage/fixed-amount promotions. Doesn't affect `BundlePrice`. Out of scope for this fix.
+- Still on `dev`, not merged to `main` / not deployed.
+
 ## [2026-09-11] (on `dev` branch)
 
 ### Added

@@ -2,16 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Loader2, ShieldCheck, Truck, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { ordersApi } from '../../lib/api/orders';
 import { shippingRatesApi } from '../../lib/api/shipping';
+import { promotionsApi } from '../../lib/api/promotions';
 import { ApiError } from '../../lib/api/client';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
 import { useDeliveryTypeLabels } from '../../lib/format/orderLabels';
+import { estimateCartDiscount } from '../../lib/promotions/estimate';
 import { getStoredAttribution } from '../../lib/marketing/attribution';
 import { trackEvent } from '../../lib/marketing/pixels';
 import { ALGERIAN_WILAYAS } from '../../lib/data/wilayas';
@@ -78,6 +81,13 @@ export function CheckoutPage() {
   const deliveryType = useWatch({ control, name: 'deliveryType' });
   const [shippingCost, setShippingCost] = useState<number | null>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
+
+  const { data: activePromotions } = useQuery({
+    queryKey: ['active-promotions'],
+    queryFn: () => promotionsApi.getActive(),
+  });
+  const discount = estimateCartDiscount(items, activePromotions ?? []);
+  const estimatedTotal = subtotal - discount.discountTotal + (shippingCost ?? 0);
 
   useEffect(() => {
     if (items.length > 0) {
@@ -295,6 +305,15 @@ export function CheckoutPage() {
               <dt className="text-luna-charcoal/60">{t('cart.summary.subtotal')}</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
+            {discount.discountTotal > 0 && (
+              <div className="flex justify-between text-luna-accent-dark">
+                <dt>
+                  {t('orderDetails.discount')}
+                  {discount.promotionNames.length > 0 && ` (${discount.promotionNames.join(', ')})`}
+                </dt>
+                <dd>−{formatPrice(discount.discountTotal)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-luna-charcoal/60">{t('cart.summary.shipping')}</dt>
               <dd>
@@ -309,7 +328,7 @@ export function CheckoutPage() {
             </div>
             <div className="flex justify-between border-t border-black/10 pt-3 text-base font-medium text-luna-black">
               <dt>{t('checkout.totalToPay')}</dt>
-              <dd>{formatPrice(subtotal + (shippingCost ?? 0))}</dd>
+              <dd>{formatPrice(estimatedTotal)}</dd>
             </div>
           </dl>
 

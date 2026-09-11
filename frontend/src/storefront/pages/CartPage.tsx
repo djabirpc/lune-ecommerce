@@ -1,14 +1,25 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
+import { promotionsApi } from '../../lib/api/promotions';
+import { estimateCartDiscount } from '../../lib/promotions/estimate';
 
 export function CartPage() {
   const { t } = useTranslation();
   const { items, removeItem, setQuantity, subtotal, itemCount } = useCart();
   const navigate = useNavigate();
+
+  const { data: activePromotions } = useQuery({
+    queryKey: ['active-promotions'],
+    queryFn: () => promotionsApi.getActive(),
+  });
+
+  const discount = estimateCartDiscount(items, activePromotions ?? []);
+  const estimatedTotal = subtotal - discount.discountTotal;
 
   if (items.length === 0) {
     return (
@@ -82,13 +93,22 @@ export function CartPage() {
               <dt className="text-luna-charcoal/60">{t('cart.summary.subtotal')}</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
+            {discount.discountTotal > 0 && (
+              <div className="flex justify-between text-luna-accent-dark">
+                <dt>
+                  {t('orderDetails.discount')}
+                  {discount.promotionNames.length > 0 && ` (${discount.promotionNames.join(', ')})`}
+                </dt>
+                <dd>−{formatPrice(discount.discountTotal)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-luna-charcoal/60">{t('cart.summary.shipping')}</dt>
               <dd>{t('cart.summary.shippingCalculated')}</dd>
             </div>
             <div className="flex justify-between border-t border-black/10 pt-3 text-base font-medium text-luna-black">
               <dt>{t('cart.summary.total')}</dt>
-              <dd>{formatPrice(subtotal)}</dd>
+              <dd>{formatPrice(estimatedTotal)}</dd>
             </div>
           </dl>
           <button
@@ -109,7 +129,7 @@ export function CartPage() {
           onClick={() => navigate('/checkout')}
           className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white"
         >
-          {t('cart.orderWithPrice', { price: formatPrice(subtotal) })}
+          {t('cart.orderWithPrice', { price: formatPrice(estimatedTotal) })}
         </button>
       </div>
     </div>
