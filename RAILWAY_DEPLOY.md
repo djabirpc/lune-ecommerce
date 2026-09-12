@@ -79,10 +79,20 @@ free plan) — uploaded images now survive redeploys and restarts.
 ## 4. Add the frontend service
 
 1. Same project: **New** → **GitHub Repo** → this repo again.
-2. **Settings → Source**: **Root Directory** = `frontend`. Railway picks up
-   `frontend/railway.json` (`Dockerfile.railway`, not the dev `Dockerfile` docker-compose uses).
-3. **Settings → Networking** → **Generate Domain**.
-4. **Variables** — these are Vite `VITE_*` build-time values, baked into the JS bundle when the
+2. **Settings → Source**: **Root Directory** = `frontend`. Railway should pick up
+   `frontend/railway.json`, which builds `frontend/Dockerfile` — the production nginx build (this
+   is deliberately the file literally named `Dockerfile`, since that's what Railway defaults to
+   without any config at all; local dev's docker-compose is the one pointed at the differently-named
+   `Dockerfile.dev` instead, see the comment at the top of `frontend/Dockerfile`).
+3. **Verify the build settings actually took** — this is the step that broke the first time: open
+   **Settings → Build**, and confirm **Dockerfile Path** reads `Dockerfile` (not `Dockerfile.dev`,
+   not blank). If the service was created before `frontend/railway.json` existed, Railway may have
+   already locked in a build method at creation time and not re-read the config file — set it
+   explicitly here if so, then redeploy.
+4. **Settings → Networking** → **Generate Domain**. Also check **Target Port** is `8080` (matches
+   the nginx `EXPOSE 8080` in the Dockerfile) — if this field is blank or set to something else
+   (5173 is the tell-tale sign of the dev image), fix it here.
+5. **Variables** — these are Vite `VITE_*` build-time values, baked into the JS bundle when the
    image is built (not read at runtime). Railway passes service Variables as Docker build args
    automatically for Dockerfile builds; if a build doesn't seem to pick one up, check Railway's
    current docs on "Build Variables"/build-arg behavior — this has been known to change.
@@ -94,14 +104,16 @@ free plan) — uploaded images now survive redeploys and restarts.
    | `VITE_TIKTOK_PIXEL_ID` | blank unless you have a real TikTok Pixel ID |
    | `VITE_INSTAGRAM_URL` / `VITE_TIKTOK_URL` / `VITE_FACEBOOK_URL` / `VITE_STORE_PHONE` | optional — blank hides those footer links entirely rather than pointing at a placeholder |
 
-5. Deploy.
+6. Deploy. Check the build logs for `nginx` starting up near the end — if you instead see `VITE
+   ready in`/`Local: http://localhost:5173`, the service is still building the dev image; go back
+   to step 3.
 
 ## 5. Close the loop (CORS + image URLs)
 
 Same chicken-and-egg problem the old Render setup had — both services' URLs only exist *after*
 they've been created once:
 
-1. Copy the frontend's domain (step 4.3) into the backend's `Cors__AllowedOrigins__0` (step 2.4)
+1. Copy the frontend's domain (step 4.4) into the backend's `Cors__AllowedOrigins__0` (step 2.4)
    and redeploy the backend.
 2. If you changed `VITE_API_URL` after the frontend's first build, trigger a frontend redeploy too
    (Vite bakes it in at build time — a variable change alone doesn't retroactively update an
@@ -114,6 +126,21 @@ they've been created once:
 - Upload a product image or homepage banner — reload the page (or trigger a redeploy) and confirm
   it's still there, proving the volume from step 3 is actually mounted.
 - Place a test COD order end to end.
+
+## Troubleshooting: "Application failed to respond"
+
+This is Railway's generic symptom for "the container started, but nothing answers on the port
+Railway is routing to." Two causes, both covered above:
+
+1. **Wrong Dockerfile built** (the dev image, which serves on port 5173 and isn't meant for
+   production traffic at all — Vite's dev server also rejects requests from hosts it doesn't
+   recognize by default). Fix: step 4.3 above.
+2. **Wrong target port configured**, even with the right Dockerfile. Fix: step 4.4 above — Target
+   Port must be `8080` for the frontend, matching its Dockerfile's `EXPOSE 8080`.
+
+Check the deploy logs first (Railway dashboard → service → **Deployments** → latest → **View
+Logs**) — they'll show exactly which process actually started, which tells you which of the two
+this is before you go hunting through settings.
 
 ## Security note on the test admin password
 

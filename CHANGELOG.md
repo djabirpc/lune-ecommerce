@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-09-12] (on `dev` branch) (12)
+
+### Fixed
+- **Railway frontend deploy returned "Application failed to respond"** — Railway was building `frontend/Dockerfile` (the Vite dev server) instead of the intended production image, because relying on `frontend/railway.json`'s `dockerfilePath` override wasn't reliable (the service likely locked in its build method before that file existed). Swapped file roles instead of relying on an override: `frontend/Dockerfile.railway` → `frontend/Dockerfile` (the name Railway defaults to with zero config); the old dev image → `frontend/Dockerfile.dev`, explicitly referenced by `docker-compose.yml` so local dev is unaffected.
+- `RAILWAY_DEPLOY.md`: added a "verify the build settings actually took" step and a dedicated troubleshooting section for this exact error.
+
+### Notes
+- Verified locally: the renamed production Dockerfile still builds/serves correctly standalone; `docker compose up --build frontend` still runs the real Vite dev server (confirmed via logs).
+- User still needs to check/reset Settings → Build → Dockerfile Path and Target Port (8080) on the already-created Railway frontend service, then redeploy — this fix prevents the ambiguity going forward but doesn't retroactively touch their live Railway config.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-12] (on `dev` branch) (11)
 
 ### Changed
