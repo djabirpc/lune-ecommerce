@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { to: '/admin/customers', label: 'Clients' },
   { to: '/admin/shipping', label: 'Livraison' },
   { to: '/admin/marketing', label: 'Marketing' },
+  { to: '/admin/homepage', label: "Page d'accueil" },
   { to: '/admin/users', label: 'Utilisateurs' },
   { to: '/admin/settings', label: 'Paramètres' },
 ];

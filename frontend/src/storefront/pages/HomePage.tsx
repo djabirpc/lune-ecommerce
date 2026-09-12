@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
+import { homeBannersApi } from '../../lib/api/homeBanners';
 import { findFlashSale } from '../../lib/promotions/estimate';
 import { ProductCard } from '../../lib/components/ProductCard';
 import { Countdown } from '../../lib/components/Countdown';
+import { HeroCarousel } from '../../lib/components/HeroCarousel';
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -26,8 +28,16 @@ export function HomePage() {
     queryFn: () => promotionsApi.getActive(),
   });
 
+  const { data: heroBanners } = useQuery({
+    queryKey: ['home-hero-banners'],
+    queryFn: () => homeBannersApi.getActive(),
+  });
+
   const arrivals = newArrivals?.items ?? [];
+  // Falls back to the newest product's photo when no banners are configured — the hero never
+  // depends on an admin having set anything up (see HomeBannersPage).
   const heroImage = arrivals.find((p) => p.primaryImageUrl)?.primaryImageUrl;
+  const hasHeroBanners = (heroBanners?.length ?? 0) > 0;
 
   const flash = activePromotions ? findFlashSale(activePromotions) : undefined;
   const flashProducts = flash ? arrivals.filter((p) => flash.productIds.includes(p.id) || flash.categoryIds.includes(p.categoryId)) : [];
@@ -41,7 +51,11 @@ export function HomePage() {
       {/* Hero */}
       <section className="relative">
         <div className="relative h-[72vh] min-h-[460px] w-full overflow-hidden bg-luna-black">
-          {heroImage && <img src={heroImage} alt="Collection Luna" className="h-full w-full object-cover opacity-80" />}
+          {hasHeroBanners ? (
+            <HeroCarousel slides={heroBanners!.map((b) => ({ imageUrl: b.imageUrl, linkUrl: b.linkUrl }))} />
+          ) : (
+            heroImage && <img src={heroImage} alt="Collection Luna" className="h-full w-full object-cover opacity-80" />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-5 pb-10">
             <p className="eyebrow text-white/80">{t('home.hero.eyebrow')}</p>

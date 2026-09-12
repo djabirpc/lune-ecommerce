@@ -1,5 +1,6 @@
 using Ecommerce.Domain.Catalog;
 using Ecommerce.Domain.Inventory;
+using Ecommerce.Domain.Marketing;
 using Ecommerce.Domain.Orders;
 using Ecommerce.Domain.Promotions;
 using Ecommerce.Domain.Shipping;
@@ -36,6 +37,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
     public DbSet<ShippingRate> ShippingRates => Set<ShippingRate>();
+
+    public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -107,6 +110,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany(p => p.Images)
                 .HasForeignKey(i => i.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<HomeBanner>(entity =>
+        {
+            entity.ToTable("HomeBanners");
+            entity.Property(b => b.ImageUrl).IsRequired().HasMaxLength(2000);
+            entity.Property(b => b.LinkUrl).HasMaxLength(500);
         });
 
         builder.Entity<InventoryRecord>(entity =>

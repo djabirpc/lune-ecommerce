@@ -1,5 +1,19 @@
 # Changelog
 
+## [2026-09-12] (on `dev` branch) (10)
+
+### Added
+- **Homepage hero is now an admin-managed, auto-rotating image carousel.** New `HomeBanner` entity (image, optional in-app link, display order, active flag) with full admin CRUD at `/admin/homepage`, reusing the same upload/validation pattern as product images. Storefront hero crossfades between active banners every 7 seconds; falls back to the previous behavior (newest product's photo, no rotation) when no banners are configured, so nothing breaks for sites that don't use it.
+- New `HeroCarousel` component — respects `prefers-reduced-motion`, keeps decorative slide links out of the tab order since the hero's own CTA buttons already provide labeled navigation.
+
+### Database
+- Migration: `AddHomeBanners`.
+
+### Notes
+- 12 new backend tests; suite grew to 179/179 (65 unit + 114 integration).
+- Verified end-to-end: fallback with zero banners, uploaded 2 real images via the admin UI, confirmed the storefront crossfades between them after 7s.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-12] (on `dev` branch) (9)
 
 ### Added

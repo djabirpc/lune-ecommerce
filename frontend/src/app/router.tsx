@@ -31,6 +31,7 @@ import { PromotionsPage as AdminPromotionsPage } from '../admin/pages/Promotions
 import { CustomersPage } from '../admin/pages/CustomersPage';
 import { ShippingPage } from '../admin/pages/ShippingPage';
 import { MarketingPage } from '../admin/pages/MarketingPage';
+import { HomeBannersPage } from '../admin/pages/HomeBannersPage';
 import { UsersPage } from '../admin/pages/UsersPage';
 import { SettingsPage } from '../admin/pages/SettingsPage';
 
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
           { path: 'customers', element: <CustomersPage /> },
           { path: 'shipping', element: <ShippingPage /> },
           { path: 'marketing', element: <MarketingPage /> },
+          { path: 'homepage', element: <HomeBannersPage /> },
           { path: 'users', element: <UsersPage /> },
           { path: 'settings', element: <SettingsPage /> },
         ],

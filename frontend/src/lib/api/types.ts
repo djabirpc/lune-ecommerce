@@ -420,6 +420,22 @@ export interface MarketingSourceSummaryDto {
   totalRevenue: number;
 }
 
+// --- Home banners (hero carousel) ---
+
+export interface HomeBannerDto {
+  id: string;
+  imageUrl: string;
+  linkUrl: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface UpdateHomeBannerRequest {
+  linkUrl: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
 export interface OrderSummaryDto {
   id: string;
   orderNumber: string;

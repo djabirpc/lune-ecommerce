@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IOrderCallAttemptService, OrderCallAttemptService>();
         services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<IMarketingService, MarketingService>();
+        services.AddScoped<IHomeBannerService, HomeBannerService>();
 
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
