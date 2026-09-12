@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-12] (on `dev` branch) (9)
+
+### Added
+- **Admin phone orders can now carry a negotiated discount and/or negotiated free shipping.** New `CreateAdminOrderRequest` (kept separate from the guest `CreateOrderRequest` so this is never reachable from the public checkout endpoint). `POST /api/orders/admin` accepts `manualDiscountAmount`/`freeShipping`; both stack on top of any automatic promotions, recorded as `OrderPromotion` audit rows ("Remise négociée (téléphone)" / "Livraison offerte (négociée)"). The manual discount is capped server-side at the remaining subtotal.
+- `CreateOrderPage`'s summary sidebar gained a "Négociation téléphonique" panel with a live "Total estimé" preview.
+
+### Notes
+- 7 new backend tests; suite grew to 172/172 (65 unit + 107 integration).
+- No migration needed — reuses `OrderPromotion.PromotionId`'s existing nullable/no-FK design.
+- Verified end-to-end: negotiated 400 DA off + free shipping on a 2900 DA order, live preview and final order total matched exactly (1900 DA).
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-11] (on `dev` branch) (8)
 
 ### Added

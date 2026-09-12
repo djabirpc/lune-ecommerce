@@ -7,7 +7,7 @@ import { catalogApi } from '../../lib/api/catalog';
 import { ordersApi } from '../../lib/api/orders';
 import { shippingRatesApi } from '../../lib/api/shipping';
 import { ApiError } from '../../lib/api/client';
-import type { CreateOrderRequest, DeliveryType, ProductDetailDto, ProductVariantDto } from '../../lib/api/types';
+import type { CreateAdminOrderRequest, DeliveryType, ProductDetailDto, ProductVariantDto } from '../../lib/api/types';
 import { formatPrice } from '../../lib/format/price';
 import { DELIVERY_TYPE_LABELS } from '../../lib/format/orderLabels';
 import { ALGERIAN_WILAYAS } from '../../lib/data/wilayas';
@@ -52,6 +52,8 @@ export function CreateOrderPage() {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('HomeDelivery');
   const [notes, setNotes] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [manualDiscountAmount, setManualDiscountAmount] = useState('');
+  const [negotiatedFreeShipping, setNegotiatedFreeShipping] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: products } = useQuery({
@@ -72,9 +74,16 @@ export function CreateOrderPage() {
   }, [products, productSearch]);
 
   const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+  // Client-side preview only, for the admin to see the negotiated total while still on the call — the
+  // backend recalculates authoritatively at order creation (CLAUDE.md section 41), capping the manual
+  // discount at the subtotal the same way OrderService does.
+  const parsedManualDiscount = Math.max(0, Number(manualDiscountAmount) || 0);
+  const cappedManualDiscount = Math.min(parsedManualDiscount, subtotal);
+  const effectiveShippingCost = negotiatedFreeShipping ? 0 : (shippingQuote?.price ?? 0);
+  const estimatedTotal = subtotal - cappedManualDiscount + effectiveShippingCost;
 
   const submit = useMutation({
-    mutationFn: (request: CreateOrderRequest) => ordersApi.createAdmin(request),
+    mutationFn: (request: CreateAdminOrderRequest) => ordersApi.createAdmin(request),
     onSuccess: (order) => navigate(`/admin/orders/${order.id}`),
     onError: (err) => setFormError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
   });
@@ -141,6 +150,8 @@ export function CreateOrderPage() {
       notes: notes || null,
       items: lines.map((l) => ({ productVariantId: l.variantId, quantity: l.quantity })),
       couponCode: couponCode.trim() || null,
+      manualDiscountAmount: parsedManualDiscount > 0 ? parsedManualDiscount : null,
+      freeShipping: negotiatedFreeShipping,
     });
   }
 
@@ -348,11 +359,51 @@ export function CreateOrderPage() {
               <dt className="text-luna-charcoal/60">Sous-total</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
+            {cappedManualDiscount > 0 && (
+              <div className="flex justify-between text-luna-accent-dark">
+                <dt>Remise négociée</dt>
+                <dd>−{formatPrice(cappedManualDiscount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-luna-charcoal/60">Livraison</dt>
-              <dd>{shippingQuote ? formatPrice(shippingQuote.price) : 'Selon la wilaya'}</dd>
+              <dd>
+                {negotiatedFreeShipping ? (
+                  <span className="text-luna-accent-dark">Offerte</span>
+                ) : shippingQuote ? (
+                  formatPrice(shippingQuote.price)
+                ) : (
+                  'Selon la wilaya'
+                )}
+              </dd>
+            </div>
+            <div className="flex justify-between border-t border-black/10 pt-2 text-base font-medium text-luna-black">
+              <dt>Total estimé</dt>
+              <dd>{formatPrice(estimatedTotal)}</dd>
             </div>
           </dl>
+
+          <div className="mt-4 rounded border border-luna-accent/30 bg-luna-rose/30 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase text-luna-accent-dark">Négociation téléphonique</p>
+            <label className="mb-1 block text-xs font-medium">Remise négociée (DA, optionnel)</label>
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={manualDiscountAmount}
+              onChange={(e) => setManualDiscountAmount(e.target.value)}
+              placeholder="ex. 500"
+              className="w-full rounded border border-black/20 bg-white px-2 py-1.5 text-sm"
+            />
+            <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+              <input
+                type="checkbox"
+                checked={negotiatedFreeShipping}
+                onChange={(e) => setNegotiatedFreeShipping(e.target.checked)}
+              />
+              Livraison offerte (négociée)
+            </label>
+          </div>
 
           <div className="mt-3">
             <label className="mb-1 block text-xs font-medium">Code promo (optionnel)</label>
@@ -364,7 +415,7 @@ export function CreateOrderPage() {
           </div>
 
           <p className="mt-3 text-[11px] text-luna-charcoal/50">
-            Les remises, offres et le total final sont calculés automatiquement par le serveur à la création.
+            Le total final (offres actives incluses) est recalculé et confirmé par le serveur à la création.
           </p>
 
           {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}

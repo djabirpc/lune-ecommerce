@@ -21,6 +21,7 @@ public class OrderService(
     IInventoryService inventoryService,
     IShippingRateService shippingRateService,
     IValidator<CreateOrderRequest> createValidator,
+    IValidator<CreateAdminOrderRequest> createAdminValidator,
     IValidator<ChangeOrderStatusRequest> changeStatusValidator) : IOrderService
 {
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
@@ -44,20 +45,39 @@ public class OrderService(
         [OrderStatus.Returned] = [],
     };
 
-    public Task<OrderDetailDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken = default) =>
-        CreateOrderCoreAsync(request, OrderStatus.PendingConfirmation, null, cancellationToken);
+    public async Task<OrderDetailDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken = default)
+    {
+        await createValidator.ValidateAndThrowAsync(request, cancellationToken);
+        return await CreateOrderCoreAsync(request, OrderStatus.PendingConfirmation, null, null, false, cancellationToken);
+    }
 
-    public Task<OrderDetailDto> CreateAdminOrderAsync(CreateOrderRequest request, Guid createdByUserId, CancellationToken cancellationToken = default) =>
-        CreateOrderCoreAsync(request, OrderStatus.Confirmed, createdByUserId, cancellationToken);
+    public async Task<OrderDetailDto> CreateAdminOrderAsync(CreateAdminOrderRequest request, Guid createdByUserId, CancellationToken cancellationToken = default)
+    {
+        await createAdminValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var coreRequest = new CreateOrderRequest(
+            request.FirstName,
+            request.LastName,
+            request.Phone,
+            request.Wilaya,
+            request.Commune,
+            request.Address,
+            request.DeliveryType,
+            request.Notes,
+            request.Items,
+            request.CouponCode);
+
+        return await CreateOrderCoreAsync(coreRequest, OrderStatus.Confirmed, createdByUserId, request.ManualDiscountAmount, request.FreeShipping, cancellationToken);
+    }
 
     private async Task<OrderDetailDto> CreateOrderCoreAsync(
         CreateOrderRequest request,
         OrderStatus initialStatus,
         Guid? createdByUserId,
+        decimal? manualDiscountAmount,
+        bool negotiatedFreeShipping,
         CancellationToken cancellationToken)
     {
-        await createValidator.ValidateAndThrowAsync(request, cancellationToken);
-
         var baseShippingCost = await shippingRateService.GetPriceAsync(request.Wilaya, request.DeliveryType, cancellationToken);
 
         var variantIds = request.Items.Select(i => i.ProductVariantId).ToList();
@@ -127,6 +147,39 @@ public class OrderService(
 
         var (discountTotal, shippingCost, appliedPromotions) = await CalculatePromotionsAsync(
             order.Items, variantsById, request.CouponCode, order.ShippingCost, cancellationToken);
+
+        // Phone-negotiated overrides (admin-created orders only — manualDiscountAmount/
+        // negotiatedFreeShipping are always null/false for a guest checkout). Applied on top of
+        // whatever automatic promotions/coupon already matched, same "stacks, doesn't replace"
+        // relationship a coupon has with automatic promotions. Capped at the remaining discountable
+        // subtotal so a mistyped amount can never push the total negative.
+        if (manualDiscountAmount is > 0)
+        {
+            var remainingDiscountableSubtotal = Math.Max(order.Subtotal - discountTotal, 0m);
+            var appliedManualDiscount = Math.Min(manualDiscountAmount.Value, remainingDiscountableSubtotal);
+            if (appliedManualDiscount > 0)
+            {
+                discountTotal += appliedManualDiscount;
+                appliedPromotions.Add(new OrderPromotion
+                {
+                    PromotionId = null,
+                    PromotionName = "Remise négociée (téléphone)",
+                    DiscountAmount = appliedManualDiscount,
+                });
+            }
+        }
+
+        if (negotiatedFreeShipping && shippingCost > 0)
+        {
+            discountTotal += shippingCost;
+            appliedPromotions.Add(new OrderPromotion
+            {
+                PromotionId = null,
+                PromotionName = "Livraison offerte (négociée)",
+                DiscountAmount = shippingCost,
+            });
+            shippingCost = 0m;
+        }
 
         order.DiscountTotal = discountTotal;
         order.ShippingCost = shippingCost;

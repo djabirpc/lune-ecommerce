@@ -28,7 +28,7 @@ public class OrdersController(
 
     [HttpPost("admin")]
     [Authorize(Roles = Roles.OrderManagers)]
-    public async Task<ActionResult<OrderDetailDto>> CreateAdminOrder(CreateOrderRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderDetailDto>> CreateAdminOrder(CreateAdminOrderRequest request, CancellationToken cancellationToken)
     {
         var agentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

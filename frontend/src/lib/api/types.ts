@@ -246,6 +246,23 @@ export interface CreateOrderRequest {
   marketingAttribution?: MarketingAttribution | null;
 }
 
+// Staff-created order (e.g. a phone call) — kept separate from CreateOrderRequest since
+// manualDiscountAmount/freeShipping must never be reachable from the public guest checkout endpoint.
+export interface CreateAdminOrderRequest {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  wilaya: string;
+  commune: string;
+  address: string | null;
+  deliveryType: DeliveryType;
+  notes: string | null;
+  items: OrderItemRequest[];
+  couponCode: string | null;
+  manualDiscountAmount: number | null;
+  freeShipping: boolean;
+}
+
 export interface OrderItemDto {
   id: string;
   productVariantId: string;

@@ -62,6 +62,24 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
         null,
         [new OrderItemRequest(variantId, quantity)]);
 
+    private static CreateAdminOrderRequest BuildAdminOrderRequest(
+        Guid variantId,
+        int quantity,
+        decimal? manualDiscountAmount = null,
+        bool freeShipping = false) => new(
+        "Amina",
+        "Benali",
+        "0551234567",
+        "Alger",
+        "Bab Ezzouar",
+        "12 rue des Frères",
+        DeliveryType.HomeDelivery,
+        null,
+        [new OrderItemRequest(variantId, quantity)],
+        null,
+        manualDiscountAmount,
+        freeShipping);
+
     [Fact]
     public async Task CreateOrder_ReserveStock_Cancel_ReleaseStock()
     {
@@ -92,7 +110,7 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
     {
         var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 10);
 
-        var response = await adminClient.PostAsJsonAsync("/api/orders/admin", BuildOrderRequest(variantId, 2), JsonOptions);
+        var response = await adminClient.PostAsJsonAsync("/api/orders/admin", BuildAdminOrderRequest(variantId, 2), JsonOptions);
         response.EnsureSuccessStatusCode();
         var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
@@ -112,9 +130,74 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
         var (variantId, _) = await CreateProductWithStockAsync(initialQuantity: 5);
         var guestClient = factory.CreateClient();
 
-        var response = await guestClient.PostAsJsonAsync("/api/orders/admin", BuildOrderRequest(variantId, 1), JsonOptions);
+        var response = await guestClient.PostAsJsonAsync("/api/orders/admin", BuildAdminOrderRequest(variantId, 1), JsonOptions);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateAdminOrder_WithManualDiscount_ReducesTotal()
+    {
+        // Product price is 2000 DA (see CreateProductWithStockAsync) — quantity 2 = 4000 DA subtotal.
+        var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 10);
+
+        var response = await adminClient.PostAsJsonAsync(
+            "/api/orders/admin", BuildAdminOrderRequest(variantId, 2, manualDiscountAmount: 500m), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(4000m, order!.Subtotal);
+        Assert.Equal(500m, order.DiscountTotal);
+        Assert.Equal(4100m, order.Total); // 4000 - 500 + 600 (Alger home-delivery shipping rate)
+        Assert.Contains(order.AppliedPromotions, p => p.PromotionName == "Remise négociée (téléphone)" && p.DiscountAmount == 500m);
+    }
+
+    [Fact]
+    public async Task CreateAdminOrder_WithFreeShipping_ZeroesShippingCost()
+    {
+        var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 10);
+
+        var response = await adminClient.PostAsJsonAsync(
+            "/api/orders/admin", BuildAdminOrderRequest(variantId, 1, freeShipping: true), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, order!.ShippingCost);
+        Assert.Equal(600m, order.DiscountTotal);
+        Assert.Equal(1400m, order.Total); // 2000 - 600 + 0
+        Assert.Contains(order.AppliedPromotions, p => p.PromotionName == "Livraison offerte (négociée)" && p.DiscountAmount == 600m);
+    }
+
+    [Fact]
+    public async Task CreateAdminOrder_WithManualDiscountAndFreeShipping_CombinesBoth()
+    {
+        var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 10);
+
+        var response = await adminClient.PostAsJsonAsync(
+            "/api/orders/admin", BuildAdminOrderRequest(variantId, 2, manualDiscountAmount: 300m, freeShipping: true), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(4000m, order!.Subtotal);
+        Assert.Equal(0m, order.ShippingCost);
+        Assert.Equal(900m, order.DiscountTotal); // 300 (manual) + 600 (shipping)
+        Assert.Equal(3100m, order.Total); // 4000 - 900 + 0
+        Assert.Equal(2, order.AppliedPromotions.Count);
+    }
+
+    [Fact]
+    public async Task CreateAdminOrder_ManualDiscountLargerThanSubtotal_CapsAtSubtotal()
+    {
+        // Quantity 1 = 2000 DA subtotal — a 5000 DA "discount" must never push the total negative.
+        var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 10);
+
+        var response = await adminClient.PostAsJsonAsync(
+            "/api/orders/admin", BuildAdminOrderRequest(variantId, 1, manualDiscountAmount: 5000m), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(2000m, order!.DiscountTotal);
+        Assert.Equal(600m, order.Total); // 2000 - 2000 + 600, never negative
     }
 
     [Fact]

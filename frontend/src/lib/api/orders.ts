@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type {
   ChangeOrderStatusRequest,
+  CreateAdminOrderRequest,
   CreateOrderRequest,
   OrderDetailDto,
   OrderStatus,
@@ -13,7 +14,7 @@ import type {
 export const ordersApi = {
   create: (request: CreateOrderRequest) => apiClient.post<OrderDetailDto>('/api/orders', request),
 
-  createAdmin: (request: CreateOrderRequest) => apiClient.post<OrderDetailDto>('/api/orders/admin', request),
+  createAdmin: (request: CreateAdminOrderRequest) => apiClient.post<OrderDetailDto>('/api/orders/admin', request),
 
   track: (orderNumber: string, phone: string) =>
     apiClient.get<OrderDetailDto>(
