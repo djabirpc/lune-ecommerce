@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-12] (on `dev` branch) (11)
+
+### Changed
+- **Switched hosting target from Render to Railway.** Removed `render.yaml`. Added `backend/railway.json`, `frontend/railway.json`, a new production-only `frontend/Dockerfile.railway` (nginx-served static build — `frontend/Dockerfile` is untouched, still the dev-server image docker-compose uses locally), and `frontend/nginx.railway.conf` (SPA fallback routing).
+- New `RAILWAY_DEPLOY.md` — full step-by-step guide (Postgres plugin, backend/frontend services, env vars, a Volume mounted at `/app/uploads` for persistent uploaded images, the CORS/API-URL cross-service steps).
+
+### Notes
+- `Program.cs`/`PostgresConnectionString.cs` needed no logic changes — neither was ever Render-specific (generic reverse-proxy/`postgres://` URI handling), just doc-comment updates.
+- Admin test credentials for this deployment: `admin@luna.local` / `Papamama-123` — flagged in the guide as test-only, rotate before wider use.
+- Verified locally: `frontend/Dockerfile.railway` builds and runs standalone, `/` and `/health` respond, SPA deep-link fallback works. Not yet actually deployed to Railway.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-12] (on `dev` branch) (10)
 
 ### Added

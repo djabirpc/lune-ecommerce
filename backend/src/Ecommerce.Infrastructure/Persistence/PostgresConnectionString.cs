@@ -1,7 +1,7 @@
 namespace Ecommerce.Infrastructure.Persistence;
 
 /// <summary>
-/// Some hosting platforms (Render, Heroku, ...) hand out Postgres credentials as a
+/// Some hosting platforms (Railway, Render, Heroku, ...) hand out Postgres credentials as a
 /// <c>postgres://user:pass@host:port/db</c> URI rather than an ADO.NET keyword=value string.
 /// Npgsql only understands the latter, so this converts one to the other when needed; a
 /// connection string that's already in ADO.NET format passes through unchanged.
