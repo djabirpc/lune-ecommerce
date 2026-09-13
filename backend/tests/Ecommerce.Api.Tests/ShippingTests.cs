@@ -199,5 +199,23 @@ public class ShippingTests(AuthWebApplicationFactory factory) : IClassFixture<Au
         Assert.True(carriers.Single(c => c.Carrier == ShippingCarrier.Fake).IsConfigured);
         Assert.False(carriers.Single(c => c.Carrier == ShippingCarrier.Yalidine).IsConfigured);
         Assert.False(carriers.Single(c => c.Carrier == ShippingCarrier.ZRExpress).IsConfigured);
+        // Real integration (Ecotrack48hShippingProvider), but still unconfigured in tests since no
+        // real 48h Express account/token exists here — see Ecotrack48h__BaseUrl/Ecotrack48h__ApiToken.
+        Assert.False(carriers.Single(c => c.Carrier == ShippingCarrier.Ecotrack48h).IsConfigured);
+    }
+
+    [Fact]
+    public async Task CreateShipment_Ecotrack48hNotConfigured_ReturnsNotConfigured()
+    {
+        var adminClient = await CreateAuthenticatedClientAsync();
+        var guestClient = factory.CreateClient();
+        var order = await CreateOrderReadyToShipAsync(adminClient, guestClient);
+
+        var response = await adminClient.PostAsJsonAsync(
+            $"/api/orders/{order.Id}/shipment",
+            new CreateShipmentRequest(ShippingCarrier.Ecotrack48h),
+            JsonOptions);
+
+        Assert.Equal(HttpStatusCode.NotImplemented, response.StatusCode);
     }
 }

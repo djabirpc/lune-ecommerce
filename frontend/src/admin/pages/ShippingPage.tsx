@@ -85,6 +85,8 @@ export function ShippingPage() {
       <p className="mb-4 text-sm text-luna-charcoal/70">
         Transporteurs disponibles pour la création d'expéditions. Yalidine et ZR Express nécessitent la
         documentation API officielle du transporteur avant de pouvoir être implémentés — voir PROJECT_CONTEXT.md.
+        48h Express est fonctionnel mais nécessite vos identifiants de compte (Ecotrack48h__BaseUrl /
+        Ecotrack48h__ApiToken) pour s'activer.
       </p>
 
       {carriersLoading && <p className="text-sm text-luna-charcoal/60">Chargement...</p>}

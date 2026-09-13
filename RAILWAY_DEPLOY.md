@@ -56,6 +56,7 @@ itself is broken.
    | `FileStorage__PublicBaseUrl` | the backend's own domain from step 3 (e.g. `https://luna-backend-production.up.railway.app`) — this gets baked into every uploaded image's URL |
    | `Yalidine__BaseUrl` / `Yalidine__ApiId` / `Yalidine__ApiToken` | leave blank — no real Yalidine credentials exist yet (CLAUDE.md section 16); the adapter stays structural-only regardless |
    | `ZRExpress__BaseUrl` / `ZRExpress__ApiKey` | leave blank, same reason |
+   | `Ecotrack48h__BaseUrl` / `Ecotrack48h__ApiToken` | 48h Express — a real, functional integration (unlike Yalidine/ZR Express above). Get both from your 48h Express account dashboard; the base URL is account-specific, there's no shared/default value |
 
    `ASPNETCORE_URLS=http://+:8080` is already baked into `backend/Dockerfile` — you don't need to
    set it again here.

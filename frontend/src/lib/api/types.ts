@@ -309,7 +309,7 @@ export interface OrderPromotionDto {
   discountAmount: number;
 }
 
-export type ShippingCarrier = 'Fake' | 'Yalidine' | 'ZRExpress';
+export type ShippingCarrier = 'Fake' | 'Yalidine' | 'ZRExpress' | 'Ecotrack48h';
 
 export type NormalizedShippingStatus =
   | 'Created'

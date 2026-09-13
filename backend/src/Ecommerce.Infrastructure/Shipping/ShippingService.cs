@@ -155,12 +155,19 @@ public class ShippingService(
     public IReadOnlyList<ShippingCarrierAvailabilityDto> GetCarrierAvailability() =>
         Enum.GetValues<ShippingCarrier>()
             .Select(carrier => _providers.TryGetValue(carrier, out var provider)
-                ? new ShippingCarrierAvailabilityDto(
-                    carrier,
-                    provider.IsConfigured,
-                    provider.IsConfigured ? null : "Non implémenté : documentation API officielle du transporteur non disponible.")
+                ? new ShippingCarrierAvailabilityDto(carrier, provider.IsConfigured, provider.IsConfigured ? null : UnavailableReason(carrier))
                 : new ShippingCarrierAvailabilityDto(carrier, false, "Aucun adaptateur enregistré pour ce transporteur."))
             .ToList();
+
+    // Unlike Yalidine/ZR Express (genuinely unimplemented, no real API docs exist), Ecotrack48h is a
+    // real, working integration — when it's unconfigured, that only means credentials are missing,
+    // not that the adapter itself doesn't work. The generic "not implemented" message would be
+    // actively misleading here.
+    private static string UnavailableReason(ShippingCarrier carrier) => carrier switch
+    {
+        ShippingCarrier.Ecotrack48h => "Identifiants manquants (Ecotrack48h__BaseUrl / Ecotrack48h__ApiToken).",
+        _ => "Non implémenté : documentation API officielle du transporteur non disponible.",
+    };
 
     private async Task<ShipmentDto> GetShipmentDtoAsync(Guid shipmentId, CancellationToken cancellationToken)
     {

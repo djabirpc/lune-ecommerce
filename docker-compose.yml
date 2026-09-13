@@ -41,6 +41,8 @@ services:
       Yalidine__ApiToken: ${YALIDINE_API_TOKEN:-}
       ZRExpress__BaseUrl: ${ZR_EXPRESS_BASE_URL:-}
       ZRExpress__ApiKey: ${ZR_EXPRESS_API_KEY:-}
+      Ecotrack48h__BaseUrl: ${ECOTRACK_48H_BASE_URL:-}
+      Ecotrack48h__ApiToken: ${ECOTRACK_48H_API_TOKEN:-}
       ShippingSync__Enabled: ${SHIPPING_SYNC_ENABLED:-true}
       ShippingSync__IntervalSeconds: ${SHIPPING_SYNC_INTERVAL_SECONDS:-300}
       FileStorage__LocalPath: /app/uploads

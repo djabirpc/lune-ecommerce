@@ -26,3 +26,9 @@ public class ConflictAppException(string message)
 
 public class NotConfiguredAppException(string message)
     : AppException("NOT_CONFIGURED", message, 501);
+
+/// <summary>A real external integration (carrier API, etc.) responded with an error, an
+/// unexpected shape, or didn't respond at all (timeout/network failure) — CLAUDE.md section 43.
+/// Distinct from NotConfiguredAppException, which means the integration was never attempted.</summary>
+public class ExternalServiceAppException(string message)
+    : AppException("EXTERNAL_SERVICE_ERROR", message, 502);

@@ -1,5 +1,19 @@
 # Changelog
 
+## [2026-09-12] (on `dev` branch) (13)
+
+### Added
+- **Real, working 48h Express shipping integration** (`ShippingCarrier.Ecotrack48h`). Unlike Yalidine/ZR Express, real API docs were available (the merchant's Postman collection, "Ecotrack" — 48h Express's white-label platform), so this is a functional `IShippingProvider`, not a structural placeholder: creates + validates/dispatches shipments, tracks status, maps Ecotrack's status vocabulary to `NormalizedShippingStatus`.
+- New env vars `ECOTRACK_48H_BASE_URL` / `ECOTRACK_48H_API_TOKEN` (account-specific, get from your 48h Express dashboard).
+- New `ExternalServiceAppException` (502) for real carrier-side failures, distinct from `NotConfiguredAppException` (501, integration never attempted).
+
+### Notes
+- Two documented gaps in the source API docs, both flagged in code comments and to the user (not guessed silently): the exact auth mechanism (query param vs. Bearer header, inconsistent across the doc's own examples) and `create/order`'s success response shape (inferred from a sibling bulk endpoint, since the singular endpoint's docs only show a validation-error example).
+- `ShippingService`'s "unavailable reason" message is now carrier-aware — the old generic "not implemented" text was misleading for this carrier (it works, only credentials are missing).
+- 2 new backend tests; suite grew to 180/180 (65 unit + 115 integration). No live-HTTP test — no real 48h Express credentials available in this environment.
+- **Not yet tested against a real 48h Express account.**
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-12] (on `dev` branch) (12)
 
 ### Fixed

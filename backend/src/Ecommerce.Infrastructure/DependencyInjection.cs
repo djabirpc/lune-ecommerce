@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Ecommerce.Infrastructure;
 
@@ -65,11 +66,22 @@ public static class DependencyInjection
 
         services.Configure<YalidineOptions>(configuration.GetSection(YalidineOptions.SectionName));
         services.Configure<ZRExpressOptions>(configuration.GetSection(ZRExpressOptions.SectionName));
+        services.Configure<Ecotrack48hOptions>(configuration.GetSection(Ecotrack48hOptions.SectionName));
         services.Configure<ShippingSyncOptions>(configuration.GetSection(ShippingSyncOptions.SectionName));
 
         services.AddSingleton<IShippingProvider, FakeShippingProvider>();
         services.AddScoped<IShippingProvider, YalidineShippingProvider>();
         services.AddScoped<IShippingProvider, ZRExpressShippingProvider>();
+        services.AddHttpClient<Ecotrack48hShippingProvider>((sp, client) =>
+        {
+            var ecotrackOptions = sp.GetRequiredService<IOptions<Ecotrack48hOptions>>().Value;
+            if (ecotrackOptions.IsConfigured)
+            {
+                client.BaseAddress = new Uri(ecotrackOptions.BaseUrl.TrimEnd('/') + '/');
+            }
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddScoped<IShippingProvider>(sp => sp.GetRequiredService<Ecotrack48hShippingProvider>());
         services.AddScoped<IShippingService, ShippingService>();
         services.AddScoped<IShippingRateService, ShippingRateService>();
         services.AddHostedService<ShippingSyncBackgroundService>();
