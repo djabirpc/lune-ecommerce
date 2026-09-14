@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-09-14] (on `dev` branch) (17)
+
+### Fixed
+- Product page color/size selectors can now be deselected — clicking an already-selected color swatch or size button clears it, lifting the cross-filter constraint it was placing on the other axis (previously the only way back to "nothing selected" was reloading the page).
+
+### Notes
+- Verified end-to-end via headless browser on a product with an incomplete color/size matrix.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-14] (on `dev` branch) (16)
 
 ### Changed

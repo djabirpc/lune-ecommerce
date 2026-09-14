@@ -145,6 +145,14 @@ export function ProductPage() {
   const related = (relatedProducts?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
   function handleColorSelect(color: string) {
+    // Clicking the already-selected color deselects it — clears the color-driven size constraint too,
+    // so every size becomes pickable again instead of staying locked to the just-cleared color.
+    if (selectedColor === color) {
+      setSelectedColor(null);
+      setQuantity(offerQuantity ?? 1);
+      setJustAdded(false);
+      return;
+    }
     setSelectedColor(color);
     // Only clear the current size if it's incompatible with the newly picked color — keeps a
     // still-valid size selected instead of always resetting it (the two axes are picked independently now).
@@ -156,6 +164,12 @@ export function ProductPage() {
   }
 
   function handleSizeSelect(size: string) {
+    if (selectedSize === size) {
+      setSelectedSize(null);
+      setQuantity(offerQuantity ?? 1);
+      setJustAdded(false);
+      return;
+    }
     setSelectedSize(size);
     if (selectedColor && !activeVariants.some((v) => v.size === size && v.color === selectedColor)) {
       setSelectedColor(null);
