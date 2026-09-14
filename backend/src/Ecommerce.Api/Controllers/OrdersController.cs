@@ -112,4 +112,36 @@ public class OrdersController(
         var shipment = await shippingService.CreateShipmentAsync(id, request, cancellationToken);
         return Ok(shipment);
     }
+
+    [HttpPost("{id:guid}/items")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<OrderDetailDto>> AddItem(Guid id, AddOrderItemRequest request, CancellationToken cancellationToken)
+    {
+        var order = await orderService.AddItemAsync(id, request, cancellationToken);
+        return Ok(order);
+    }
+
+    [HttpDelete("{id:guid}/items/{itemId:guid}")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<OrderDetailDto>> RemoveItem(Guid id, Guid itemId, CancellationToken cancellationToken)
+    {
+        var order = await orderService.RemoveItemAsync(id, itemId, cancellationToken);
+        return Ok(order);
+    }
+
+    [HttpPut("{id:guid}/negotiation")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<OrderDetailDto>> UpdateNegotiation(Guid id, UpdateOrderNegotiationRequest request, CancellationToken cancellationToken)
+    {
+        var order = await orderService.UpdateNegotiationAsync(id, request, cancellationToken);
+        return Ok(order);
+    }
+
+    [HttpPut("{id:guid}/notes")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<OrderDetailDto>> UpdateNotes(Guid id, UpdateOrderNotesRequest request, CancellationToken cancellationToken)
+    {
+        var order = await orderService.UpdateNotesAsync(id, request, cancellationToken);
+        return Ok(order);
+    }
 }

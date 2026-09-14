@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { ordersApi } from '../../lib/api/orders';
 import { shippingApi } from '../../lib/api/shipping';
+import { catalogApi } from '../../lib/api/catalog';
 import { ApiError } from '../../lib/api/client';
-import type { OrderReturnReason, OrderStatus, ShippingCarrier } from '../../lib/api/types';
+import type { OrderReturnReason, OrderStatus, ProductDetailDto, ProductVariantDto, ShippingCarrier } from '../../lib/api/types';
 import { formatPrice } from '../../lib/format/price';
 import { DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS, RETURN_REASON_LABELS } from '../../lib/format/orderLabels';
 import { NORMALIZED_SHIPPING_STATUS_LABELS, SHIPPING_CARRIER_LABELS } from '../../lib/format/shippingLabels';
@@ -24,6 +25,21 @@ export function OrderDetailPage() {
   const [returnNote, setReturnNote] = useState('');
   const [pendingTransition, setPendingTransition] = useState<OrderStatus | null>(null);
 
+  const [notesDraft, setNotesDraft] = useState<string | null>(null);
+  const [notesError, setNotesError] = useState<string | null>(null);
+
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [openProductId, setOpenProductId] = useState<string | null>(null);
+  const [productDetail, setProductDetail] = useState<ProductDetailDto | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariantDto | null>(null);
+  const [variantQuantity, setVariantQuantity] = useState(1);
+  const [itemsError, setItemsError] = useState<string | null>(null);
+
+  const [manualDiscountDraft, setManualDiscountDraft] = useState<string | null>(null);
+  const [freeShippingDraft, setFreeShippingDraft] = useState<boolean | null>(null);
+  const [negotiationError, setNegotiationError] = useState<string | null>(null);
+
   const { data: order, isLoading, isError } = useQuery({
     queryKey: ['admin-order', id],
     queryFn: () => ordersApi.getById(id!),
@@ -33,6 +49,12 @@ export function OrderDetailPage() {
   const { data: carriers } = useQuery({
     queryKey: ['shipping-carriers'],
     queryFn: () => shippingApi.getCarriers(),
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ['admin-products-for-order-edit'],
+    queryFn: () => catalogApi.getProducts({ pageSize: 100 }),
+    enabled: showAddItem,
   });
 
   const changeStatus = useMutation({
@@ -72,6 +94,51 @@ export function OrderDetailPage() {
     onError: (err) => setShipmentError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
   });
 
+  const updateNotes = useMutation({
+    mutationFn: (notes: string | null) => ordersApi.updateNotes(id!, { notes }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['admin-order', id], updated);
+      setNotesDraft(null);
+      setNotesError(null);
+    },
+    onError: (err) => setNotesError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
+  });
+
+  const addItem = useMutation({
+    mutationFn: () => ordersApi.addItem(id!, { productVariantId: selectedVariant!.id, quantity: variantQuantity }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['admin-order', id], updated);
+      setItemsError(null);
+      setOpenProductId(null);
+      setProductDetail(null);
+      setSelectedVariant(null);
+      setVariantQuantity(1);
+      setShowAddItem(false);
+    },
+    onError: (err) => setItemsError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
+  });
+
+  const removeItem = useMutation({
+    mutationFn: (itemId: string) => ordersApi.removeItem(id!, itemId),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['admin-order', id], updated);
+      setItemsError(null);
+    },
+    onError: (err) => setItemsError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
+  });
+
+  const updateNegotiation = useMutation({
+    mutationFn: (vars: { manualDiscountAmount: number | null; freeShipping: boolean }) =>
+      ordersApi.updateNegotiation(id!, vars),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['admin-order', id], updated);
+      setManualDiscountDraft(null);
+      setFreeShippingDraft(null);
+      setNegotiationError(null);
+    },
+    onError: (err) => setNegotiationError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
+  });
+
   if (isLoading) {
     return <p className="text-sm text-luna-charcoal/60">Chargement...</p>;
   }
@@ -99,6 +166,20 @@ export function OrderDetailPage() {
   function handleReturnSubmit(e: React.FormEvent) {
     e.preventDefault();
     changeStatus.mutate({ newStatus: 'Returned', reason: returnNote.trim() || null, returnReason });
+  }
+
+  async function openProduct(productId: string, slug: string) {
+    if (openProductId === productId) {
+      setOpenProductId(null);
+      setProductDetail(null);
+      setSelectedVariant(null);
+      return;
+    }
+    setOpenProductId(productId);
+    setSelectedVariant(null);
+    setVariantQuantity(1);
+    const detail = await catalogApi.getProductBySlug(slug);
+    setProductDetail(detail);
   }
 
   return (
@@ -132,7 +213,32 @@ export function OrderDetailPage() {
             {[order.address, order.commune, order.wilaya].filter(Boolean).join(', ')}
           </p>
           <p className="text-sm">{DELIVERY_TYPE_LABELS[order.deliveryType]}</p>
-          {order.notes && <p className="mt-1 text-sm text-luna-charcoal/70">Note : {order.notes}</p>}
+          <div className="mt-2">
+            <label className="mb-1 block text-xs font-medium text-luna-charcoal/60">Remarque</label>
+            <textarea
+              value={notesDraft ?? order.notes ?? ''}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              placeholder="Ex. : veut du bleu plutôt que noir, rappeler après 18h..."
+              rows={2}
+              className="w-full rounded border border-black/20 px-2 py-1.5 text-sm"
+            />
+            {notesDraft !== null && notesDraft !== (order.notes ?? '') && (
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateNotes.mutate(notesDraft.trim() || null)}
+                  disabled={updateNotes.isPending}
+                  className="rounded-full bg-luna-black px-3 py-1 text-xs text-white disabled:opacity-40"
+                >
+                  {updateNotes.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+                <button type="button" onClick={() => setNotesDraft(null)} className="text-xs underline">
+                  Annuler
+                </button>
+              </div>
+            )}
+            {notesError && <p className="mt-1 text-xs text-red-600">{notesError}</p>}
+          </div>
         </div>
 
         <div>
@@ -179,11 +285,163 @@ export function OrderDetailPage() {
               <span>
                 {item.productName} ({item.color}/{item.size}) × {item.quantity}
               </span>
-              <span>{formatPrice(item.lineTotal)}</span>
+              <div className="flex items-center gap-3">
+                <span>{formatPrice(item.lineTotal)}</span>
+                {order.isEditable && order.items.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeItem.mutate(item.id)}
+                    disabled={removeItem.isPending}
+                    className="text-xs text-red-600 underline disabled:opacity-40"
+                  >
+                    Retirer
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
+        {itemsError && <p className="mt-2 text-sm text-red-600">{itemsError}</p>}
+
+        {order.isEditable && (
+          <div className="mt-3">
+            {!showAddItem ? (
+              <button type="button" onClick={() => setShowAddItem(true)} className="text-xs underline">
+                + Ajouter un article
+              </button>
+            ) : (
+              <div className="rounded-lg border border-black/10 bg-white p-3">
+                <input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Rechercher un produit..."
+                  className="mb-2 w-full rounded border border-black/20 px-2 py-1.5 text-sm"
+                />
+                <div className="max-h-56 overflow-y-auto rounded border border-black/10">
+                  {(products?.items ?? [])
+                    .filter((p) => p.name.toLowerCase().includes(productSearch.trim().toLowerCase()))
+                    .map((p) => (
+                      <div key={p.id} className="border-b border-black/5 last:border-0">
+                        <button
+                          type="button"
+                          onClick={() => openProduct(p.id, p.slug)}
+                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-luna-cream/50"
+                        >
+                          <span>{p.name}</span>
+                          <span className="text-xs text-luna-charcoal/60">{formatPrice(p.price)}</span>
+                        </button>
+
+                        {openProductId === p.id && productDetail && (
+                          <div className="bg-luna-cream/40 px-3 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {productDetail.variants
+                                .filter((v) => v.isActive)
+                                .map((v) => (
+                                  <button
+                                    key={v.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedVariant(v);
+                                      setVariantQuantity(1);
+                                    }}
+                                    disabled={v.availableQuantity === 0}
+                                    className={`rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
+                                      selectedVariant?.id === v.id ? 'border-luna-black bg-luna-black text-white' : 'border-black/20 bg-white'
+                                    }`}
+                                  >
+                                    {v.color} · {v.size} ({v.availableQuantity} en stock)
+                                  </button>
+                                ))}
+                            </div>
+
+                            {selectedVariant && (
+                              <div className="mt-3 flex items-center gap-3">
+                                <div className="flex items-center rounded border border-black/20">
+                                  <button type="button" className="p-2" onClick={() => setVariantQuantity((q) => Math.max(1, q - 1))}>
+                                    −
+                                  </button>
+                                  <span className="w-8 text-center text-sm">{variantQuantity}</span>
+                                  <button
+                                    type="button"
+                                    className="p-2"
+                                    onClick={() => setVariantQuantity((q) => Math.min(selectedVariant.availableQuantity, q + 1))}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => addItem.mutate()}
+                                  disabled={addItem.isPending}
+                                  className="rounded-full bg-luna-black px-4 py-1.5 text-xs text-white disabled:opacity-40"
+                                >
+                                  {addItem.isPending ? 'Ajout...' : 'Ajouter à la commande'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddItem(false);
+                    setOpenProductId(null);
+                    setProductDetail(null);
+                    setSelectedVariant(null);
+                  }}
+                  className="mt-2 text-xs underline"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {order.isEditable && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Négociation téléphonique</h2>
+          <div className="flex flex-col gap-2 rounded-lg border border-luna-accent/30 bg-luna-rose/30 p-4 sm:max-w-md">
+            <label className="text-sm">
+              Remise négociée (DA)
+              <input
+                type="number"
+                min={0}
+                value={manualDiscountDraft ?? (order.manualDiscountAmount?.toString() ?? '')}
+                onChange={(e) => setManualDiscountDraft(e.target.value)}
+                placeholder="ex. 500"
+                className="mt-1 w-full rounded border border-black/20 bg-white px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={freeShippingDraft ?? order.negotiatedFreeShipping}
+                onChange={(e) => setFreeShippingDraft(e.target.checked)}
+              />
+              Livraison offerte (négociée)
+            </label>
+            {negotiationError && <p className="text-xs text-red-600">{negotiationError}</p>}
+            <button
+              type="button"
+              onClick={() =>
+                updateNegotiation.mutate({
+                  manualDiscountAmount: Number(manualDiscountDraft ?? order.manualDiscountAmount ?? 0) || null,
+                  freeShipping: freeShippingDraft ?? order.negotiatedFreeShipping,
+                })
+              }
+              disabled={updateNegotiation.isPending}
+              className="mt-1 w-fit rounded-full bg-luna-black px-4 py-2 text-sm text-white disabled:opacity-40"
+            >
+              {updateNegotiation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {nextStatuses.length > 0 && (
         <div className="mt-6">

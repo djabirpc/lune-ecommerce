@@ -22,8 +22,23 @@ public class OrderService(
     IShippingRateService shippingRateService,
     IValidator<CreateOrderRequest> createValidator,
     IValidator<CreateAdminOrderRequest> createAdminValidator,
-    IValidator<ChangeOrderStatusRequest> changeStatusValidator) : IOrderService
+    IValidator<ChangeOrderStatusRequest> changeStatusValidator,
+    IValidator<AddOrderItemRequest> addItemValidator,
+    IValidator<UpdateOrderNegotiationRequest> updateNegotiationValidator,
+    IValidator<UpdateOrderNotesRequest> updateNotesValidator) : IOrderService
 {
+    // Mirrors CLAUDE.md section 12's workflow: once an order is Shipped (physically handed to the
+    // carrier), its contents/pricing are frozen — only PendingConfirmation through ReadyToShip allow
+    // adding/removing items or changing the negotiated discount.
+    private static readonly HashSet<OrderStatus> EditableStatuses =
+    [
+        OrderStatus.PendingConfirmation,
+        OrderStatus.Confirmed,
+        OrderStatus.CustomerUnreachable,
+        OrderStatus.Preparing,
+        OrderStatus.ReadyToShip,
+    ];
+
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
     {
         [OrderStatus.PendingConfirmation] = [OrderStatus.Confirmed, OrderStatus.CustomerUnreachable, OrderStatus.Cancelled],
@@ -78,8 +93,6 @@ public class OrderService(
         bool negotiatedFreeShipping,
         CancellationToken cancellationToken)
     {
-        var baseShippingCost = await shippingRateService.GetPriceAsync(request.Wilaya, request.DeliveryType, cancellationToken);
-
         var variantIds = request.Items.Select(i => i.ProductVariantId).ToList();
         var variants = await dbContext.ProductVariants
             .Include(v => v.Product).ThenInclude(p => p.Images)
@@ -110,7 +123,9 @@ public class OrderService(
             Address = request.Address,
             DeliveryType = request.DeliveryType,
             Notes = request.Notes,
-            ShippingCost = baseShippingCost,
+            CouponCode = request.CouponCode,
+            ManualDiscountAmount = manualDiscountAmount is > 0 ? manualDiscountAmount : null,
+            NegotiatedFreeShipping = negotiatedFreeShipping,
             UtmSource = request.MarketingAttribution?.UtmSource,
             UtmMedium = request.MarketingAttribution?.UtmMedium,
             UtmCampaign = request.MarketingAttribution?.UtmCampaign,
@@ -126,7 +141,6 @@ public class OrderService(
         {
             var variant = variantsById[itemRequest.ProductVariantId];
             var unitPrice = variant.PriceOverride ?? variant.Product.Price;
-            var lineTotal = unitPrice * itemRequest.Quantity;
 
             order.Items.Add(new OrderItem
             {
@@ -139,24 +153,211 @@ public class OrderService(
                 Sku = variant.Sku,
                 UnitPrice = unitPrice,
                 Quantity = itemRequest.Quantity,
-                LineTotal = lineTotal,
+                LineTotal = unitPrice * itemRequest.Quantity,
             });
         }
+
+        await RecalculateTotalsAsync(order, cancellationToken);
+
+        dbContext.Orders.Add(order);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        foreach (var item in order.Items)
+        {
+            await inventoryService.ReserveAsync(item.ProductVariantId, item.Quantity, cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return ToDetailDto(order);
+    }
+
+    public async Task<OrderDetailDto> AddItemAsync(Guid orderId, AddOrderItemRequest request, CancellationToken cancellationToken = default)
+    {
+        await addItemValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var order = await dbContext.Orders
+            .Include(o => o.Items)
+            .Include(o => o.AppliedPromotions)
+            .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
+            ?? throw new NotFoundAppException("Commande introuvable.");
+
+        EnsureEditable(order);
+
+        var variant = await dbContext.ProductVariants
+            .Include(v => v.Product).ThenInclude(p => p.Images)
+            .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId, cancellationToken)
+            ?? throw new NotFoundAppException("Variante introuvable.");
+
+        if (!variant.IsActive || !variant.Product.IsActive)
+        {
+            throw new NotFoundAppException("Cette variante n'est plus disponible.");
+        }
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        // Order changes are saved BEFORE reserving stock (mirrors CreateOrderCoreAsync), so a failed
+        // reservation still rolls back the order mutation (both share this one ambient transaction).
+        var existingItem = order.Items.FirstOrDefault(i => i.ProductVariantId == request.ProductVariantId);
+        if (existingItem is not null)
+        {
+            existingItem.Quantity += request.Quantity;
+            existingItem.LineTotal = existingItem.UnitPrice * existingItem.Quantity;
+        }
+        else
+        {
+            var unitPrice = variant.PriceOverride ?? variant.Product.Price;
+            var newItem = new OrderItem
+            {
+                OrderId = order.Id,
+                ProductVariantId = variant.Id,
+                ProductName = variant.Product.Name,
+                ProductSlug = variant.Product.Slug,
+                ImageUrl = variant.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault(),
+                Color = variant.Color,
+                Size = variant.Size,
+                Sku = variant.Sku,
+                UnitPrice = unitPrice,
+                Quantity = request.Quantity,
+                LineTotal = unitPrice * request.Quantity,
+            };
+            // Explicit dbContext.OrderItems.Add(), not order.Items.Add() — for a child discovered by
+            // DetectChanges() via graph traversal from an ALREADY-TRACKED parent (as opposed to the
+            // whole graph being tracked at once via dbContext.Orders.Add(newOrder) at creation time),
+            // EF's Added-vs-Modified heuristic keys off whether the PK already has a non-default
+            // value. Entity.Id is client-generated (Guid.NewGuid() at construction, not DB-generated),
+            // so it's already "set" by the time DetectChanges sees it — EF assumed it must be an
+            // existing row and tried to UPDATE a row that was never inserted, throwing
+            // DbUpdateConcurrencyException ("expected 1 row, affected 0"). Adding directly to the
+            // DbSet sidesteps the ambiguity by stating the state explicitly (same fix applied to the
+            // OrderPromotion rebuild below). Setting OrderId explicitly makes EF's relationship fixup
+            // add this same instance to order.Items automatically — do NOT also call
+            // order.Items.Add(newItem) here, that double-counts it (fixup already did it).
+            dbContext.OrderItems.Add(newItem);
+        }
+
+        order.UpdatedAtUtc = DateTime.UtcNow;
+        await RecalculateTotalsAsync(order, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await inventoryService.ReserveAsync(variant.Id, request.Quantity, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return await GetByIdAsync(orderId, cancellationToken);
+    }
+
+    public async Task<OrderDetailDto> RemoveItemAsync(Guid orderId, Guid orderItemId, CancellationToken cancellationToken = default)
+    {
+        var order = await dbContext.Orders
+            .Include(o => o.Items)
+            .Include(o => o.AppliedPromotions)
+            .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
+            ?? throw new NotFoundAppException("Commande introuvable.");
+
+        EnsureEditable(order);
+
+        var item = order.Items.FirstOrDefault(i => i.Id == orderItemId)
+            ?? throw new NotFoundAppException("Article introuvable sur cette commande.");
+
+        if (order.Items.Count <= 1)
+        {
+            throw new ValidationAppException("Impossible de retirer le dernier article d'une commande — annulez la commande à la place.");
+        }
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        // Same save-before-release ordering as AddItemAsync — see its comment for why.
+        order.Items.Remove(item);
+        order.UpdatedAtUtc = DateTime.UtcNow;
+        await RecalculateTotalsAsync(order, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await inventoryService.ReleaseAsync(item.ProductVariantId, item.Quantity, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return await GetByIdAsync(orderId, cancellationToken);
+    }
+
+    public async Task<OrderDetailDto> UpdateNegotiationAsync(Guid orderId, UpdateOrderNegotiationRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateNegotiationValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var order = await dbContext.Orders
+            .Include(o => o.Items)
+            .Include(o => o.AppliedPromotions)
+            .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
+            ?? throw new NotFoundAppException("Commande introuvable.");
+
+        EnsureEditable(order);
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        order.ManualDiscountAmount = request.ManualDiscountAmount is > 0 ? request.ManualDiscountAmount : null;
+        order.NegotiatedFreeShipping = request.FreeShipping;
+        order.UpdatedAtUtc = DateTime.UtcNow;
+
+        await RecalculateTotalsAsync(order, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return await GetByIdAsync(orderId, cancellationToken);
+    }
+
+    public async Task<OrderDetailDto> UpdateNotesAsync(Guid orderId, UpdateOrderNotesRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateNotesValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var order = await dbContext.Orders.FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken)
+            ?? throw new NotFoundAppException("Commande introuvable.");
+
+        order.Notes = request.Notes;
+        order.UpdatedAtUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetByIdAsync(orderId, cancellationToken);
+    }
+
+    private static void EnsureEditable(Order order)
+    {
+        if (!EditableStatuses.Contains(order.Status))
+        {
+            throw new ConflictAppException($"Impossible de modifier les articles d'une commande au statut {order.Status}.");
+        }
+    }
+
+    /// <summary>
+    /// Recomputes Subtotal/DiscountTotal/ShippingCost/Total and rebuilds AppliedPromotions from
+    /// scratch — shared by order creation and every later edit (item add/remove, negotiation change)
+    /// so both paths always apply automatic promotions + the stored coupon + the stored manual
+    /// discount/free-shipping the exact same way. Assumes order.Items reflects the desired final
+    /// state and order.AppliedPromotions is a loaded, tracked collection (callers must .Include it).
+    /// </summary>
+    private async Task RecalculateTotalsAsync(Order order, CancellationToken cancellationToken)
+    {
+        var baseShippingCost = await shippingRateService.GetPriceAsync(order.Wilaya, order.DeliveryType, cancellationToken);
+
+        var variantIds = order.Items.Select(i => i.ProductVariantId).Distinct().ToList();
+        var variants = await dbContext.ProductVariants
+            .Include(v => v.Product)
+            .Where(v => variantIds.Contains(v.Id))
+            .ToListAsync(cancellationToken);
+        var variantsById = variants.ToDictionary(v => v.Id);
 
         order.Subtotal = order.Items.Sum(i => i.LineTotal);
 
         var (discountTotal, shippingCost, appliedPromotions) = await CalculatePromotionsAsync(
-            order.Items, variantsById, request.CouponCode, order.ShippingCost, cancellationToken);
+            order.Items, variantsById, order.CouponCode, baseShippingCost, cancellationToken);
 
-        // Phone-negotiated overrides (admin-created orders only — manualDiscountAmount/
-        // negotiatedFreeShipping are always null/false for a guest checkout). Applied on top of
-        // whatever automatic promotions/coupon already matched, same "stacks, doesn't replace"
-        // relationship a coupon has with automatic promotions. Capped at the remaining discountable
-        // subtotal so a mistyped amount can never push the total negative.
-        if (manualDiscountAmount is > 0)
+        // Phone-negotiated overrides, stacked on top of automatic promotions/coupon just like a
+        // coupon stacks on top of an automatic promotion — capped at the remaining discountable
+        // subtotal so a mistyped amount (or a removed item shrinking the subtotal) can never push
+        // the total negative.
+        if (order.ManualDiscountAmount is > 0)
         {
             var remainingDiscountableSubtotal = Math.Max(order.Subtotal - discountTotal, 0m);
-            var appliedManualDiscount = Math.Min(manualDiscountAmount.Value, remainingDiscountableSubtotal);
+            var appliedManualDiscount = Math.Min(order.ManualDiscountAmount.Value, remainingDiscountableSubtotal);
             if (appliedManualDiscount > 0)
             {
                 discountTotal += appliedManualDiscount;
@@ -169,7 +370,7 @@ public class OrderService(
             }
         }
 
-        if (negotiatedFreeShipping && shippingCost > 0)
+        if (order.NegotiatedFreeShipping && shippingCost > 0)
         {
             discountTotal += shippingCost;
             appliedPromotions.Add(new OrderPromotion
@@ -184,22 +385,24 @@ public class OrderService(
         order.DiscountTotal = discountTotal;
         order.ShippingCost = shippingCost;
         order.Total = order.Subtotal - order.DiscountTotal + order.ShippingCost;
+
+        // Explicit DbSet remove/add rather than order.AppliedPromotions.Clear()/Add() — for an
+        // order that's already tracked (every edit path; creation never reaches here with a tracked
+        // order), the collection-navigation form left EF unable to tell a genuinely-new OrderPromotion
+        // apart from a re-attached one and tried to UPDATE it instead of INSERT, throwing
+        // DbUpdateConcurrencyException ("expected 1 row, affected 0"). Being explicit about
+        // Remove/Add (and the FK) sidesteps that ambiguity entirely.
+        if (order.AppliedPromotions.Count > 0)
+        {
+            dbContext.OrderPromotions.RemoveRange(order.AppliedPromotions);
+            order.AppliedPromotions.Clear();
+        }
+
         foreach (var appliedPromotion in appliedPromotions)
         {
-            order.AppliedPromotions.Add(appliedPromotion);
+            appliedPromotion.OrderId = order.Id;
+            dbContext.OrderPromotions.Add(appliedPromotion);
         }
-
-        dbContext.Orders.Add(order);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        foreach (var item in order.Items)
-        {
-            await inventoryService.ReserveAsync(item.ProductVariantId, item.Quantity, cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-
-        return ToDetailDto(order);
     }
 
     public async Task<OrderDetailDto> TrackAsync(string orderNumber, string phone, CancellationToken cancellationToken = default)
@@ -624,7 +827,10 @@ public class OrderService(
             .ToList(),
         ToShipmentDto(order.Shipment),
         ToMarketingAttributionDto(order),
-        order.CreatedByUserId);
+        order.CreatedByUserId,
+        order.ManualDiscountAmount,
+        order.NegotiatedFreeShipping,
+        EditableStatuses.Contains(order.Status));
 
     private static MarketingAttributionDto? ToMarketingAttributionDto(Order order)
     {

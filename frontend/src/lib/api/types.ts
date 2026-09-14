@@ -400,6 +400,23 @@ export interface OrderDetailDto {
   shipment: ShipmentDto | null;
   marketingAttribution: MarketingAttributionDto | null;
   createdByUserId: string | null;
+  manualDiscountAmount: number | null;
+  negotiatedFreeShipping: boolean;
+  isEditable: boolean;
+}
+
+export interface AddOrderItemRequest {
+  productVariantId: string;
+  quantity: number;
+}
+
+export interface UpdateOrderNegotiationRequest {
+  manualDiscountAmount: number | null;
+  freeShipping: boolean;
+}
+
+export interface UpdateOrderNotesRequest {
+  notes: string | null;
 }
 
 export interface MarketingAttributionDto {

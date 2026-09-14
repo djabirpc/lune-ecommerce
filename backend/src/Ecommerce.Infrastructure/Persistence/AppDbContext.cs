@@ -177,6 +177,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(o => o.ShippingCost).HasPrecision(10, 2);
             entity.Property(o => o.DiscountTotal).HasPrecision(10, 2);
             entity.Property(o => o.Total).HasPrecision(10, 2);
+            entity.Property(o => o.CouponCode).HasMaxLength(50);
+            entity.Property(o => o.ManualDiscountAmount).HasPrecision(10, 2);
             entity.Property(o => o.UtmSource).HasMaxLength(200);
             entity.Property(o => o.UtmMedium).HasMaxLength(200);
             entity.Property(o => o.UtmCampaign).HasMaxLength(200);

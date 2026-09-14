@@ -29,4 +29,7 @@ public record OrderDetailDto(
     IReadOnlyList<OrderPromotionDto> AppliedPromotions,
     ShipmentDto? Shipment,
     MarketingAttributionDto? MarketingAttribution,
-    Guid? CreatedByUserId);
+    Guid? CreatedByUserId,
+    decimal? ManualDiscountAmount,
+    bool NegotiatedFreeShipping,
+    bool IsEditable);

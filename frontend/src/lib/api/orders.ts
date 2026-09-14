@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type {
+  AddOrderItemRequest,
   ChangeOrderStatusRequest,
   CreateAdminOrderRequest,
   CreateOrderRequest,
@@ -9,6 +10,8 @@ import type {
   PagedResult,
   RecordCallAttemptRequest,
   ReturnReasonSummaryDto,
+  UpdateOrderNegotiationRequest,
+  UpdateOrderNotesRequest,
 } from './types';
 
 export const ordersApi = {
@@ -39,4 +42,14 @@ export const ordersApi = {
     apiClient.post<OrderDetailDto>(`/api/orders/${id}/call-attempts`, request),
 
   getReturnReasonSummary: () => apiClient.get<ReturnReasonSummaryDto[]>('/api/orders/return-reasons'),
+
+  addItem: (id: string, request: AddOrderItemRequest) => apiClient.post<OrderDetailDto>(`/api/orders/${id}/items`, request),
+
+  removeItem: (id: string, itemId: string) => apiClient.delete<OrderDetailDto>(`/api/orders/${id}/items/${itemId}`),
+
+  updateNegotiation: (id: string, request: UpdateOrderNegotiationRequest) =>
+    apiClient.put<OrderDetailDto>(`/api/orders/${id}/negotiation`, request),
+
+  updateNotes: (id: string, request: UpdateOrderNotesRequest) =>
+    apiClient.put<OrderDetailDto>(`/api/orders/${id}/notes`, request),
 };

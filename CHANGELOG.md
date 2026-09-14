@@ -1,5 +1,25 @@
 # Changelog
 
+## [2026-09-14] (on `dev` branch) (14)
+
+### Added
+- **Orders are now editable after creation**, up through `ReadyToShip` (frozen once `Shipped`): agents can add/remove articles, edit a free-text remark, and set a phone-negotiated discount and/or free shipping during a follow-up call — mirrors the negotiation options `CreateAdminOrderRequest` already offered at creation time, now available afterward too.
+- New endpoints: `POST /api/orders/{id}/items`, `DELETE /api/orders/{id}/items/{itemId}` (refuses to remove the last item — cancel the order instead), `PUT /api/orders/{id}/negotiation`, `PUT /api/orders/{id}/notes` (notes editable regardless of status).
+- `OrderDetailDto.IsEditable` (server-computed) tells the frontend when to show the edit controls.
+- `OrderDetailPage`: editable remark, "+ Ajouter un article" picker (reuses `CreateOrderPage`'s product/variant picker), per-line "Retirer" buttons, "Négociation téléphonique" panel.
+
+### Database
+- Migration `AddOrderNegotiationAndCoupon`: `Order.CouponCode`, `Order.ManualDiscountAmount`, `Order.NegotiatedFreeShipping` — all persisted (previously transient/creation-only) so they keep being honored across later edits.
+
+### Fixed
+- Two real EF Core bugs hit while building this (see code comments in `OrderService.RecalculateTotalsAsync`/`AddItemAsync`): (1) reserving/releasing stock *before* saving the order's own item/promotion changes caused a spurious `DbUpdateConcurrencyException`; (2) adding a new `OrderItem`/`OrderPromotion` via an already-tracked parent's collection navigation (`order.Items.Add(...)`) rather than its `DbSet` directly caused EF's Added-vs-Modified heuristic to misfire for the client-generated `Guid` key and attempt an `UPDATE` on a row that was never inserted. Fixed by adding to the `DbSet` explicitly with the FK set — and *not* also calling the collection-navigation `.Add()`, which double-counts once relationship fixup runs.
+
+### Notes
+- New shared private `OrderService.RecalculateTotalsAsync` is now the single place that computes an order's totals — used by both creation and every edit endpoint, so automatic promotions/coupon/manual discount/free shipping always stack identically regardless of when they're recalculated.
+- 9 new backend tests (`OrderEditingTests.cs`); suite grew to 189/189 (65 unit + 124 integration).
+- Verified end-to-end against the live local stack: edited a remark, added a second product mid-order, negotiated a 400 DA discount + free shipping, confirmed the total recalculated correctly live at each step.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-12] (on `dev` branch) (13)
 
 ### Added
