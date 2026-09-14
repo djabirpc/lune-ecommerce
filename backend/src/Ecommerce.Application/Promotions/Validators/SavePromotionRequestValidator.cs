@@ -43,15 +43,19 @@ public class SavePromotionRequestValidator : AbstractValidator<SavePromotionRequ
             .GreaterThan(0)
             .When(x => x.Type == PromotionType.BuyXGetY);
 
-        RuleFor(x => x.BundleQuantity)
-            .NotNull().WithMessage("La quantité du lot est requise pour ce type de promotion.")
-            .GreaterThan(1).WithMessage("La quantité du lot doit être d'au moins 2.")
+        RuleFor(x => x.BundleTiers)
+            .NotEmpty().WithMessage("Ajoutez au moins un palier de lot pour ce type de promotion.")
             .When(x => x.Type == PromotionType.BundlePrice);
 
-        RuleFor(x => x.BundleTotalPrice)
-            .NotNull().WithMessage("Le prix du lot est requis pour ce type de promotion.")
-            .GreaterThan(0)
-            .When(x => x.Type == PromotionType.BundlePrice);
+        RuleForEach(x => x.BundleTiers)
+            .ChildRules(tier =>
+            {
+                tier.RuleFor(t => t.BundleQuantity)
+                    .GreaterThan(1).WithMessage("La quantité du lot doit être d'au moins 2.");
+                tier.RuleFor(t => t.BundleTotalPrice)
+                    .GreaterThan(0).WithMessage("Le prix du lot doit être supérieur à 0.");
+            })
+            .When(x => x.Type == PromotionType.BundlePrice && x.BundleTiers is not null);
 
         RuleFor(x => x.MinQuantity)
             .GreaterThan(0).WithMessage("La quantité minimale doit être supérieure à 0.")

@@ -610,6 +610,7 @@ public class OrderService(
         var candidates = await dbContext.Promotions
             .Include(p => p.Products)
             .Include(p => p.Categories)
+            .Include(p => p.BundleTiers)
             .Where(p => p.IsActive && p.Type != PromotionType.Coupon && p.StartsAtUtc <= now && p.EndsAtUtc >= now)
             .Where(p => (p.Products.Count == 0 && p.Categories.Count == 0)
                 || p.Products.Any(pp => productIds.Contains(pp.ProductId))
@@ -634,27 +635,44 @@ public class OrderService(
             }
 
             // Best discount for the actual quantity — not simply highest Priority — so multiple
-            // BundlePrice tiers can coexist on the same product (e.g. "2 for 1500" and "4 for 3000")
-            // and the customer's cart automatically gets whichever tier fits their quantity best.
-            // Priority only breaks ties when two promotions give the exact same discount.
-            var best = scoped
-                .Select(p => (Promotion: p, Discount: ComputeItemDiscount(p, item)))
-                .Where(x => x.Discount > 0)
-                .OrderByDescending(x => x.Discount)
-                .ThenByDescending(x => x.Promotion.Priority)
-                .FirstOrDefault();
+            // promotions, and multiple BundlePrice tiers within one promotion (e.g. "2 for 1500" and
+            // "4 for 3000"), can all coexist on the same product; the customer's cart automatically
+            // gets whichever one is most advantageous for their actual quantity. Priority only breaks
+            // ties when two candidates give the exact same discount.
+            Promotion? bestPromotion = null;
+            PromotionBundleTier? bestTier = null;
+            var bestDiscount = 0m;
 
-            if (best.Promotion is null)
+            foreach (var promotion in scoped)
+            {
+                var (discount, tier) = promotion.Type == PromotionType.BundlePrice
+                    ? ComputeBestBundleTierDiscount(promotion, item)
+                    : (ComputeItemDiscount(promotion, item), null);
+
+                if (discount <= 0)
+                {
+                    continue;
+                }
+
+                if (bestPromotion is null || discount > bestDiscount || (discount == bestDiscount && promotion.Priority > bestPromotion.Priority))
+                {
+                    bestDiscount = discount;
+                    bestPromotion = promotion;
+                    bestTier = tier;
+                }
+            }
+
+            if (bestPromotion is null)
             {
                 continue;
             }
 
-            discountTotal += best.Discount;
-            Accumulate(appliedTotals, best.Promotion.Id, best.Promotion.Name, best.Discount);
+            discountTotal += bestDiscount;
+            Accumulate(appliedTotals, bestPromotion.Id, bestPromotion.Name, bestDiscount);
 
-            if (best.Promotion is { Type: PromotionType.BundlePrice, IncludesFreeShipping: true })
+            if (bestTier is { IncludesFreeShipping: true })
             {
-                bundleFreeShippingPromotion ??= best.Promotion;
+                bundleFreeShippingPromotion ??= bestPromotion;
             }
         }
 
@@ -747,13 +765,14 @@ public class OrderService(
 
     /// <summary>
     /// BuyXGetY has its own discount shape (quantity bundles, not a percentage/fixed amount of the
-    /// line), so it's dispatched separately rather than folded into ComputeDiscount.
+    /// line), so it's dispatched separately rather than folded into ComputeDiscount. BundlePrice is
+    /// NOT handled here — it has multiple tiers per promotion, so CalculatePromotionsAsync's loop
+    /// dispatches it directly to ComputeBestBundleTierDiscount instead.
     /// </summary>
     private static decimal ComputeItemDiscount(Promotion promotion, OrderItem item) =>
         promotion.Type switch
         {
             PromotionType.BuyXGetY => ComputeBuyXGetYDiscount(promotion, item),
-            PromotionType.BundlePrice => ComputeBundlePriceDiscount(promotion, item),
             _ => ComputeDiscount(promotion, item.LineTotal),
         };
 
@@ -780,6 +799,30 @@ public class OrderService(
     }
 
     /// <summary>
+    /// Best tier (by discount for the actual quantity) among a BundlePrice promotion's tiers — lets
+    /// several tiers on one promotion coexist (e.g. "2 for 1500" and "4 for 3000"); the customer
+    /// automatically gets whichever tier is most advantageous for their real quantity, and the
+    /// returned tier is what CalculatePromotionsAsync checks for IncludesFreeShipping.
+    /// </summary>
+    private static (decimal Discount, PromotionBundleTier? Tier) ComputeBestBundleTierDiscount(Promotion promotion, OrderItem item)
+    {
+        PromotionBundleTier? bestTier = null;
+        var bestDiscount = 0m;
+
+        foreach (var tier in promotion.BundleTiers)
+        {
+            var discount = ComputeBundleTierDiscount(tier, item);
+            if (discount > bestDiscount)
+            {
+                bestDiscount = discount;
+                bestTier = tier;
+            }
+        }
+
+        return (bestDiscount, bestTier);
+    }
+
+    /// <summary>
     /// "N for a fixed total price" (e.g. "2 for 1500 DA" on a 1000 DA item). Every complete bundle of
     /// BundleQuantity matching units in this line is charged BundleTotalPrice instead of
     /// BundleQuantity * UnitPrice; any remainder units (an incomplete bundle) stay at full price.
@@ -787,21 +830,21 @@ public class OrderService(
     /// needs 2+ units of the SAME variant in one line. Floors at 0 so a misconfigured bundle price
     /// higher than the regular price can never produce a negative "discount".
     /// </summary>
-    private static decimal ComputeBundlePriceDiscount(Promotion promotion, OrderItem item)
+    private static decimal ComputeBundleTierDiscount(PromotionBundleTier tier, OrderItem item)
     {
-        if (promotion.BundleQuantity is not > 1 || promotion.BundleTotalPrice is not > 0)
+        if (tier.BundleQuantity < 2 || tier.BundleTotalPrice <= 0)
         {
             return 0m;
         }
 
-        var completeBundles = item.Quantity / promotion.BundleQuantity.Value;
+        var completeBundles = item.Quantity / tier.BundleQuantity;
         if (completeBundles == 0)
         {
             return 0m;
         }
 
-        var regularPriceForBundledUnits = completeBundles * promotion.BundleQuantity.Value * item.UnitPrice;
-        var bundlePriceForBundledUnits = completeBundles * promotion.BundleTotalPrice.Value;
+        var regularPriceForBundledUnits = completeBundles * tier.BundleQuantity * item.UnitPrice;
+        var bundlePriceForBundledUnits = completeBundles * tier.BundleTotalPrice;
 
         return Math.Max(regularPriceForBundledUnits - bundlePriceForBundledUnits, 0m);
     }

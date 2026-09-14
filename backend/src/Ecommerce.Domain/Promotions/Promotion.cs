@@ -14,16 +14,11 @@ public class Promotion : Entity
     public int? GetQuantity { get; set; }
     public string? CouponCode { get; set; }
 
-    /// <summary>BundlePrice only: buy this many matching units in one line to trigger the bundle price.</summary>
-    public int? BundleQuantity { get; set; }
-    /// <summary>BundlePrice only: total price charged for one complete bundle of BundleQuantity units.</summary>
-    public decimal? BundleTotalPrice { get; set; }
     /// <summary>
-    /// BundlePrice only: when true, this tier also grants free shipping on the whole order once it
-    /// applies (at least one complete bundle) — lets a tier grant free shipping directly instead of
-    /// needing a separate paired FreeShipping promotion with a matching MinQuantity.
+    /// BundlePrice only: the promotion's tiers (e.g. "2 for 1500 DA" and "4 for 3000 DA" together).
+    /// See PromotionBundleTier.
     /// </summary>
-    public bool IncludesFreeShipping { get; set; }
+    public ICollection<PromotionBundleTier> BundleTiers { get; set; } = [];
 
     /// <summary>
     /// FreeShipping only: minimum total quantity of scoped items in the order required to unlock free

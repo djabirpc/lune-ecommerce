@@ -11,8 +11,6 @@ public record PromotionDetailDto(
     decimal? FixedAmountValue,
     int? BuyQuantity,
     int? GetQuantity,
-    int? BundleQuantity,
-    decimal? BundleTotalPrice,
     string? CouponCode,
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,
@@ -21,4 +19,4 @@ public record PromotionDetailDto(
     IReadOnlyList<Guid> ProductIds,
     IReadOnlyList<Guid> CategoryIds,
     int? MinQuantity,
-    bool IncludesFreeShipping);
+    IReadOnlyList<BundleTierDto> BundleTiers);

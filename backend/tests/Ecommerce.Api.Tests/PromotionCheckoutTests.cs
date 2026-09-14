@@ -86,8 +86,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -120,8 +118,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -150,8 +146,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             PromotionType.Coupon,
             null,
             100m,
-            null,
-            null,
             null,
             null,
             couponCode,
@@ -196,8 +190,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddDays(-10),
             DateTime.UtcNow.AddDays(-1),
             true,
@@ -228,8 +220,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -242,8 +232,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             PromotionType.ProductDiscount,
             25m,
-            null,
-            null,
             null,
             null,
             null,
@@ -273,8 +261,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             buyQuantity,
             getQuantity,
-            null,
-            null,
             null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
@@ -338,13 +324,22 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         Assert.Empty(order.AppliedPromotions);
     }
 
-    private async Task<PromotionDetailDto> CreateBundlePricePromotionAsync(
+    /// <summary>Creates a BundlePrice promotion with a single tier — the common case most tests need.</summary>
+    private Task<PromotionDetailDto> CreateBundlePricePromotionAsync(
         HttpClient adminClient,
         Guid productId,
         int bundleQuantity,
         decimal bundleTotalPrice,
         string name = "Offre lot",
         bool includesFreeShipping = false) =>
+        CreateMultiTierBundlePromotionAsync(adminClient, productId, name, [(bundleQuantity, bundleTotalPrice, includesFreeShipping)]);
+
+    /// <summary>Creates a BundlePrice promotion with several tiers at once (e.g. "2 for 1500" AND "4 for 3000").</summary>
+    private async Task<PromotionDetailDto> CreateMultiTierBundlePromotionAsync(
+        HttpClient adminClient,
+        Guid productId,
+        string name,
+        IReadOnlyList<(int Quantity, decimal TotalPrice, bool IncludesFreeShipping)> tiers) =>
         await CreatePromotionAsync(adminClient, new SavePromotionRequest(
             name,
             null,
@@ -353,8 +348,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            bundleQuantity,
-            bundleTotalPrice,
             null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
@@ -362,7 +355,7 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             0,
             [productId],
             [],
-            IncludesFreeShipping: includesFreeShipping));
+            BundleTiers: tiers.Select(t => new BundleTierRequest(t.Quantity, t.TotalPrice, t.IncludesFreeShipping)).ToList()));
 
     [Fact]
     public async Task BundlePrice_CompleteBundle_ChargesBundlePrice()
@@ -453,8 +446,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -490,8 +481,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -521,8 +510,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             "Livraison gratuite dès 4",
             null,
             PromotionType.FreeShipping,
-            null,
-            null,
             null,
             null,
             null,
@@ -566,8 +553,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             null,
             null,
-            null,
-            null,
             DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow.AddDays(1),
             true,
@@ -580,8 +565,6 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             null,
             PromotionType.CategoryDiscount,
             20m,
-            null,
-            null,
             null,
             null,
             null,
@@ -613,13 +596,37 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(20, price: 1000m);
         var guestClient = factory.CreateClient();
 
-        // "2 for 1900" (100 DA off per bundle) and "4 for 3200" (800 DA off per bundle) coexist on
-        // the same product — previously only the second-created promotion would ever apply.
+        // "2 for 1900" (100 DA off per bundle) and "4 for 3200" (800 DA off per bundle) as two tiers
+        // of the SAME promotion — the admin UI's "+ Ajouter un lot" list.
+        await CreateMultiTierBundlePromotionAsync(adminClient, productId, "Offre lot", [
+            (2, 1900m, false),
+            (4, 3200m, false),
+        ]);
+
+        // Quantity 4 fits one complete "4 for 3200" tier (800 DA off) or two complete "2 for 1900"
+        // tiers (2 x 100 = 200 DA off) — the customer should get whichever is more advantageous.
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 4), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(4000m, order!.Subtotal);
+        Assert.Equal(800m, order.DiscountTotal);
+        Assert.Equal(3800m, order.Total); // 4000 - 800 + 600
+        Assert.Single(order.AppliedPromotions);
+        Assert.Equal("Offre lot", order.AppliedPromotions[0].PromotionName);
+    }
+
+    [Fact]
+    public async Task MultipleBundlePromotions_CoexistAndPickBestDiscountForQuantity()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(20, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        // Same scenario, but as two SEPARATE promotions on the same product rather than two tiers of
+        // one promotion — both coexistence mechanisms must keep working.
         await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1900m, name: "Lot de 2");
         await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 4, bundleTotalPrice: 3200m, name: "Lot de 4");
 
-        // Quantity 4 fits one complete "lot de 4" (800 DA off) or two complete "lot de 2" (2 x 100 =
-        // 200 DA off) — the customer should get whichever tier is more advantageous, "lot de 4".
         var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 4), JsonOptions);
         response.EnsureSuccessStatusCode();
         var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
@@ -647,5 +654,32 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         Assert.Equal(1100m, order.DiscountTotal); // 500 (bundle) + 600 (shipping)
         Assert.Equal(900m, order.Total); // 2000 - 1100 + 0
         Assert.Single(order.AppliedPromotions); // both amounts accumulate under the same tier promotion
+    }
+
+    [Fact]
+    public async Task BundlePrice_OnlyOneTierIncludesFreeShipping_OnlyThatTierWaivesShipping()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(20, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        // Only the 4-unit tier grants free shipping — buying 2 (the other tier) should still pay shipping.
+        await CreateMultiTierBundlePromotionAsync(adminClient, productId, "Offre lot", [
+            (2, 1900m, false),
+            (4, 3200m, true),
+        ]);
+
+        var lowTierResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
+        lowTierResponse.EnsureSuccessStatusCode();
+        var lowTierOrder = await lowTierResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(600m, lowTierOrder!.ShippingCost);
+        Assert.Equal(100m, lowTierOrder.DiscountTotal);
+
+        var highTierResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 4), JsonOptions);
+        highTierResponse.EnsureSuccessStatusCode();
+        var highTierOrder = await highTierResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, highTierOrder!.ShippingCost);
+        Assert.Equal(1400m, highTierOrder.DiscountTotal); // 800 (bundle) + 600 (shipping)
     }
 }

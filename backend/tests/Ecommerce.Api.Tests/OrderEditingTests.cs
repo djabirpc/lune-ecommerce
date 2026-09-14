@@ -214,7 +214,7 @@ public class OrderEditingTests(AuthWebApplicationFactory factory) : IClassFixtur
         var couponCode = $"SAVE10-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
 
         var couponResponse = await adminClient.PostAsJsonAsync("/api/promotions", new SavePromotionRequest(
-            "Coupon test", null, PromotionType.Coupon, null, 100m, null, null, null, null, couponCode,
+            "Coupon test", null, PromotionType.Coupon, null, 100m, null, null, couponCode,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddDays(1), true, 0, [], []), JsonOptions);
         couponResponse.EnsureSuccessStatusCode();
 

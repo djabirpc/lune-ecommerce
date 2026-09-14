@@ -27,10 +27,7 @@ public class PromotionService(
             FixedAmountValue = request.FixedAmountValue,
             BuyQuantity = request.BuyQuantity,
             GetQuantity = request.GetQuantity,
-            BundleQuantity = request.BundleQuantity,
-            BundleTotalPrice = request.BundleTotalPrice,
             MinQuantity = request.MinQuantity,
-            IncludesFreeShipping = request.IncludesFreeShipping,
             CouponCode = request.CouponCode,
             StartsAtUtc = request.StartsAtUtc,
             EndsAtUtc = request.EndsAtUtc,
@@ -39,7 +36,12 @@ public class PromotionService(
         };
 
         ApplyProductAndCategoryLinks(promotion, request.ProductIds, request.CategoryIds);
+        ApplyBundleTiers(promotion, request.BundleTiers);
 
+        // The whole graph (promotion + its tiers/product-links/category-links) is tracked together via
+        // this single Add on a genuinely new root entity, so EF correctly infers Added for everything
+        // reachable from it — no Added-vs-Modified ambiguity here (see UpdateAsync for why that's NOT
+        // true once the promotion is already tracked, e.g. after being loaded for an edit).
         dbContext.Promotions.Add(promotion);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -54,6 +56,7 @@ public class PromotionService(
         var promotion = await dbContext.Promotions
             .Include(p => p.Products)
             .Include(p => p.Categories)
+            .Include(p => p.BundleTiers)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Promotion introuvable.");
 
@@ -64,10 +67,7 @@ public class PromotionService(
         promotion.FixedAmountValue = request.FixedAmountValue;
         promotion.BuyQuantity = request.BuyQuantity;
         promotion.GetQuantity = request.GetQuantity;
-        promotion.BundleQuantity = request.BundleQuantity;
-        promotion.BundleTotalPrice = request.BundleTotalPrice;
         promotion.MinQuantity = request.MinQuantity;
-        promotion.IncludesFreeShipping = request.IncludesFreeShipping;
         promotion.CouponCode = request.CouponCode;
         promotion.StartsAtUtc = request.StartsAtUtc;
         promotion.EndsAtUtc = request.EndsAtUtc;
@@ -79,6 +79,19 @@ public class PromotionService(
         promotion.Categories.Clear();
         ApplyProductAndCategoryLinks(promotion, request.ProductIds, request.CategoryIds);
 
+        // Explicit DbSet remove/add rather than promotion.BundleTiers.Clear()/Add() — for an
+        // already-tracked parent (every update, unlike CreateAsync's brand-new graph),
+        // PromotionBundleTier's client-generated Guid Id makes EF's Added-vs-Modified heuristic
+        // misfire and try to UPDATE a row that was never inserted (same DbUpdateConcurrencyException
+        // class of bug as OrderService.RecalculateTotalsAsync hit with OrderItem/OrderPromotion —
+        // see that method's comment for the full mechanism). Being explicit sidesteps the ambiguity.
+        if (promotion.BundleTiers.Count > 0)
+        {
+            dbContext.PromotionBundleTiers.RemoveRange(promotion.BundleTiers);
+            promotion.BundleTiers.Clear();
+        }
+        ApplyBundleTiers(promotion, request.BundleTiers, addToDbSetDirectly: true);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(promotion.Id, cancellationToken);
@@ -89,6 +102,7 @@ public class PromotionService(
         var promotion = await dbContext.Promotions.AsNoTracking()
             .Include(p => p.Products)
             .Include(p => p.Categories)
+            .Include(p => p.BundleTiers)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Promotion introuvable.");
 
@@ -107,6 +121,7 @@ public class PromotionService(
         var query = dbContext.Promotions.AsNoTracking()
             .Include(p => p.Products)
             .Include(p => p.Categories)
+            .Include(p => p.BundleTiers)
             .AsQueryable();
 
         if (!includeInactive)
@@ -116,28 +131,29 @@ public class PromotionService(
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var items = await query
+        var entities = await query
             .OrderByDescending(p => p.Priority)
             .ThenByDescending(p => p.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(p => ToDto(p))
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<PromotionDto>(items, page, pageSize, totalCount);
+        return new PagedResult<PromotionDto>(entities.Select(ToDto).ToList(), page, pageSize, totalCount);
     }
 
     public async Task<IReadOnlyList<PromotionDto>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 
-        return await dbContext.Promotions.AsNoTracking()
+        var entities = await dbContext.Promotions.AsNoTracking()
             .Include(p => p.Products)
             .Include(p => p.Categories)
+            .Include(p => p.BundleTiers)
             .Where(p => p.IsActive && p.Type != PromotionType.Coupon && p.StartsAtUtc <= now && p.EndsAtUtc >= now)
             .OrderByDescending(p => p.Priority)
-            .Select(p => ToDto(p))
             .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDto).ToList();
     }
 
     private async Task EnsureCouponCodeIsUniqueAsync(string? couponCode, Guid? excludingId, CancellationToken cancellationToken)
@@ -169,6 +185,32 @@ public class PromotionService(
         }
     }
 
+    private void ApplyBundleTiers(Promotion promotion, IReadOnlyList<BundleTierRequest>? tiers, bool addToDbSetDirectly = false)
+    {
+        foreach (var tier in tiers ?? [])
+        {
+            var entity = new PromotionBundleTier
+            {
+                PromotionId = promotion.Id,
+                BundleQuantity = tier.BundleQuantity,
+                BundleTotalPrice = tier.BundleTotalPrice,
+                IncludesFreeShipping = tier.IncludesFreeShipping,
+            };
+
+            // See UpdateAsync's comment: on an already-tracked promotion, add directly to the DbSet
+            // (relationship fixup then populates promotion.BundleTiers automatically) instead of the
+            // collection navigation, to avoid EF's Added-vs-Modified ambiguity for the client-generated Id.
+            if (addToDbSetDirectly)
+            {
+                dbContext.PromotionBundleTiers.Add(entity);
+            }
+            else
+            {
+                promotion.BundleTiers.Add(entity);
+            }
+        }
+    }
+
     private static PromotionDto ToDto(Promotion p) => new(
         p.Id,
         p.Name,
@@ -178,8 +220,6 @@ public class PromotionService(
         p.FixedAmountValue,
         p.BuyQuantity,
         p.GetQuantity,
-        p.BundleQuantity,
-        p.BundleTotalPrice,
         !string.IsNullOrEmpty(p.CouponCode),
         p.StartsAtUtc,
         p.EndsAtUtc,
@@ -188,7 +228,7 @@ public class PromotionService(
         p.Products.Select(pp => pp.ProductId).ToList(),
         p.Categories.Select(pc => pc.CategoryId).ToList(),
         p.MinQuantity,
-        p.IncludesFreeShipping);
+        ToBundleTierDtos(p));
 
     private static PromotionDetailDto ToDetailDto(Promotion p) => new(
         p.Id,
@@ -199,8 +239,6 @@ public class PromotionService(
         p.FixedAmountValue,
         p.BuyQuantity,
         p.GetQuantity,
-        p.BundleQuantity,
-        p.BundleTotalPrice,
         p.CouponCode,
         p.StartsAtUtc,
         p.EndsAtUtc,
@@ -209,5 +247,11 @@ public class PromotionService(
         p.Products.Select(pp => pp.ProductId).ToList(),
         p.Categories.Select(pc => pc.CategoryId).ToList(),
         p.MinQuantity,
-        p.IncludesFreeShipping);
+        ToBundleTierDtos(p));
+
+    private static List<BundleTierDto> ToBundleTierDtos(Promotion p) =>
+        p.BundleTiers
+            .OrderBy(t => t.BundleQuantity)
+            .Select(t => new BundleTierDto(t.Id, t.BundleQuantity, t.BundleTotalPrice, t.IncludesFreeShipping))
+            .ToList();
 }

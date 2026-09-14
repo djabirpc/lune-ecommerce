@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
-import { estimatePrice, findBundleOffers, findFreeShippingThreshold, computeBundlePriceDiscount, estimateCartDiscount } from '../../lib/promotions/estimate';
+import { estimatePrice, findBundleTierOptions, findFreeShippingThreshold, computeBundlePriceDiscount, estimateCartDiscount } from '../../lib/promotions/estimate';
 import { colorToHex } from '../../lib/format/colorSwatch';
 import { useCart } from '../../lib/cart/CartContext';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
@@ -99,11 +99,11 @@ export function ProductPage() {
   const displayedImage = product.images.find((i) => i.id === selectedImageId) ?? primaryImage;
   const basePrice = selectedVariant?.price ?? product.price;
   const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: basePrice }, activePromotions) : null;
-  const bundleOffers = activePromotions ? findBundleOffers(activePromotions, product.id, product.categoryId) : [];
+  const bundleTiers = activePromotions ? findBundleTierOptions(activePromotions, product.id, product.categoryId) : [];
   const freeShippingThreshold = activePromotions
     ? findFreeShippingThreshold(activePromotions, product.id, product.categoryId)
     : undefined;
-  const maxBundleQuantity = bundleOffers.reduce((max, o) => Math.max(max, o.bundleQuantity ?? 0), 0);
+  const maxBundleQuantity = bundleTiers.reduce((max, t) => Math.max(max, t.bundleQuantity), 0);
   // A separate, paired FreeShipping-promotion tier is only worth its own button when it needs more
   // units than every bundle tier already requires — otherwise the free shipping already applies at
   // the same quantity as one of the bundle tiers (or is granted directly via that tier's own
@@ -165,6 +165,14 @@ export function ProductPage() {
   }
 
   function handleTakeOffer(bundleQuantity: number) {
+    // Clicking an already-selected offer deselects it back to quantity 1, instead of being a no-op —
+    // matches the same `quantity === bundleQuantity` check that drives the button's selected look.
+    if (quantity === bundleQuantity) {
+      setOfferQuantity(null);
+      setQuantity(1);
+      setJustAdded(false);
+      return;
+    }
     setOfferQuantity(bundleQuantity);
     setQuantity(selectedVariant ? Math.min(bundleQuantity, selectedVariant.availableQuantity) : bundleQuantity);
     setJustAdded(false);
@@ -264,38 +272,38 @@ export function ProductPage() {
             )}
           </div>
 
-          {bundleOffers.map((offer) => (
+          {bundleTiers.map((tier) => (
             <button
-              key={offer.id}
+              key={tier.tierId}
               type="button"
-              onClick={() => handleTakeOffer(offer.bundleQuantity!)}
-              aria-pressed={quantity === offer.bundleQuantity}
+              onClick={() => handleTakeOffer(tier.bundleQuantity)}
+              aria-pressed={quantity === tier.bundleQuantity}
               className={`mt-3 flex w-full items-center gap-2.5 rounded-sm border px-3 py-2.5 text-start text-sm transition ${
-                quantity === offer.bundleQuantity
+                quantity === tier.bundleQuantity
                   ? 'border-luna-accent bg-luna-rose text-luna-accent-dark'
                   : 'border-black/15 bg-white text-luna-black hover:border-luna-accent/50 hover:bg-luna-rose/40'
               }`}
             >
-              {quantity === offer.bundleQuantity ? (
+              {quantity === tier.bundleQuantity ? (
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-luna-accent" />
               ) : (
                 <Circle className="h-5 w-5 shrink-0 text-luna-charcoal/30" />
               )}
-              {offer.includesFreeShipping ? (
+              {tier.includesFreeShipping ? (
                 <Truck className="h-4 w-4 shrink-0 text-luna-accent" />
               ) : (
                 <Tag className="h-4 w-4 shrink-0 text-luna-accent" />
               )}
               <span className="flex-1">
-                {t(offer.includesFreeShipping ? 'product.bundleOfferWithFreeShipping' : 'product.bundleOffer', {
-                  quantity: offer.bundleQuantity,
-                  price: formatPrice(offer.bundleTotalPrice!),
+                {t(tier.includesFreeShipping ? 'product.bundleOfferWithFreeShipping' : 'product.bundleOffer', {
+                  quantity: tier.bundleQuantity,
+                  price: formatPrice(tier.bundleTotalPrice),
                 })}
               </span>
             </button>
           ))}
 
-          {freeShippingTierQuantity && bundleOffers.length > 0 && (
+          {freeShippingTierQuantity && bundleTiers.length > 0 && (
             <button
               type="button"
               onClick={() => handleTakeOffer(freeShippingTierQuantity)}
@@ -317,10 +325,11 @@ export function ProductPage() {
                   quantity: freeShippingTierQuantity,
                   price: formatPrice(
                     basePrice * freeShippingTierQuantity -
-                      bundleOffers.reduce((best, offer) => {
-                        if (!offer.bundleQuantity || !offer.bundleTotalPrice) return best;
-                        return Math.max(best, computeBundlePriceDiscount(offer.bundleQuantity, offer.bundleTotalPrice, basePrice, freeShippingTierQuantity));
-                      }, 0),
+                      bundleTiers.reduce(
+                        (best, tier) =>
+                          Math.max(best, computeBundlePriceDiscount(tier.bundleQuantity, tier.bundleTotalPrice, basePrice, freeShippingTierQuantity)),
+                        0,
+                      ),
                   ),
                 })}
               </span>

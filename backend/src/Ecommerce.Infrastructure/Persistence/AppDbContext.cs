@@ -33,6 +33,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Promotion> Promotions => Set<Promotion>();
     public DbSet<PromotionProduct> PromotionProducts => Set<PromotionProduct>();
     public DbSet<PromotionCategory> PromotionCategories => Set<PromotionCategory>();
+    public DbSet<PromotionBundleTier> PromotionBundleTiers => Set<PromotionBundleTier>();
 
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
@@ -254,10 +255,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(p => p.Type).HasConversion<string>().HasMaxLength(30);
             entity.Property(p => p.PercentageValue).HasPrecision(5, 2);
             entity.Property(p => p.FixedAmountValue).HasPrecision(10, 2);
-            entity.Property(p => p.BundleTotalPrice).HasPrecision(10, 2);
             entity.Property(p => p.CouponCode).HasMaxLength(50);
             entity.HasIndex(p => p.CouponCode).IsUnique().HasFilter("\"CouponCode\" IS NOT NULL");
             entity.HasIndex(p => new { p.IsActive, p.StartsAtUtc, p.EndsAtUtc });
+        });
+
+        builder.Entity<PromotionBundleTier>(entity =>
+        {
+            entity.ToTable("PromotionBundleTiers");
+            entity.Property(t => t.BundleTotalPrice).HasPrecision(10, 2);
+            entity.HasOne(t => t.Promotion)
+                .WithMany(p => p.BundleTiers)
+                .HasForeignKey(t => t.PromotionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<PromotionProduct>(entity =>

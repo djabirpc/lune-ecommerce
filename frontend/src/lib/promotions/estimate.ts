@@ -94,22 +94,43 @@ export function findFreeShippingThreshold(
     .sort((a, b) => a.minQuantity! - b.minQuantity!)[0];
 }
 
+export interface BundleTierOption {
+  promotionId: string;
+  promotionName: string;
+  tierId: string;
+  bundleQuantity: number;
+  bundleTotalPrice: number;
+  includesFreeShipping: boolean;
+}
+
 /**
- * All active "N for a fixed total price" offers for a product (e.g. "2 pour 1500 DA" AND
- * "4 pour 3000 DA" can coexist), sorted ascending by tier quantity so they render smallest-first.
- * Unlike estimatePrice, this isn't a per-unit price change — it only makes sense with the real
- * quantity/unit-price math the backend applies at checkout (OrderService.ComputeBundlePriceDiscount),
- * so each tier is surfaced as its own informational banner rather than folded into the product-card badge.
+ * Every active "N for a fixed total price" tier for a product, flattened across every active
+ * BundlePrice promotion scoped to it (a single promotion can itself have several tiers, e.g.
+ * "2 pour 1500 DA" AND "4 pour 3000 DA" together), sorted ascending by tier quantity so they render
+ * smallest-first. Unlike estimatePrice, this isn't a per-unit price change — it only makes sense with
+ * the real quantity/unit-price math the backend applies at checkout
+ * (OrderService.ComputeBundleTierDiscount), so each tier is surfaced as its own informational banner
+ * rather than folded into the product-card badge.
  */
-export function findBundleOffers(
+export function findBundleTierOptions(
   activePromotions: PromotionDto[],
   productId: string,
   categoryId: string,
-): PromotionDto[] {
+): BundleTierOption[] {
   return activePromotions
-    .filter((p) => p.type === 'BundlePrice' && p.bundleQuantity && p.bundleTotalPrice)
+    .filter((p) => p.type === 'BundlePrice')
     .filter((p) => isScopedTo(p, productId, categoryId))
-    .sort((a, b) => a.bundleQuantity! - b.bundleQuantity!);
+    .flatMap((p) =>
+      p.bundleTiers.map((t) => ({
+        promotionId: p.id,
+        promotionName: p.name,
+        tierId: t.id,
+        bundleQuantity: t.bundleQuantity,
+        bundleTotalPrice: t.bundleTotalPrice,
+        includesFreeShipping: t.includesFreeShipping,
+      })),
+    )
+    .sort((a, b) => a.bundleQuantity - b.bundleQuantity);
 }
 
 /**
@@ -164,8 +185,13 @@ function computeLineDiscount(promotion: PromotionDto, item: CartItem): number {
   }
 
   if (promotion.type === 'BundlePrice') {
-    if (!promotion.bundleQuantity || !promotion.bundleTotalPrice) return 0;
-    return computeBundlePriceDiscount(promotion.bundleQuantity, promotion.bundleTotalPrice, item.unitPrice, item.quantity);
+    // Best tier within this promotion for the actual quantity — mirrors
+    // OrderService.ComputeBestBundleTierDiscount (several tiers, e.g. "2 for 1500" and "4 for 3000",
+    // can belong to the same promotion).
+    return promotion.bundleTiers.reduce(
+      (best, tier) => Math.max(best, computeBundlePriceDiscount(tier.bundleQuantity, tier.bundleTotalPrice, item.unitPrice, item.quantity)),
+      0,
+    );
   }
 
   const lineTotal = item.unitPrice * item.quantity;

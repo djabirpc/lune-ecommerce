@@ -517,6 +517,19 @@ export type PromotionType =
   | 'Coupon'
   | 'BundlePrice';
 
+export interface BundleTierDto {
+  id: string;
+  bundleQuantity: number;
+  bundleTotalPrice: number;
+  includesFreeShipping: boolean;
+}
+
+export interface BundleTierRequest {
+  bundleQuantity: number;
+  bundleTotalPrice: number;
+  includesFreeShipping: boolean;
+}
+
 export interface PromotionDto {
   id: string;
   name: string;
@@ -526,8 +539,6 @@ export interface PromotionDto {
   fixedAmountValue: number | null;
   buyQuantity: number | null;
   getQuantity: number | null;
-  bundleQuantity: number | null;
-  bundleTotalPrice: number | null;
   hasCouponCode: boolean;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -536,7 +547,7 @@ export interface PromotionDto {
   productIds: string[];
   categoryIds: string[];
   minQuantity: number | null;
-  includesFreeShipping: boolean;
+  bundleTiers: BundleTierDto[];
 }
 
 export interface PromotionDetailDto {
@@ -548,8 +559,6 @@ export interface PromotionDetailDto {
   fixedAmountValue: number | null;
   buyQuantity: number | null;
   getQuantity: number | null;
-  bundleQuantity: number | null;
-  bundleTotalPrice: number | null;
   couponCode: string | null;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -558,7 +567,7 @@ export interface PromotionDetailDto {
   productIds: string[];
   categoryIds: string[];
   minQuantity: number | null;
-  includesFreeShipping: boolean;
+  bundleTiers: BundleTierDto[];
 }
 
 export interface SavePromotionRequest {
@@ -569,8 +578,6 @@ export interface SavePromotionRequest {
   fixedAmountValue: number | null;
   buyQuantity: number | null;
   getQuantity: number | null;
-  bundleQuantity: number | null;
-  bundleTotalPrice: number | null;
   couponCode: string | null;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -579,5 +586,5 @@ export interface SavePromotionRequest {
   productIds: string[];
   categoryIds: string[];
   minQuantity: number | null;
-  includesFreeShipping: boolean;
+  bundleTiers: BundleTierRequest[];
 }

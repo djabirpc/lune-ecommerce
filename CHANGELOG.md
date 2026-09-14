@@ -1,5 +1,21 @@
 # Changelog
 
+## [2026-09-14] (on `dev` branch) (16)
+
+### Changed
+- **BundlePrice promotions now hold multiple tiers directly** (new `PromotionBundleTier` entity, `Promotion.BundleTiers` collection) instead of one promotion per tier — admin can now build "2 pour 1500 DA" + "4 pour 3000 DA + livraison gratuite" as ONE promotion via a repeatable "+ Ajouter un lot" tier list, each row with its own free-shipping checkbox. Migration `AddPromotionBundleTiers` (drops the old flat `BundleQuantity`/`BundleTotalPrice`/`IncludesFreeShipping` columns from `Promotions`, adds the `PromotionBundleTiers` table).
+- Product page bundle-tier buttons can now be deselected — clicking an already-selected tier resets the quantity back to 1.
+
+### Fixed
+- Admin Confirmation Center action buttons ("Confirmer", "Marquer injoignable", "Annuler") no longer visually reorder after clicking "Marquer injoignable" — `ALLOWED_TRANSITIONS.CustomerUnreachable`'s array order (which drives button render order) now matches `PendingConfirmation`'s.
+
+### Notes
+- Hit the same EF Core Added-vs-Modified bug (client-generated `Guid` Id on a child added to an already-tracked parent) documented in part 14, now in `PromotionService.UpdateAsync`'s tier replacement — same fix (explicit `DbSet.RemoveRange`/`Add` instead of collection-navigation `.Clear()`/`.Add()`).
+- Discovered `npx tsc --noEmit` silently checks nothing in this frontend without `-p tsconfig.app.json` (solution-style root tsconfig) — saved to memory, use the `-p` flag going forward.
+- 4 new backend tests; suite grew to 195/195 (67 unit + 128 integration).
+- Verified end-to-end via headless browser: multi-tier admin form (add/edit/reload), storefront tier select/deselect, Confirmation Center button order after a status change.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-14] (on `dev` branch) (15)
 
 ### Added

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { promotionsApi } from '../../lib/api/promotions';
 import { catalogApi } from '../../lib/api/catalog';
 import { ApiError } from '../../lib/api/client';
-import type { PromotionDetailDto, PromotionType, SavePromotionRequest } from '../../lib/api/types';
+import type { BundleTierRequest, PromotionDetailDto, PromotionType, SavePromotionRequest } from '../../lib/api/types';
 import { PROMOTION_TYPE_LABELS } from '../../lib/format/promotionLabels';
 import { formatPrice } from '../../lib/format/price';
 
@@ -28,6 +28,16 @@ function toDateTimeLocal(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+interface BundleTierFormRow {
+  quantity: string;
+  totalPrice: string;
+  includesFreeShipping: boolean;
+}
+
+function emptyBundleTierRow(): BundleTierFormRow {
+  return { quantity: '', totalPrice: '', includesFreeShipping: false };
+}
+
 interface FormState {
   name: string;
   description: string;
@@ -36,10 +46,8 @@ interface FormState {
   fixedAmountValue: string;
   buyQuantity: string;
   getQuantity: string;
-  bundleQuantity: string;
-  bundleTotalPrice: string;
+  bundleTiers: BundleTierFormRow[];
   minQuantity: string;
-  includesFreeShipping: boolean;
   couponCode: string;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -60,10 +68,8 @@ function emptyForm(): FormState {
     fixedAmountValue: '',
     buyQuantity: '',
     getQuantity: '',
-    bundleQuantity: '',
-    bundleTotalPrice: '',
+    bundleTiers: [emptyBundleTierRow()],
     minQuantity: '',
-    includesFreeShipping: false,
     couponCode: '',
     startsAtUtc: toDateTimeLocal(now.toISOString()),
     endsAtUtc: toDateTimeLocal(inAWeek.toISOString()),
@@ -83,10 +89,15 @@ function toFormState(p: PromotionDetailDto): FormState {
     fixedAmountValue: p.fixedAmountValue?.toString() ?? '',
     buyQuantity: p.buyQuantity?.toString() ?? '',
     getQuantity: p.getQuantity?.toString() ?? '',
-    bundleQuantity: p.bundleQuantity?.toString() ?? '',
-    bundleTotalPrice: p.bundleTotalPrice?.toString() ?? '',
+    bundleTiers:
+      p.bundleTiers.length > 0
+        ? p.bundleTiers.map((t) => ({
+            quantity: t.bundleQuantity.toString(),
+            totalPrice: t.bundleTotalPrice.toString(),
+            includesFreeShipping: t.includesFreeShipping,
+          }))
+        : [emptyBundleTierRow()],
     minQuantity: p.minQuantity?.toString() ?? '',
-    includesFreeShipping: p.includesFreeShipping,
     couponCode: p.couponCode ?? '',
     startsAtUtc: toDateTimeLocal(p.startsAtUtc),
     endsAtUtc: toDateTimeLocal(p.endsAtUtc),
@@ -106,10 +117,19 @@ function toRequest(form: FormState): SavePromotionRequest {
     fixedAmountValue: form.fixedAmountValue ? Number(form.fixedAmountValue) : null,
     buyQuantity: form.buyQuantity ? Number(form.buyQuantity) : null,
     getQuantity: form.getQuantity ? Number(form.getQuantity) : null,
-    bundleQuantity: form.bundleQuantity ? Number(form.bundleQuantity) : null,
-    bundleTotalPrice: form.bundleTotalPrice ? Number(form.bundleTotalPrice) : null,
+    bundleTiers:
+      form.type === 'BundlePrice'
+        ? form.bundleTiers
+            .filter((t) => t.quantity && t.totalPrice)
+            .map(
+              (t): BundleTierRequest => ({
+                bundleQuantity: Number(t.quantity),
+                bundleTotalPrice: Number(t.totalPrice),
+                includesFreeShipping: t.includesFreeShipping,
+              }),
+            )
+        : [],
     minQuantity: form.minQuantity ? Number(form.minQuantity) : null,
-    includesFreeShipping: form.type === 'BundlePrice' && form.includesFreeShipping,
     couponCode: form.couponCode || null,
     startsAtUtc: new Date(form.startsAtUtc).toISOString(),
     endsAtUtc: new Date(form.endsAtUtc).toISOString(),
@@ -276,44 +296,73 @@ export function PromotionsPage() {
             )}
 
             {form.type === 'BundlePrice' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium">Quantité du lot</label>
-                  <input
-                    type="number"
-                    min={2}
-                    value={form.bundleQuantity}
-                    onChange={(e) => setForm({ ...form, bundleQuantity: e.target.value })}
-                    placeholder="ex. 2"
-                    className="w-full rounded border border-black/20 px-2 py-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium">Prix du lot (DA)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.bundleTotalPrice}
-                    onChange={(e) => setForm({ ...form, bundleTotalPrice: e.target.value })}
-                    placeholder="ex. 1500"
-                    className="w-full rounded border border-black/20 px-2 py-1 text-sm"
-                  />
-                </div>
-                <p className="col-span-2 text-[11px] text-luna-charcoal/50">
-                  Ex. : quantité 2, prix 1500 DA → "2 articles achetés = 1500 DA" au lieu du prix normal.
-                </p>
-                <label className="col-span-2 flex items-center gap-2 text-xs font-medium">
-                  <input
-                    type="checkbox"
-                    checked={form.includesFreeShipping}
-                    onChange={(e) => setForm({ ...form, includesFreeShipping: e.target.checked })}
-                  />
-                  Livraison gratuite incluse avec ce palier
-                </label>
-                <p className="col-span-2 text-[11px] text-luna-charcoal/50">
-                  Plusieurs offres de lot peuvent coexister sur le même produit (ex. "2 pour 1500 DA" et
-                  "4 pour 3000 DA + livraison gratuite") — le client obtient automatiquement le palier le
-                  plus avantageux selon la quantité dans son panier.
+              <div className="flex flex-col gap-2">
+                <label className="block text-xs font-medium">Paliers du lot</label>
+                {form.bundleTiers.map((tier, index) => (
+                  <div key={index} className="flex flex-wrap items-center gap-2 rounded border border-black/10 p-2">
+                    <input
+                      type="number"
+                      min={2}
+                      value={tier.quantity}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          bundleTiers: form.bundleTiers.map((t, i) => (i === index ? { ...t, quantity: e.target.value } : t)),
+                        })
+                      }
+                      placeholder="Quantité (ex. 2)"
+                      className="w-28 rounded border border-black/20 px-2 py-1 text-sm"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={tier.totalPrice}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          bundleTiers: form.bundleTiers.map((t, i) => (i === index ? { ...t, totalPrice: e.target.value } : t)),
+                        })
+                      }
+                      placeholder="Prix du lot (ex. 1500)"
+                      className="w-36 rounded border border-black/20 px-2 py-1 text-sm"
+                    />
+                    <label className="flex items-center gap-1.5 text-xs font-medium">
+                      <input
+                        type="checkbox"
+                        checked={tier.includesFreeShipping}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            bundleTiers: form.bundleTiers.map((t, i) =>
+                              i === index ? { ...t, includesFreeShipping: e.target.checked } : t,
+                            ),
+                          })
+                        }
+                      />
+                      Livraison gratuite
+                    </label>
+                    {form.bundleTiers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, bundleTiers: form.bundleTiers.filter((_, i) => i !== index) })}
+                        className="ml-auto text-xs text-red-600 underline"
+                      >
+                        Retirer
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, bundleTiers: [...form.bundleTiers, emptyBundleTierRow()] })}
+                  className="w-fit text-xs font-medium text-luna-accent-dark underline"
+                >
+                  + Ajouter un lot
+                </button>
+                <p className="text-[11px] text-luna-charcoal/50">
+                  Ex. : "2 pour 1500 DA" et "4 pour 3000 DA + livraison gratuite" peuvent coexister sur le
+                  même produit — le client obtient automatiquement le palier le plus avantageux selon la
+                  quantité dans son panier.
                 </p>
               </div>
             )}
@@ -519,7 +568,7 @@ export function PromotionsPage() {
                     {p.name}{' '}
                     <span className="rounded-full bg-luna-cream px-2 py-0.5 text-xs">{PROMOTION_TYPE_LABELS[p.type]}</span>
                     {!p.isActive && <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">Inactive</span>}
-                    {p.includesFreeShipping && (
+                    {p.bundleTiers.some((t) => t.includesFreeShipping) && (
                       <span className="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                         + livraison gratuite
                       </span>
@@ -528,8 +577,8 @@ export function PromotionsPage() {
                   <p className="text-xs text-luna-charcoal/60">
                     {p.percentageValue
                       ? `${p.percentageValue}%`
-                      : p.type === 'BundlePrice' && p.bundleQuantity && p.bundleTotalPrice
-                        ? `${p.bundleQuantity} pour ${formatPrice(p.bundleTotalPrice)}`
+                      : p.type === 'BundlePrice' && p.bundleTiers.length > 0
+                        ? p.bundleTiers.map((t) => `${t.bundleQuantity} pour ${formatPrice(t.bundleTotalPrice)}`).join(' · ')
                         : p.fixedAmountValue
                           ? formatPrice(p.fixedAmountValue)
                           : ''}

@@ -17,8 +17,6 @@ public class SavePromotionRequestValidatorTests
         null,
         null,
         null,
-        null,
-        null,
         DateTime.UtcNow,
         DateTime.UtcNow.AddDays(7),
         true,
@@ -124,8 +122,7 @@ public class SavePromotionRequestValidatorTests
         {
             Type = PromotionType.BundlePrice,
             PercentageValue = null,
-            BundleQuantity = 1,
-            BundleTotalPrice = 900m,
+            BundleTiers = [new BundleTierRequest(1, 900m, false)],
         };
 
         var result = await _validator.ValidateAsync(request);
@@ -140,8 +137,7 @@ public class SavePromotionRequestValidatorTests
         {
             Type = PromotionType.BundlePrice,
             PercentageValue = null,
-            BundleQuantity = 2,
-            BundleTotalPrice = 1500m,
+            BundleTiers = [new BundleTierRequest(2, 1500m, false)],
         };
 
         var result = await _validator.ValidateAsync(request);
@@ -156,14 +152,45 @@ public class SavePromotionRequestValidatorTests
         {
             Type = PromotionType.BundlePrice,
             PercentageValue = null,
-            BundleQuantity = 2,
-            BundleTotalPrice = 1500m,
+            BundleTiers = [new BundleTierRequest(2, 1500m, false)],
             ProductIds = [Guid.NewGuid()],
         };
 
         var result = await _validator.ValidateAsync(request);
 
         Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task BundlePrice_WithMultipleTiers_PassesValidation()
+    {
+        var request = ValidPercentageRequest() with
+        {
+            Type = PromotionType.BundlePrice,
+            PercentageValue = null,
+            BundleTiers = [new BundleTierRequest(2, 1900m, false), new BundleTierRequest(4, 3200m, true)],
+            ProductIds = [Guid.NewGuid()],
+        };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task BundlePrice_WithATierWithZeroTotalPrice_FailsValidation()
+    {
+        var request = ValidPercentageRequest() with
+        {
+            Type = PromotionType.BundlePrice,
+            PercentageValue = null,
+            BundleTiers = [new BundleTierRequest(2, 1500m, false), new BundleTierRequest(4, 0m, false)],
+            ProductIds = [Guid.NewGuid()],
+        };
+
+        var result = await _validator.ValidateAsync(request);
+
+        Assert.False(result.IsValid);
     }
 
     [Fact]

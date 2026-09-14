@@ -5,8 +5,11 @@ import type { OrderStatus } from '../api/types';
 export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PendingConfirmation: ['Confirmed', 'CustomerUnreachable', 'Cancelled'],
   // Self-transition, deliberate — lets an agent mark "still unreachable" repeatedly after each
-  // follow-up call; each click appends a fresh entry to the order's status history.
-  CustomerUnreachable: ['Confirmed', 'Cancelled', 'CustomerUnreachable'],
+  // follow-up call; each click appends a fresh entry to the order's status history. Order matches
+  // PendingConfirmation's (Confirmed, CustomerUnreachable, Cancelled) on purpose — this array drives
+  // the action button render order on OrderDetailPage, and the buttons must stay in a fixed position
+  // across a Confirm/Unreachable/Cancel call flow instead of visually reshuffling after each click.
+  CustomerUnreachable: ['Confirmed', 'CustomerUnreachable', 'Cancelled'],
   Confirmed: ['Preparing', 'Cancelled'],
   Preparing: ['ReadyToShip', 'Cancelled'],
   ReadyToShip: ['Shipped', 'Cancelled'],
