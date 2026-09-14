@@ -618,29 +618,44 @@ public class OrderService(
 
         var appliedTotals = new Dictionary<Guid, (string Name, decimal Amount)>();
         var discountTotal = 0m;
+        Promotion? bundleFreeShippingPromotion = null;
 
         foreach (var item in items)
         {
             var variant = variantsById[item.ProductVariantId];
-            var applicable = candidates
+            var scoped = candidates
                 .Where(p => p.Type != PromotionType.FreeShipping)
                 .Where(p => IsScopedTo(p, variant.ProductId, variant.Product.CategoryId))
-                .OrderByDescending(p => p.Priority)
+                .ToList();
+
+            if (scoped.Count == 0)
+            {
+                continue;
+            }
+
+            // Best discount for the actual quantity — not simply highest Priority — so multiple
+            // BundlePrice tiers can coexist on the same product (e.g. "2 for 1500" and "4 for 3000")
+            // and the customer's cart automatically gets whichever tier fits their quantity best.
+            // Priority only breaks ties when two promotions give the exact same discount.
+            var best = scoped
+                .Select(p => (Promotion: p, Discount: ComputeItemDiscount(p, item)))
+                .Where(x => x.Discount > 0)
+                .OrderByDescending(x => x.Discount)
+                .ThenByDescending(x => x.Promotion.Priority)
                 .FirstOrDefault();
 
-            if (applicable is null)
+            if (best.Promotion is null)
             {
                 continue;
             }
 
-            var discount = ComputeItemDiscount(applicable, item);
-            if (discount <= 0)
-            {
-                continue;
-            }
+            discountTotal += best.Discount;
+            Accumulate(appliedTotals, best.Promotion.Id, best.Promotion.Name, best.Discount);
 
-            discountTotal += discount;
-            Accumulate(appliedTotals, applicable.Id, applicable.Name, discount);
+            if (best.Promotion is { Type: PromotionType.BundlePrice, IncludesFreeShipping: true })
+            {
+                bundleFreeShippingPromotion ??= best.Promotion;
+            }
         }
 
         var freeShipping = candidates
@@ -649,11 +664,20 @@ public class OrderService(
             .OrderByDescending(p => p.Priority)
             .FirstOrDefault();
 
+        // A dedicated FreeShipping promotion (if eligible) takes precedence over a bundle tier that
+        // merely includes free shipping — both waive the same shipping cost, so there's nothing to
+        // stack, just pick whichever is already resolved as "the" free shipping grant.
+        var freeShippingGrant = freeShipping is not null
+            ? (freeShipping.Id, freeShipping.Name)
+            : bundleFreeShippingPromotion is not null
+                ? (bundleFreeShippingPromotion.Id, bundleFreeShippingPromotion.Name)
+                : ((Guid Id, string Name)?)null;
+
         var finalShippingCost = shippingCost;
-        if (freeShipping is not null && shippingCost > 0)
+        if (freeShippingGrant is not null && shippingCost > 0)
         {
             discountTotal += shippingCost;
-            Accumulate(appliedTotals, freeShipping.Id, freeShipping.Name, shippingCost);
+            Accumulate(appliedTotals, freeShippingGrant.Value.Id, freeShippingGrant.Value.Name, shippingCost);
             finalShippingCost = 0m;
         }
 

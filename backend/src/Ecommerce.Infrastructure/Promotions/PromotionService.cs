@@ -30,6 +30,7 @@ public class PromotionService(
             BundleQuantity = request.BundleQuantity,
             BundleTotalPrice = request.BundleTotalPrice,
             MinQuantity = request.MinQuantity,
+            IncludesFreeShipping = request.IncludesFreeShipping,
             CouponCode = request.CouponCode,
             StartsAtUtc = request.StartsAtUtc,
             EndsAtUtc = request.EndsAtUtc,
@@ -66,6 +67,7 @@ public class PromotionService(
         promotion.BundleQuantity = request.BundleQuantity;
         promotion.BundleTotalPrice = request.BundleTotalPrice;
         promotion.MinQuantity = request.MinQuantity;
+        promotion.IncludesFreeShipping = request.IncludesFreeShipping;
         promotion.CouponCode = request.CouponCode;
         promotion.StartsAtUtc = request.StartsAtUtc;
         promotion.EndsAtUtc = request.EndsAtUtc;
@@ -185,7 +187,8 @@ public class PromotionService(
         p.Priority,
         p.Products.Select(pp => pp.ProductId).ToList(),
         p.Categories.Select(pc => pc.CategoryId).ToList(),
-        p.MinQuantity);
+        p.MinQuantity,
+        p.IncludesFreeShipping);
 
     private static PromotionDetailDto ToDetailDto(Promotion p) => new(
         p.Id,
@@ -205,5 +208,6 @@ public class PromotionService(
         p.Priority,
         p.Products.Select(pp => pp.ProductId).ToList(),
         p.Categories.Select(pc => pc.CategoryId).ToList(),
-        p.MinQuantity);
+        p.MinQuantity,
+        p.IncludesFreeShipping);
 }

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
-import { estimatePrice, findBundleOffer, findFreeShippingThreshold, computeBundlePriceDiscount } from '../../lib/promotions/estimate';
+import { estimatePrice, findBundleOffers, findFreeShippingThreshold, computeBundlePriceDiscount, estimateCartDiscount } from '../../lib/promotions/estimate';
 import { colorToHex } from '../../lib/format/colorSwatch';
 import { useCart } from '../../lib/cart/CartContext';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
@@ -48,14 +48,19 @@ export function ProductPage() {
   const [justAdded, setJustAdded] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
-  const colors = useMemo(
-    () => [...new Set((product?.variants ?? []).filter((v) => v.isActive).map((v) => v.color))],
-    [product],
+  const activeVariants = useMemo(() => (product?.variants ?? []).filter((v) => v.isActive), [product]);
+  const colors = useMemo(() => [...new Set(activeVariants.map((v) => v.color))], [activeVariants]);
+  const sizes = useMemo(() => [...new Set(activeVariants.map((v) => v.size))], [activeVariants]);
+  // Colors/sizes are shown together (not sequentially gated behind picking a color first) — a color
+  // is only disabled once a size is already picked and no active variant combines the two, and vice
+  // versa, so the customer can start from either axis and still see every option at once.
+  const availableSizesForColor = useMemo(
+    () => new Set(activeVariants.filter((v) => v.color === selectedColor).map((v) => v.size)),
+    [activeVariants, selectedColor],
   );
-  const sizesForColor = useMemo(
-    () =>
-      [...new Set((product?.variants ?? []).filter((v) => v.isActive && v.color === selectedColor).map((v) => v.size))],
-    [product, selectedColor],
+  const availableColorsForSize = useMemo(
+    () => new Set(activeVariants.filter((v) => v.size === selectedSize).map((v) => v.color)),
+    [activeVariants, selectedSize],
   );
   const selectedVariant = useMemo(
     () => product?.variants.find((v) => v.color === selectedColor && v.size === selectedSize) ?? null,
@@ -94,35 +99,67 @@ export function ProductPage() {
   const displayedImage = product.images.find((i) => i.id === selectedImageId) ?? primaryImage;
   const basePrice = selectedVariant?.price ?? product.price;
   const estimate = activePromotions ? estimatePrice({ id: product.id, categoryId: product.categoryId, price: basePrice }, activePromotions) : null;
-  const bundleOffer = activePromotions ? findBundleOffer(activePromotions, product.id, product.categoryId) : undefined;
+  const bundleOffers = activePromotions ? findBundleOffers(activePromotions, product.id, product.categoryId) : [];
   const freeShippingThreshold = activePromotions
     ? findFreeShippingThreshold(activePromotions, product.id, product.categoryId)
     : undefined;
-  // A second, higher-quantity tier is only worth its own button when it needs more units than the
-  // base bundle already requires (e.g. "2 for 1500 DA" + "4 items also ships free") — otherwise the
-  // free shipping already applies at the same quantity as the first tier and needs no separate pick.
+  const maxBundleQuantity = bundleOffers.reduce((max, o) => Math.max(max, o.bundleQuantity ?? 0), 0);
+  // A separate, paired FreeShipping-promotion tier is only worth its own button when it needs more
+  // units than every bundle tier already requires — otherwise the free shipping already applies at
+  // the same quantity as one of the bundle tiers (or is granted directly via that tier's own
+  // includesFreeShipping flag) and needs no separate pick.
   const freeShippingTierQuantity =
-    bundleOffer?.bundleQuantity && freeShippingThreshold?.minQuantity && freeShippingThreshold.minQuantity > bundleOffer.bundleQuantity
+    freeShippingThreshold?.minQuantity && freeShippingThreshold.minQuantity > maxBundleQuantity
       ? freeShippingThreshold.minQuantity
       : null;
   const unitPrice = estimate ? estimate.discountedPrice : basePrice;
-  const bundleDiscount =
-    bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice
-      ? computeBundlePriceDiscount(bundleOffer.bundleQuantity, bundleOffer.bundleTotalPrice, basePrice, quantity)
-      : 0;
-  const displayTotal = unitPrice * quantity - bundleDiscount;
+  // Best discount for the selected quantity across EVERY applicable promotion type (percentage/
+  // fixed/BuyXGetY/BundlePrice), reusing estimateCartDiscount's dispatch — mirrors the backend's
+  // per-line best-discount-for-the-quantity selection (OrderService.CalculatePromotionsAsync) exactly.
+  // Deliberately NOT unitPrice * quantity - bundleDiscount: unitPrice may already have a percentage
+  // discount baked in (via `estimate` above), and only one promotion ever applies per line at
+  // checkout — subtracting a separate bundle discount on top of that would double-count.
+  const bestLineDiscount = activePromotions
+    ? estimateCartDiscount(
+        [
+          {
+            variantId: selectedVariant?.id ?? '',
+            productId: product.id,
+            categoryId: product.categoryId,
+            productSlug: product.slug,
+            productName: product.name,
+            color: selectedVariant?.color ?? '',
+            size: selectedVariant?.size ?? '',
+            sku: selectedVariant?.sku ?? '',
+            unitPrice: basePrice,
+            quantity,
+            imageUrl: null,
+            availableQuantity: selectedVariant?.availableQuantity ?? 0,
+          },
+        ],
+        activePromotions,
+      ).discountTotal
+    : 0;
+  const displayTotal = basePrice * quantity - bestLineDiscount;
   const fav = isFavorite(product.id);
   const related = (relatedProducts?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
   function handleColorSelect(color: string) {
     setSelectedColor(color);
-    setSelectedSize(null);
+    // Only clear the current size if it's incompatible with the newly picked color — keeps a
+    // still-valid size selected instead of always resetting it (the two axes are picked independently now).
+    if (selectedSize && !activeVariants.some((v) => v.color === color && v.size === selectedSize)) {
+      setSelectedSize(null);
+    }
     setQuantity(offerQuantity ?? 1);
     setJustAdded(false);
   }
 
   function handleSizeSelect(size: string) {
     setSelectedSize(size);
+    if (selectedColor && !activeVariants.some((v) => v.size === size && v.color === selectedColor)) {
+      setSelectedColor(null);
+    }
     setQuantity(offerQuantity ?? 1);
     setJustAdded(false);
   }
@@ -227,33 +264,38 @@ export function ProductPage() {
             )}
           </div>
 
-          {bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice && (
+          {bundleOffers.map((offer) => (
             <button
+              key={offer.id}
               type="button"
-              onClick={() => handleTakeOffer(bundleOffer.bundleQuantity!)}
-              aria-pressed={quantity === bundleOffer.bundleQuantity}
+              onClick={() => handleTakeOffer(offer.bundleQuantity!)}
+              aria-pressed={quantity === offer.bundleQuantity}
               className={`mt-3 flex w-full items-center gap-2.5 rounded-sm border px-3 py-2.5 text-start text-sm transition ${
-                quantity === bundleOffer.bundleQuantity
+                quantity === offer.bundleQuantity
                   ? 'border-luna-accent bg-luna-rose text-luna-accent-dark'
                   : 'border-black/15 bg-white text-luna-black hover:border-luna-accent/50 hover:bg-luna-rose/40'
               }`}
             >
-              {quantity === bundleOffer.bundleQuantity ? (
+              {quantity === offer.bundleQuantity ? (
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-luna-accent" />
               ) : (
                 <Circle className="h-5 w-5 shrink-0 text-luna-charcoal/30" />
               )}
-              <Tag className="h-4 w-4 shrink-0 text-luna-accent" />
+              {offer.includesFreeShipping ? (
+                <Truck className="h-4 w-4 shrink-0 text-luna-accent" />
+              ) : (
+                <Tag className="h-4 w-4 shrink-0 text-luna-accent" />
+              )}
               <span className="flex-1">
-                {t('product.bundleOffer', {
-                  quantity: bundleOffer.bundleQuantity,
-                  price: formatPrice(bundleOffer.bundleTotalPrice),
+                {t(offer.includesFreeShipping ? 'product.bundleOfferWithFreeShipping' : 'product.bundleOffer', {
+                  quantity: offer.bundleQuantity,
+                  price: formatPrice(offer.bundleTotalPrice!),
                 })}
               </span>
             </button>
-          )}
+          ))}
 
-          {bundleOffer && bundleOffer.bundleQuantity && bundleOffer.bundleTotalPrice && freeShippingTierQuantity && (
+          {freeShippingTierQuantity && bundleOffers.length > 0 && (
             <button
               type="button"
               onClick={() => handleTakeOffer(freeShippingTierQuantity)}
@@ -275,7 +317,10 @@ export function ProductPage() {
                   quantity: freeShippingTierQuantity,
                   price: formatPrice(
                     basePrice * freeShippingTierQuantity -
-                      computeBundlePriceDiscount(bundleOffer.bundleQuantity, bundleOffer.bundleTotalPrice, basePrice, freeShippingTierQuantity),
+                      bundleOffers.reduce((best, offer) => {
+                        if (!offer.bundleQuantity || !offer.bundleTotalPrice) return best;
+                        return Math.max(best, computeBundlePriceDiscount(offer.bundleQuantity, offer.bundleTotalPrice, basePrice, freeShippingTierQuantity));
+                      }, 0),
                   ),
                 })}
               </span>
@@ -287,35 +332,49 @@ export function ProductPage() {
           <div className="mt-6">
             <p className="eyebrow mb-2">{selectedColor ? t('product.colorWithValue', { color: selectedColor }) : t('product.color')}</p>
             <div className="flex flex-wrap gap-2">
-              {colors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => handleColorSelect(color)}
-                  title={color}
-                  className={`h-9 w-9 rounded-full border-2 ${selectedColor === color ? 'border-luna-black' : 'border-black/15'}`}
-                  style={{ backgroundColor: colorToHex(color) }}
-                />
-              ))}
+              {colors.map((color) => {
+                const disabled = Boolean(selectedSize) && !availableColorsForSize.has(color);
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => handleColorSelect(color)}
+                    title={color}
+                    className={`h-9 w-9 rounded-full border-2 transition-opacity ${
+                      selectedColor === color ? 'border-luna-black' : 'border-black/15'
+                    } ${disabled ? 'cursor-not-allowed opacity-25' : ''}`}
+                    style={{ backgroundColor: colorToHex(color) }}
+                  />
+                );
+              })}
             </div>
           </div>
 
-          {selectedColor && (
+          {sizes.length > 0 && (
             <div className="mt-6">
               <p className="eyebrow mb-2">{t('product.size')}</p>
               <div className="flex flex-wrap gap-2">
-                {sizesForColor.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => handleSizeSelect(size)}
-                    className={`h-11 min-w-14 rounded-sm border text-sm transition-colors ${
-                      selectedSize === size ? 'border-luna-black bg-luna-black text-white' : 'border-black/15 hover:bg-luna-cream-dark'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {sizes.map((size) => {
+                  const disabled = Boolean(selectedColor) && !availableSizesForColor.has(size);
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleSizeSelect(size)}
+                      className={`h-11 min-w-14 rounded-sm border text-sm transition-colors ${
+                        selectedSize === size
+                          ? 'border-luna-black bg-luna-black text-white'
+                          : disabled
+                            ? 'cursor-not-allowed border-black/10 text-luna-charcoal/30'
+                            : 'border-black/15 hover:bg-luna-cream-dark'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
               {selectedVariant && selectedVariant.availableQuantity > 0 && selectedVariant.availableQuantity <= 3 && (
                 <p className="mt-2 text-xs text-luna-accent">{t('product.lowStock', { count: selectedVariant.availableQuantity })}</p>

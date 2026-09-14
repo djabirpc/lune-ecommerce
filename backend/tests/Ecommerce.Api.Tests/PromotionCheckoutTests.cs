@@ -338,9 +338,15 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         Assert.Empty(order.AppliedPromotions);
     }
 
-    private async Task<PromotionDetailDto> CreateBundlePricePromotionAsync(HttpClient adminClient, Guid productId, int bundleQuantity, decimal bundleTotalPrice) =>
+    private async Task<PromotionDetailDto> CreateBundlePricePromotionAsync(
+        HttpClient adminClient,
+        Guid productId,
+        int bundleQuantity,
+        decimal bundleTotalPrice,
+        string name = "Offre lot",
+        bool includesFreeShipping = false) =>
         await CreatePromotionAsync(adminClient, new SavePromotionRequest(
-            "Offre lot",
+            name,
             null,
             PromotionType.BundlePrice,
             null,
@@ -355,7 +361,8 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
             true,
             0,
             [productId],
-            []));
+            [],
+            IncludesFreeShipping: includesFreeShipping));
 
     [Fact]
     public async Task BundlePrice_CompleteBundle_ChargesBundlePrice()
@@ -598,5 +605,47 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
         var categoryPromo = active.Single(p => p.Name == "Promo catégorie scoping");
         Assert.Contains(categoryId, categoryPromo.CategoryIds);
         Assert.Empty(categoryPromo.ProductIds);
+    }
+
+    [Fact]
+    public async Task MultipleBundleTiers_CoexistAndPickBestDiscountForQuantity()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(20, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        // "2 for 1900" (100 DA off per bundle) and "4 for 3200" (800 DA off per bundle) coexist on
+        // the same product — previously only the second-created promotion would ever apply.
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1900m, name: "Lot de 2");
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 4, bundleTotalPrice: 3200m, name: "Lot de 4");
+
+        // Quantity 4 fits one complete "lot de 4" (800 DA off) or two complete "lot de 2" (2 x 100 =
+        // 200 DA off) — the customer should get whichever tier is more advantageous, "lot de 4".
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 4), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(4000m, order!.Subtotal);
+        Assert.Equal(800m, order.DiscountTotal);
+        Assert.Equal(3800m, order.Total); // 4000 - 800 + 600
+        Assert.Single(order.AppliedPromotions);
+        Assert.Equal("Lot de 4", order.AppliedPromotions[0].PromotionName);
+    }
+
+    [Fact]
+    public async Task BundlePrice_IncludesFreeShipping_WaivesShippingWithoutSeparatePromotion()
+    {
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
+        var guestClient = factory.CreateClient();
+
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 2, bundleTotalPrice: 1500m, includesFreeShipping: true);
+
+        var response = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(0m, order!.ShippingCost);
+        Assert.Equal(1100m, order.DiscountTotal); // 500 (bundle) + 600 (shipping)
+        Assert.Equal(900m, order.Total); // 2000 - 1100 + 0
+        Assert.Single(order.AppliedPromotions); // both amounts accumulate under the same tier promotion
     }
 }

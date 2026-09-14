@@ -95,20 +95,21 @@ export function findFreeShippingThreshold(
 }
 
 /**
- * The active "N for a fixed total price" offer for a product, if any (e.g. "2 pour 1500 DA").
+ * All active "N for a fixed total price" offers for a product (e.g. "2 pour 1500 DA" AND
+ * "4 pour 3000 DA" can coexist), sorted ascending by tier quantity so they render smallest-first.
  * Unlike estimatePrice, this isn't a per-unit price change — it only makes sense with the real
  * quantity/unit-price math the backend applies at checkout (OrderService.ComputeBundlePriceDiscount),
- * so it's surfaced as its own informational banner rather than folded into the product-card badge.
+ * so each tier is surfaced as its own informational banner rather than folded into the product-card badge.
  */
-export function findBundleOffer(
+export function findBundleOffers(
   activePromotions: PromotionDto[],
   productId: string,
   categoryId: string,
-): PromotionDto | undefined {
+): PromotionDto[] {
   return activePromotions
     .filter((p) => p.type === 'BundlePrice' && p.bundleQuantity && p.bundleTotalPrice)
     .filter((p) => isScopedTo(p, productId, categoryId))
-    .sort((a, b) => b.priority - a.priority)[0];
+    .sort((a, b) => a.bundleQuantity! - b.bundleQuantity!);
 }
 
 /**
@@ -179,13 +180,16 @@ function computeLineDiscount(promotion: PromotionDto, item: CartItem): number {
 
 /**
  * Client-side preview of the cart's total discount across all lines — mirrors
- * OrderService.CalculatePromotionsAsync's per-line best-priority-promotion selection and
- * ComputeItemDiscount's dispatch (percentage/fixed, BuyXGetY bundle math, BundlePrice bundle math)
- * closely enough to show a real number in CartPage/CheckoutPage before the order is placed. Like
- * estimatePrice, this is a preview only — the backend recalculates authoritatively at order
- * creation (CLAUDE.md section 41). Coupon codes are excluded (Important Decision #41 — never
- * previewed before the customer types the code); FreeShipping doesn't affect item pricing so it's
- * out of scope here too (the live shipping-cost quote already covers that separately).
+ * OrderService.CalculatePromotionsAsync's per-line best-discount-for-the-quantity promotion
+ * selection (not simply highest Priority — lets multiple BundlePrice tiers on the same product
+ * coexist, e.g. "2 for 1500" and "4 for 3000", each cart automatically getting whichever tier is
+ * more advantageous) and ComputeItemDiscount's dispatch (percentage/fixed, BuyXGetY bundle math,
+ * BundlePrice bundle math) closely enough to show a real number in CartPage/CheckoutPage before the
+ * order is placed. Like estimatePrice, this is a preview only — the backend recalculates
+ * authoritatively at order creation (CLAUDE.md section 41). Coupon codes are excluded (Important
+ * Decision #41 — never previewed before the customer types the code); FreeShipping doesn't affect
+ * item pricing so it's out of scope here too (the live shipping-cost quote already covers that
+ * separately).
  */
 export function estimateCartDiscount(items: CartItem[], activePromotions: PromotionDto[]): CartDiscountEstimate {
   const candidates = activePromotions.filter((p) => CART_LINE_PROMOTION_TYPES.has(p.type));
@@ -193,17 +197,16 @@ export function estimateCartDiscount(items: CartItem[], activePromotions: Promot
   const promotionNames = new Set<string>();
 
   for (const item of items) {
-    const applicable = candidates
+    const best = candidates
       .filter((p) => isScopedTo(p, item.productId, item.categoryId))
-      .sort((a, b) => b.priority - a.priority)[0];
+      .map((p) => ({ promotion: p, discount: computeLineDiscount(p, item) }))
+      .filter((x) => x.discount > 0)
+      .sort((a, b) => b.discount - a.discount || b.promotion.priority - a.promotion.priority)[0];
 
-    if (!applicable) continue;
+    if (!best) continue;
 
-    const discount = computeLineDiscount(applicable, item);
-    if (discount <= 0) continue;
-
-    discountTotal += discount;
-    promotionNames.add(applicable.name);
+    discountTotal += best.discount;
+    promotionNames.add(best.promotion.name);
   }
 
   return { discountTotal: Math.round(discountTotal * 100) / 100, promotionNames: [...promotionNames] };

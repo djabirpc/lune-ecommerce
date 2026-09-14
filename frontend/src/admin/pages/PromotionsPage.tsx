@@ -39,6 +39,7 @@ interface FormState {
   bundleQuantity: string;
   bundleTotalPrice: string;
   minQuantity: string;
+  includesFreeShipping: boolean;
   couponCode: string;
   startsAtUtc: string;
   endsAtUtc: string;
@@ -62,6 +63,7 @@ function emptyForm(): FormState {
     bundleQuantity: '',
     bundleTotalPrice: '',
     minQuantity: '',
+    includesFreeShipping: false,
     couponCode: '',
     startsAtUtc: toDateTimeLocal(now.toISOString()),
     endsAtUtc: toDateTimeLocal(inAWeek.toISOString()),
@@ -84,6 +86,7 @@ function toFormState(p: PromotionDetailDto): FormState {
     bundleQuantity: p.bundleQuantity?.toString() ?? '',
     bundleTotalPrice: p.bundleTotalPrice?.toString() ?? '',
     minQuantity: p.minQuantity?.toString() ?? '',
+    includesFreeShipping: p.includesFreeShipping,
     couponCode: p.couponCode ?? '',
     startsAtUtc: toDateTimeLocal(p.startsAtUtc),
     endsAtUtc: toDateTimeLocal(p.endsAtUtc),
@@ -106,6 +109,7 @@ function toRequest(form: FormState): SavePromotionRequest {
     bundleQuantity: form.bundleQuantity ? Number(form.bundleQuantity) : null,
     bundleTotalPrice: form.bundleTotalPrice ? Number(form.bundleTotalPrice) : null,
     minQuantity: form.minQuantity ? Number(form.minQuantity) : null,
+    includesFreeShipping: form.type === 'BundlePrice' && form.includesFreeShipping,
     couponCode: form.couponCode || null,
     startsAtUtc: new Date(form.startsAtUtc).toISOString(),
     endsAtUtc: new Date(form.endsAtUtc).toISOString(),
@@ -297,6 +301,19 @@ export function PromotionsPage() {
                 </div>
                 <p className="col-span-2 text-[11px] text-luna-charcoal/50">
                   Ex. : quantité 2, prix 1500 DA → "2 articles achetés = 1500 DA" au lieu du prix normal.
+                </p>
+                <label className="col-span-2 flex items-center gap-2 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={form.includesFreeShipping}
+                    onChange={(e) => setForm({ ...form, includesFreeShipping: e.target.checked })}
+                  />
+                  Livraison gratuite incluse avec ce palier
+                </label>
+                <p className="col-span-2 text-[11px] text-luna-charcoal/50">
+                  Plusieurs offres de lot peuvent coexister sur le même produit (ex. "2 pour 1500 DA" et
+                  "4 pour 3000 DA + livraison gratuite") — le client obtient automatiquement le palier le
+                  plus avantageux selon la quantité dans son panier.
                 </p>
               </div>
             )}
@@ -502,9 +519,20 @@ export function PromotionsPage() {
                     {p.name}{' '}
                     <span className="rounded-full bg-luna-cream px-2 py-0.5 text-xs">{PROMOTION_TYPE_LABELS[p.type]}</span>
                     {!p.isActive && <span className="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">Inactive</span>}
+                    {p.includesFreeShipping && (
+                      <span className="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                        + livraison gratuite
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-luna-charcoal/60">
-                    {p.percentageValue ? `${p.percentageValue}%` : p.fixedAmountValue ? formatPrice(p.fixedAmountValue) : ''}
+                    {p.percentageValue
+                      ? `${p.percentageValue}%`
+                      : p.type === 'BundlePrice' && p.bundleQuantity && p.bundleTotalPrice
+                        ? `${p.bundleQuantity} pour ${formatPrice(p.bundleTotalPrice)}`
+                        : p.fixedAmountValue
+                          ? formatPrice(p.fixedAmountValue)
+                          : ''}
                     {' · '}
                     {new Date(p.startsAtUtc).toLocaleDateString('fr-FR')} → {new Date(p.endsAtUtc).toLocaleDateString('fr-FR')}
                     {' · priorité '}

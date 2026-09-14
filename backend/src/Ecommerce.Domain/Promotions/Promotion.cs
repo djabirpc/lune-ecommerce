@@ -18,6 +18,12 @@ public class Promotion : Entity
     public int? BundleQuantity { get; set; }
     /// <summary>BundlePrice only: total price charged for one complete bundle of BundleQuantity units.</summary>
     public decimal? BundleTotalPrice { get; set; }
+    /// <summary>
+    /// BundlePrice only: when true, this tier also grants free shipping on the whole order once it
+    /// applies (at least one complete bundle) — lets a tier grant free shipping directly instead of
+    /// needing a separate paired FreeShipping promotion with a matching MinQuantity.
+    /// </summary>
+    public bool IncludesFreeShipping { get; set; }
 
     /// <summary>
     /// FreeShipping only: minimum total quantity of scoped items in the order required to unlock free

@@ -20,4 +20,5 @@ public record PromotionDto(
     int Priority,
     IReadOnlyList<Guid> ProductIds,
     IReadOnlyList<Guid> CategoryIds,
-    int? MinQuantity);
+    int? MinQuantity,
+    bool IncludesFreeShipping);

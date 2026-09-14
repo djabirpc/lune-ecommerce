@@ -19,4 +19,5 @@ public record SavePromotionRequest(
     int Priority,
     IReadOnlyList<Guid> ProductIds,
     IReadOnlyList<Guid> CategoryIds,
-    int? MinQuantity = null);
+    int? MinQuantity = null,
+    bool IncludesFreeShipping = false);

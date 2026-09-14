@@ -536,6 +536,7 @@ export interface PromotionDto {
   productIds: string[];
   categoryIds: string[];
   minQuantity: number | null;
+  includesFreeShipping: boolean;
 }
 
 export interface PromotionDetailDto {
@@ -557,6 +558,7 @@ export interface PromotionDetailDto {
   productIds: string[];
   categoryIds: string[];
   minQuantity: number | null;
+  includesFreeShipping: boolean;
 }
 
 export interface SavePromotionRequest {
@@ -577,4 +579,5 @@ export interface SavePromotionRequest {
   productIds: string[];
   categoryIds: string[];
   minQuantity: number | null;
+  includesFreeShipping: boolean;
 }

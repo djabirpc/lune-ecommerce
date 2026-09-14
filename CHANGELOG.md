@@ -1,5 +1,25 @@
 # Changelog
 
+## [2026-09-14] (on `dev` branch) (15)
+
+### Added
+- **Multiple `BundlePrice` tiers can now coexist on the same product** (e.g. "2 pour 1500 DA" AND "4 pour 3000 DA" together) — the customer's cart automatically gets whichever tier gives the biggest discount for their actual quantity.
+- `Promotion.IncludesFreeShipping` (migration `AddPromotionIncludesFreeShipping`): a `BundlePrice` tier can now grant free shipping directly, without needing a separate paired `FreeShipping` promotion.
+- `ProductPage` now shows color swatches and size buttons at the same time — picking one disables (greys out, doesn't hide) options unavailable for the other, bidirectionally.
+
+### Fixed
+- **Root cause of "only the 2nd bundle offer ever applied"**: `OrderService.CalculatePromotionsAsync` picked one promotion per line by highest `Priority` only — now it computes every scoped promotion's actual discount for the real quantity and picks the best one (falling back to `Priority` only to break an exact tie). This is a general fix, not bundle-specific.
+- `ProductPage`'s sticky-CTA total price could double-count a discount when a percentage/fixed promotion was active on the same product alongside a bundle tier (found during this batch's own Playwright verification) — now computed via the same best-discount-for-quantity logic used by the cart preview and the backend, so all three always agree.
+
+### Frontend
+- `lib/promotions/estimate.ts`: `findBundleOffer` → `findBundleOffers` (returns all active tiers); `estimateCartDiscount` updated to the same best-discount selection as the backend.
+- Admin `PromotionsPage`: "Livraison gratuite incluse avec ce palier" checkbox for `BundlePrice`, plus a proper summary line and badge for bundle promotions in the list.
+
+### Notes
+- 2 new backend tests; suite grew to 191/191 (65 unit + 126 integration).
+- Verified end-to-end via headless browser: two live tiers rendering together, cross-filter disabling in both directions, corrected CTA total.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-14] (on `dev` branch) (14)
 
 ### Added
