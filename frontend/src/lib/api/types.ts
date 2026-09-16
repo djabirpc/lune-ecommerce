@@ -202,7 +202,6 @@ export type DeliveryType = 'HomeDelivery' | 'StopDesk';
 export type OrderStatus =
   | 'PendingConfirmation'
   | 'Confirmed'
-  | 'Preparing'
   | 'ReadyToShip'
   | 'Shipped'
   | 'OutForDelivery'

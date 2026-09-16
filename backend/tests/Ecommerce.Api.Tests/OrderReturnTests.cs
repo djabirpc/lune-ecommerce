@@ -84,7 +84,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
 
         var returnResponse = await adminClient.PostAsJsonAsync(
             $"/api/orders/{order.Id}/status",
@@ -109,7 +109,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
 
         var returnResponse = await adminClient.PostAsJsonAsync(
             $"/api/orders/{order.Id}/status",
@@ -134,7 +134,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Refused);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Refused);
 
         var inventoryAfterRefused = await (await adminClient.GetAsync($"/api/inventory/{variantId}")).Content.ReadFromJsonAsync<InventoryDto>();
         Assert.Equal(5, inventoryAfterRefused!.AvailableQuantity);
@@ -160,7 +160,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Refused);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Refused);
 
         var returnResponse = await adminClient.PostAsJsonAsync(
             $"/api/orders/{order.Id}/status",
@@ -184,7 +184,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.DeliveryFailed);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.DeliveryFailed);
 
         var inventoryAfterFailed = await (await adminClient.GetAsync($"/api/inventory/{variantId}")).Content.ReadFromJsonAsync<InventoryDto>();
         Assert.Equal(3, inventoryAfterFailed!.AvailableQuantity);
@@ -212,7 +212,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 2), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.DeliveryFailed);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.DeliveryFailed);
 
         var returnResponse = await adminClient.PostAsJsonAsync(
             $"/api/orders/{order.Id}/status",
@@ -235,7 +235,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
+        await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
 
         var response = await adminClient.PostAsJsonAsync(
             $"/api/orders/{order.Id}/status",
@@ -256,7 +256,7 @@ public class OrderReturnTests(AuthWebApplicationFactory factory) : IClassFixture
         {
             var orderResponse = await guestClient.PostAsJsonAsync("/api/orders", BuildOrderRequest(variantId, 1), JsonOptions);
             var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
-            await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
+            await WalkToStatusAsync(adminClient, order!.Id, OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped, OrderStatus.OutForDelivery, OrderStatus.Delivered);
             return order.Id;
         }
 

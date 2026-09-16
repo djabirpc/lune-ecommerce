@@ -5,7 +5,6 @@ import type { CallAttemptResult, DeliveryType, OrderReturnReason, OrderStatus } 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PendingConfirmation: 'En attente de confirmation',
   Confirmed: 'Confirmée',
-  Preparing: 'En préparation',
   ReadyToShip: 'Prête à expédier',
   Shipped: 'Expédiée',
   OutForDelivery: 'En cours de livraison',
@@ -44,7 +43,6 @@ export function useOrderStatusLabels(): Record<OrderStatus, string> {
   return {
     PendingConfirmation: t('orderStatus.pendingConfirmation'),
     Confirmed: t('orderStatus.confirmed'),
-    Preparing: t('orderStatus.preparing'),
     ReadyToShip: t('orderStatus.readyToShip'),
     Shipped: t('orderStatus.shipped'),
     OutForDelivery: t('orderStatus.outForDelivery'),

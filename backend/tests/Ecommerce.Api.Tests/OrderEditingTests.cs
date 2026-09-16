@@ -103,7 +103,7 @@ public class OrderEditingTests(AuthWebApplicationFactory factory) : IClassFixtur
         var (variantId, adminClient) = await CreateProductWithStockAsync(10);
         var order = await CreateOrderAsync(adminClient, variantId, 1);
 
-        foreach (var status in new[] { OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip, OrderStatus.Shipped })
+        foreach (var status in new[] { OrderStatus.Confirmed, OrderStatus.ReadyToShip, OrderStatus.Shipped })
         {
             var statusResponse = await adminClient.PostAsJsonAsync(
                 $"/api/orders/{order.Id}/status", new ChangeOrderStatusRequest(status, null), JsonOptions);

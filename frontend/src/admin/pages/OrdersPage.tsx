@@ -11,7 +11,6 @@ const PAGE_SIZE = 20;
 const ALL_STATUSES: OrderStatus[] = [
   'PendingConfirmation',
   'Confirmed',
-  'Preparing',
   'ReadyToShip',
   'Shipped',
   'OutForDelivery',

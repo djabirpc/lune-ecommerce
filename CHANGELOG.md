@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-14] (on `dev` branch) (18)
+
+### Changed
+- **Removed the separate "En préparation" (Preparing) order status** — a confirmed order now reaches "Prête à expédier" in one agent click instead of two. The auto-driven carrier-tracking steps after that (Expédiée → En cours de livraison → Livrée) are unchanged.
+- `CLAUDE.md` sections 12, 23, 29 updated to match the new workflow.
+
+### Notes
+- `OrderStatus.Preparing` removed from the backend enum (string column, no migration needed) and from every frontend status list/filter/label map.
+- 4 test files updated (status-walk sequences no longer include the removed intermediate step); suite stayed at 195/195.
+- Verified end-to-end via headless browser: Confirm → single click to "Prête à expédier" → shipment-creation form unlocks correctly; no trace of "En préparation" left in any status filter, button, or label.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-14] (on `dev` branch) (17)
 
 ### Fixed

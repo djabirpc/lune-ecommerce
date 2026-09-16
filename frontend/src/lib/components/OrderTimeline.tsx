@@ -9,7 +9,6 @@ import type { OrderStatus } from '../api/types';
 const ORDER_FLOW: OrderStatus[] = [
   'PendingConfirmation',
   'Confirmed',
-  'Preparing',
   'ReadyToShip',
   'Shipped',
   'OutForDelivery',

@@ -198,7 +198,6 @@
   "orderStatus": {
     "pendingConfirmation": "En attente de confirmation",
     "confirmed": "Confirmée",
-    "preparing": "En préparation",
     "readyToShip": "Prête à expédier",
     "shipped": "Expédiée",
     "outForDelivery": "En cours de livraison",

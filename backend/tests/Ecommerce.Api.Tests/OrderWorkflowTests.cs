@@ -215,7 +215,7 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
-    public async Task CreateOrder_ReserveStock_ConfirmPrepareShipDeliver_RecordsSale()
+    public async Task CreateOrder_ReserveStock_ConfirmShipDeliver_RecordsSale()
     {
         var (variantId, adminClient) = await CreateProductWithStockAsync(initialQuantity: 5);
         var guestClient = factory.CreateClient();
@@ -227,7 +227,6 @@ public class OrderWorkflowTests(AuthWebApplicationFactory factory) : IClassFixtu
         foreach (var status in new[]
                  {
                      OrderStatus.Confirmed,
-                     OrderStatus.Preparing,
                      OrderStatus.ReadyToShip,
                      OrderStatus.Shipped,
                      OrderStatus.OutForDelivery,

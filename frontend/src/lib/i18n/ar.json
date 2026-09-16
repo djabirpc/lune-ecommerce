@@ -202,7 +202,6 @@
   "orderStatus": {
     "pendingConfirmation": "بانتظار التأكيد",
     "confirmed": "مؤكدة",
-    "preparing": "قيد التحضير",
     "readyToShip": "جاهزة للشحن",
     "shipped": "تم الشحن",
     "outForDelivery": "قيد التوصيل",

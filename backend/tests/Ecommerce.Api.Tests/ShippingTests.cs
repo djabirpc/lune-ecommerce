@@ -64,7 +64,7 @@ public class ShippingTests(AuthWebApplicationFactory factory) : IClassFixture<Au
         orderResponse.EnsureSuccessStatusCode();
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
 
-        foreach (var status in new[] { OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.ReadyToShip })
+        foreach (var status in new[] { OrderStatus.Confirmed, OrderStatus.ReadyToShip })
         {
             var response = await adminClient.PostAsJsonAsync($"/api/orders/{order!.Id}/status", new ChangeOrderStatusRequest(status, null), JsonOptions);
             response.EnsureSuccessStatusCode();

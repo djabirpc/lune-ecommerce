@@ -35,7 +35,6 @@ public class OrderService(
         OrderStatus.PendingConfirmation,
         OrderStatus.Confirmed,
         OrderStatus.CustomerUnreachable,
-        OrderStatus.Preparing,
         OrderStatus.ReadyToShip,
     ];
 
@@ -48,8 +47,10 @@ public class OrderService(
         // which doubles as the call-attempt log per the user's request to simplify this workflow
         // instead of using the separate OrderCallAttempt form.
         [OrderStatus.CustomerUnreachable] = [OrderStatus.Confirmed, OrderStatus.Cancelled, OrderStatus.CustomerUnreachable],
-        [OrderStatus.Confirmed] = [OrderStatus.Preparing, OrderStatus.Cancelled],
-        [OrderStatus.Preparing] = [OrderStatus.ReadyToShip, OrderStatus.Cancelled],
+        // Confirmed -> ReadyToShip directly: the former separate "Preparing" step was merged into
+        // this one, per direct request — a confirmed order goes straight to "ready to create a
+        // shipment" in one agent click instead of two.
+        [OrderStatus.Confirmed] = [OrderStatus.ReadyToShip, OrderStatus.Cancelled],
         [OrderStatus.ReadyToShip] = [OrderStatus.Shipped, OrderStatus.Cancelled],
         [OrderStatus.Shipped] = [OrderStatus.OutForDelivery],
         [OrderStatus.OutForDelivery] = [OrderStatus.Delivered, OrderStatus.DeliveryFailed, OrderStatus.Refused],

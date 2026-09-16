@@ -10,8 +10,9 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   // the action button render order on OrderDetailPage, and the buttons must stay in a fixed position
   // across a Confirm/Unreachable/Cancel call flow instead of visually reshuffling after each click.
   CustomerUnreachable: ['Confirmed', 'CustomerUnreachable', 'Cancelled'],
-  Confirmed: ['Preparing', 'Cancelled'],
-  Preparing: ['ReadyToShip', 'Cancelled'],
+  // Confirmed -> ReadyToShip directly: the former separate "Preparing" step was merged into this
+  // one, so a confirmed order reaches "ready to create a shipment" in one agent click, not two.
+  Confirmed: ['ReadyToShip', 'Cancelled'],
   ReadyToShip: ['Shipped', 'Cancelled'],
   Shipped: ['OutForDelivery'],
   OutForDelivery: ['Delivered', 'DeliveryFailed', 'Refused'],
@@ -25,7 +26,6 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 export const ORDER_ACTION_LABELS: Record<OrderStatus, string> = {
   PendingConfirmation: 'Remettre en attente',
   Confirmed: 'Confirmer',
-  Preparing: 'Marquer en préparation',
   ReadyToShip: 'Marquer prête à expédier',
   Shipped: 'Marquer expédiée',
   OutForDelivery: 'Marquer en cours de livraison',

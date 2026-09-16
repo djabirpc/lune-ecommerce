@@ -4,7 +4,6 @@ public enum OrderStatus
 {
     PendingConfirmation,
     Confirmed,
-    Preparing,
     ReadyToShip,
     Shipped,
     OutForDelivery,

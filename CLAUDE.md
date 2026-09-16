@@ -379,8 +379,6 @@ PENDING_CONFIRMATION
         ↓
 CONFIRMED
         ↓
-PREPARING
-        ↓
 READY_TO_SHIP
         ↓
 SHIPPED
@@ -708,7 +706,7 @@ Admin must be able to:
 - confirm
 - cancel
 - call customer
-- prepare
+- mark ready to ship
 - create shipment
 - choose carrier
 - view tracking
@@ -876,7 +874,6 @@ and:
 Create order
 → Reserve stock
 → Confirm
-→ Prepare
 → Ship
 → Deliver
 ```
