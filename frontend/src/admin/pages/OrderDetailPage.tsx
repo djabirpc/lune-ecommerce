@@ -6,24 +6,20 @@ import { ordersApi } from '../../lib/api/orders';
 import { shippingApi } from '../../lib/api/shipping';
 import { catalogApi } from '../../lib/api/catalog';
 import { ApiError } from '../../lib/api/client';
-import type { OrderReturnReason, OrderStatus, ProductDetailDto, ProductVariantDto, ShippingCarrier } from '../../lib/api/types';
+import type { OrderDetailDto, ProductDetailDto, ProductVariantDto, ShippingCarrier } from '../../lib/api/types';
 import { formatPrice } from '../../lib/format/price';
-import { DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS, RETURN_REASON_LABELS } from '../../lib/format/orderLabels';
+import { CALL_ATTEMPT_RESULT_LABELS, DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS, RETURN_REASON_LABELS } from '../../lib/format/orderLabels';
 import { NORMALIZED_SHIPPING_STATUS_LABELS, SHIPPING_CARRIER_LABELS } from '../../lib/format/shippingLabels';
-import { ALLOWED_TRANSITIONS, ORDER_ACTION_LABELS, requiresReason } from '../../lib/orders/transitions';
+import { ALLOWED_TRANSITIONS } from '../../lib/orders/transitions';
 import { PagePlaceholder } from '../../lib/components/PagePlaceholder';
-import { ReasonModal } from '../components/ReasonModal';
+import { OrderActionsPanel } from '../components/OrderActionsPanel';
 
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const [actionError, setActionError] = useState<string | null>(null);
   const [shipmentCarrier, setShipmentCarrier] = useState<ShippingCarrier>('Fake');
   const [shipmentError, setShipmentError] = useState<string | null>(null);
   const [label, setLabel] = useState<string | null>(null);
-  const [returnReason, setReturnReason] = useState<OrderReturnReason>('WrongSize');
-  const [returnNote, setReturnNote] = useState('');
-  const [pendingTransition, setPendingTransition] = useState<OrderStatus | null>(null);
 
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [notesError, setNotesError] = useState<string | null>(null);
@@ -57,17 +53,10 @@ export function OrderDetailPage() {
     enabled: showAddItem,
   });
 
-  const changeStatus = useMutation({
-    mutationFn: (vars: { newStatus: OrderStatus; reason: string | null; returnReason?: OrderReturnReason | null }) =>
-      ordersApi.changeStatus(id!, vars),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['admin-order', id], updated);
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      setActionError(null);
-      setReturnNote('');
-    },
-    onError: (err) => setActionError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
-  });
+  function handleOrderChanged(updated: OrderDetailDto) {
+    queryClient.setQueryData(['admin-order', id], updated);
+    queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+  }
 
   const createShipment = useMutation({
     mutationFn: () => shippingApi.createShipment(id!, { carrier: shipmentCarrier }),
@@ -145,27 +134,6 @@ export function OrderDetailPage() {
 
   if (isError || !order) {
     return <PagePlaceholder title="Commande introuvable" />;
-  }
-
-  const nextStatuses = ALLOWED_TRANSITIONS[order.status];
-
-  function handleTransition(newStatus: OrderStatus) {
-    if (requiresReason(newStatus)) {
-      setPendingTransition(newStatus);
-      return;
-    }
-    changeStatus.mutate({ newStatus, reason: null });
-  }
-
-  function confirmPendingTransition(reason: string) {
-    if (!pendingTransition) return;
-    changeStatus.mutate({ newStatus: pendingTransition, reason: reason || null });
-    setPendingTransition(null);
-  }
-
-  function handleReturnSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    changeStatus.mutate({ newStatus: 'Returned', reason: returnNote.trim() || null, returnReason });
   }
 
   async function openProduct(productId: string, slug: string) {
@@ -443,64 +411,10 @@ export function OrderDetailPage() {
         </div>
       )}
 
-      {nextStatuses.length > 0 && (
-        <div className="mt-6">
+      {ALLOWED_TRANSITIONS[order.status].length > 0 && (
+        <div className="mt-6 sm:max-w-md">
           <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Actions</h2>
-          <div className="flex flex-wrap gap-2">
-            {nextStatuses
-              .filter((next) => next !== 'Returned')
-              .map((next) => (
-                <button
-                  key={next}
-                  type="button"
-                  disabled={changeStatus.isPending}
-                  onClick={() => handleTransition(next)}
-                  className="rounded-full border border-luna-black px-4 py-2 text-sm disabled:opacity-40"
-                >
-                  {ORDER_ACTION_LABELS[next]}
-                </button>
-              ))}
-          </div>
-          {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
-
-          {nextStatuses.includes('Returned') && (
-            <form
-              onSubmit={handleReturnSubmit}
-              className="mt-3 flex flex-col gap-2 rounded-lg border border-black/10 bg-white p-4 sm:max-w-md"
-            >
-              <h3 className="text-sm font-medium">Marquer retournée</h3>
-              <label className="flex flex-col gap-1 text-sm">
-                Cause du retour
-                <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value as OrderReturnReason)}
-                  className="rounded border border-black/20 px-2 py-1 text-sm"
-                >
-                  {(Object.keys(RETURN_REASON_LABELS) as OrderReturnReason[]).map((r) => (
-                    <option key={r} value={r}>
-                      {RETURN_REASON_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                Note (optionnel)
-                <input
-                  type="text"
-                  value={returnNote}
-                  onChange={(e) => setReturnNote(e.target.value)}
-                  className="rounded border border-black/20 px-2 py-1 text-sm"
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={changeStatus.isPending}
-                className="mt-1 w-fit rounded-full border border-luna-black px-4 py-2 text-sm disabled:opacity-40"
-              >
-                Confirmer le retour
-              </button>
-            </form>
-          )}
+          <OrderActionsPanel order={order} onChanged={handleOrderChanged} />
         </div>
       )}
 
@@ -620,6 +534,7 @@ export function OrderDetailPage() {
                   {ORDER_STATUS_LABELS[h.oldStatus]} → {ORDER_STATUS_LABELS[h.newStatus]}
                   <span className="ml-2 text-xs text-luna-charcoal/60">
                     {new Date(h.createdAtUtc).toLocaleString('fr-FR')}
+                    {h.changedByUserName ? ` · ${h.changedByUserName}` : ' · Automatique'}
                   </span>
                 </p>
                 {h.reason && <p className="text-xs text-luna-charcoal/70">Raison : {h.reason}</p>}
@@ -629,12 +544,27 @@ export function OrderDetailPage() {
         </div>
       )}
 
-      {pendingTransition && (
-        <ReasonModal
-          title={`Raison pour "${ORDER_ACTION_LABELS[pendingTransition]}"`}
-          onConfirm={confirmPendingTransition}
-          onCancel={() => setPendingTransition(null)}
-        />
+      {order.callAttempts.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase text-luna-charcoal/60">Journal d'appels</h2>
+          <div className="flex flex-col divide-y divide-black/5 rounded-lg border border-black/10 bg-white text-sm">
+            {order.callAttempts.map((a) => (
+              <div key={a.id} className="px-4 py-2">
+                <p>
+                  Appel #{a.attemptNumber} — {CALL_ATTEMPT_RESULT_LABELS[a.result]}
+                  <span className="ml-2 text-xs text-luna-charcoal/60">
+                    {new Date(a.calledAtUtc).toLocaleString('fr-FR')}
+                    {a.agentUserName ? ` · ${a.agentUserName}` : ''}
+                  </span>
+                </p>
+                {a.notes && <p className="text-xs text-luna-charcoal/70">{a.notes}</p>}
+                {a.nextCallAtUtc && (
+                  <p className="text-xs text-luna-charcoal/70">Prochain rappel : {new Date(a.nextCallAtUtc).toLocaleString('fr-FR')}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

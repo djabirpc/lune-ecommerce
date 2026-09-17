@@ -282,6 +282,7 @@ export interface OrderStatusHistoryDto {
   newStatus: OrderStatus;
   reason: string | null;
   createdAtUtc: string;
+  changedByUserName: string | null;
 }
 
 export type CallAttemptResult = 'NoAnswer' | 'Confirmed' | 'Cancelled' | 'CallbackScheduled';
@@ -293,6 +294,7 @@ export interface OrderCallAttemptDto {
   notes: string | null;
   calledAtUtc: string;
   nextCallAtUtc: string | null;
+  agentUserName: string | null;
 }
 
 export interface RecordCallAttemptRequest {

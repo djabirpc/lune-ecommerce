@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { ordersApi } from '../../lib/api/orders';
-import { RETURN_REASON_LABELS } from '../../lib/format/orderLabels';
+import { formatPrice } from '../../lib/format/price';
+import { ORDER_STATUS_LABELS, RETURN_REASON_LABELS } from '../../lib/format/orderLabels';
 import type { OrderStatus } from '../../lib/api/types';
+import { Drawer } from '../components/Drawer';
+import { OrderSummaryPanel } from '../components/OrderSummaryPanel';
 
 const STAT_STATUSES: { status: OrderStatus | undefined; label: string }[] = [
   { status: undefined, label: 'Total commandes' },
@@ -51,7 +55,47 @@ function ReturnReasonsCard() {
   );
 }
 
+function RecentOrdersCard({ onSelect }: { onSelect: (orderId: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['recent-orders'],
+    queryFn: () => ordersApi.getPaged({ pageSize: 6 }),
+  });
+
+  return (
+    <div className="mt-6 rounded-lg border border-black/10 bg-white sm:max-w-md">
+      <h2 className="border-b border-black/10 px-4 py-3 text-sm font-semibold uppercase text-luna-charcoal/60">
+        Commandes récentes
+      </h2>
+      {isLoading && <p className="px-4 py-4 text-sm text-luna-charcoal/60">Chargement...</p>}
+      {data && data.items.length === 0 && <p className="px-4 py-4 text-sm text-luna-charcoal/60">Aucune commande.</p>}
+      {data && data.items.length > 0 && (
+        <div className="divide-y divide-black/5">
+          {data.items.map((order) => (
+            <button
+              key={order.id}
+              type="button"
+              onClick={() => onSelect(order.id)}
+              className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-luna-cream/50"
+            >
+              <div className="min-w-0">
+                <p className="truncate">{order.customerFullName}</p>
+                <p className="text-xs text-luna-charcoal/60">{order.orderNumber}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="font-medium">{formatPrice(order.total)}</p>
+                <p className="text-xs text-luna-charcoal/60">{ORDER_STATUS_LABELS[order.status]}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DashboardPage() {
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
   return (
     <div>
       <h1 className="mb-6 text-xl font-semibold">Tableau de bord</h1>
@@ -63,6 +107,7 @@ export function DashboardPage() {
       </div>
 
       <ReturnReasonsCard />
+      <RecentOrdersCard onSelect={setSelectedOrderId} />
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link to="/admin/orders" className="rounded-full bg-luna-black px-5 py-2 text-sm text-white">
@@ -72,6 +117,10 @@ export function DashboardPage() {
           Gérer les produits
         </Link>
       </div>
+
+      <Drawer open={!!selectedOrderId} onClose={() => setSelectedOrderId(null)} title="Résumé de la commande">
+        {selectedOrderId && <OrderSummaryPanel orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />}
+      </Drawer>
 
       <p className="mt-6 text-xs text-luna-charcoal/50">
         Chiffre d'affaires et autres statistiques agrégées : pas encore disponibles (nécessite un endpoint backend

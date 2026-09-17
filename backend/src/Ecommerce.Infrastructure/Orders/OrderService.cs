@@ -430,7 +430,31 @@ public class OrderService(
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken)
             ?? throw new NotFoundAppException("Commande introuvable.");
 
-        return ToDetailDto(order, includeHistory: true);
+        var userNames = await ResolveUserNamesAsync(HistoryActorIds(order), cancellationToken);
+
+        return ToDetailDto(order, includeHistory: true, userNames);
+    }
+
+    /// <summary>
+    /// Acting-user ids referenced by an order's status/call history — resolved to display names once
+    /// per request (see ResolveUserNamesAsync) rather than N+1 queried, since the admin Order/Confirmation
+    /// Summary panels attribute each activity-feed entry to the staff member who made it.
+    /// </summary>
+    private static IEnumerable<Guid> HistoryActorIds(Order order) =>
+        order.StatusHistory.Where(h => h.ChangedByUserId.HasValue).Select(h => h.ChangedByUserId!.Value)
+            .Concat(order.CallAttempts.Select(a => a.AgentUserId));
+
+    private async Task<Dictionary<Guid, string>> ResolveUserNamesAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await dbContext.Users
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim(), cancellationToken);
     }
 
     public async Task<PagedResult<OrderSummaryDto>> GetPagedAsync(
@@ -563,7 +587,9 @@ public class OrderService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ToDetailDto(order, includeHistory: true);
+        var userNames = await ResolveUserNamesAsync(HistoryActorIds(order), cancellationToken);
+
+        return ToDetailDto(order, includeHistory: true, userNames);
     }
 
     public async Task<IReadOnlyList<ReturnReasonSummaryDto>> GetReturnReasonSummaryAsync(CancellationToken cancellationToken = default)
@@ -855,7 +881,9 @@ public class OrderService(
         totals[id] = totals.TryGetValue(id, out var existing) ? (name, existing.Amount + amount) : (name, amount);
     }
 
-    private static OrderDetailDto ToDetailDto(Order order, bool includeHistory = false) => new(
+    private static readonly Dictionary<Guid, string> EmptyUserNames = [];
+
+    private static OrderDetailDto ToDetailDto(Order order, bool includeHistory = false, IReadOnlyDictionary<Guid, string>? userNames = null) => new(
         order.Id,
         order.OrderNumber,
         order.Status,
@@ -881,13 +909,17 @@ public class OrderService(
         includeHistory
             ? order.StatusHistory
                 .OrderBy(h => h.CreatedAtUtc)
-                .Select(h => new OrderStatusHistoryDto(h.Id, h.OldStatus, h.NewStatus, h.Reason, h.CreatedAtUtc))
+                .Select(h => new OrderStatusHistoryDto(
+                    h.Id, h.OldStatus, h.NewStatus, h.Reason, h.CreatedAtUtc,
+                    h.ChangedByUserId.HasValue && (userNames ?? EmptyUserNames).TryGetValue(h.ChangedByUserId.Value, out var changedByName) ? changedByName : null))
                 .ToList()
             : [],
         includeHistory
             ? order.CallAttempts
                 .OrderBy(a => a.CalledAtUtc)
-                .Select(a => new OrderCallAttemptDto(a.Id, a.AttemptNumber, a.Result, a.Notes, a.CalledAtUtc, a.NextCallAtUtc))
+                .Select(a => new OrderCallAttemptDto(
+                    a.Id, a.AttemptNumber, a.Result, a.Notes, a.CalledAtUtc, a.NextCallAtUtc,
+                    (userNames ?? EmptyUserNames).TryGetValue(a.AgentUserId, out var agentName) ? agentName : null))
                 .ToList()
             : [],
         order.AppliedPromotions

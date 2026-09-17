@@ -42,7 +42,11 @@ export function AdminLayout() {
         </nav>
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      {/* min-w-0 overrides the flex item's default min-width:auto — without it, a wide child (e.g.
+          OrdersPage's table, even inside its own overflow-x-auto wrapper) can force this whole column
+          wider than the viewport instead of scrolling internally, which on mobile also drags any
+          position:fixed overlay's "100vw" (like Drawer's) off past the right edge of the screen with it. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-black/10 bg-white px-6 py-3 text-sm">
           <span className="text-luna-charcoal/70">
             {user?.firstName} {user?.lastName} · {user?.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ')}
@@ -52,7 +56,7 @@ export function AdminLayout() {
           </button>
         </header>
 
-        <main className="flex-1 p-6">
+        <main className="min-w-0 flex-1 p-6">
           <Outlet />
         </main>
       </div>

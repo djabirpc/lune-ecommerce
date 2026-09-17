@@ -6,6 +6,8 @@ import { ordersApi } from '../../lib/api/orders';
 import type { OrderStatus } from '../../lib/api/types';
 import { formatPrice } from '../../lib/format/price';
 import { ORDER_STATUS_LABELS } from '../../lib/format/orderLabels';
+import { Drawer } from '../components/Drawer';
+import { OrderSummaryPanel } from '../components/OrderSummaryPanel';
 
 const PAGE_SIZE = 20;
 const ALL_STATUSES: OrderStatus[] = [
@@ -25,6 +27,7 @@ const ALL_STATUSES: OrderStatus[] = [
 export function OrdersPage() {
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [page, setPage] = useState(1);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-orders', { status, page }],
@@ -35,9 +38,9 @@ export function OrdersPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Commandes</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={status}
             onChange={(e) => {
@@ -82,11 +85,13 @@ export function OrdersPage() {
               </thead>
               <tbody>
                 {data.items.map((order) => (
-                  <tr key={order.id} className="border-b border-black/5 last:border-0 hover:bg-luna-cream/50">
+                  <tr
+                    key={order.id}
+                    onClick={() => setSelectedOrderId(order.id)}
+                    className="cursor-pointer border-b border-black/5 last:border-0 hover:bg-luna-cream/50"
+                  >
                     <td className="px-4 py-2">
-                      <Link to={`/admin/orders/${order.id}`} className="font-mono text-xs underline">
-                        {order.orderNumber}
-                      </Link>
+                      <span className="font-mono text-xs underline">{order.orderNumber}</span>
                     </td>
                     <td className="px-4 py-2">{order.customerFullName}</td>
                     <td className="px-4 py-2">{order.phone}</td>
@@ -138,6 +143,10 @@ export function OrdersPage() {
           </div>
         </>
       )}
+
+      <Drawer open={!!selectedOrderId} onClose={() => setSelectedOrderId(null)} title="Résumé de la commande">
+        {selectedOrderId && <OrderSummaryPanel orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />}
+      </Drawer>
     </div>
   );
 }

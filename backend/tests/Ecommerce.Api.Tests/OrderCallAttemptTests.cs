@@ -147,6 +147,28 @@ public class OrderCallAttemptTests(AuthWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task RecordConfirmedAttempt_ResolvesAgentAndStatusHistoryActorNames()
+    {
+        var adminClient = await CreateAuthenticatedClientAsync();
+        var guestClient = factory.CreateClient();
+        var order = await CreatePendingOrderAsync(adminClient, guestClient);
+
+        var response = await adminClient.PostAsJsonAsync(
+            $"/api/orders/{order.Id}/call-attempts",
+            new RecordCallAttemptRequest(CallAttemptResult.Confirmed, "Client confirme", null),
+            JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var updated = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        // The seeded test admin is "Test Admin" (AuthWebApplicationFactory) — both the call attempt
+        // (AgentUserId) and the resulting status-history row (ChangedByUserId, set by the delegated
+        // ChangeStatusAsync call) should resolve to that same display name, not just a bare Guid.
+        Assert.Equal("Test Admin", updated!.CallAttempts[0].AgentUserName);
+        Assert.Equal("Test Admin", updated.StatusHistory.Single(h => h.NewStatus == OrderStatus.Confirmed).ChangedByUserName);
+    }
+
+    [Fact]
     public async Task RecordAttempt_OnOrderNotAwaitingConfirmation_ReturnsConflict()
     {
         var adminClient = await CreateAuthenticatedClientAsync();

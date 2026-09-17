@@ -8,4 +8,5 @@ public record OrderCallAttemptDto(
     CallAttemptResult Result,
     string? Notes,
     DateTime CalledAtUtc,
-    DateTime? NextCallAtUtc);
+    DateTime? NextCallAtUtc,
+    string? AgentUserName);

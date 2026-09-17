@@ -1,5 +1,24 @@
 # Changelog
 
+## [2026-09-14] (on `dev` branch) (19)
+
+### Added
+- **Order Summary and Confirmation Summary** — slide-over drawer quick-look views so admins/agents don't need to open the full order detail page for routine checks or actions. Order Summary (header/customer/items/financials/status timeline/shipping/recent activity/quick actions) opens from the Orders list and a new Dashboard "Commandes récentes" widget; Confirmation Summary (call button/items/delivery/call history/4 call-result buttons) opens from the Confirmation Center.
+- `OrderDetailPage` gained a "Journal d'appels" (call log) section — call attempts were already stored but never displayed there.
+- `OrderStatusHistoryDto`/`OrderCallAttemptDto` gained `ChangedByUserName`/`AgentUserName` so activity feeds can attribute actions to the staff member who performed them.
+
+### Changed
+- Extracted `OrderDetailPage`'s status-action buttons + return-reason form into a shared `OrderActionsPanel`, now used by the full detail page and both new summary drawers.
+- Wired the Confirmation Summary's call-result buttons to the existing (previously frontend-orphaned) `POST /api/orders/{id}/call-attempts` endpoint.
+
+### Fixed
+- Two pre-existing mobile (390px) horizontal-overflow bugs, both surfaced while verifying the new drawer: `AdminLayout` was missing `min-w-0` on its content column, and `OrdersPage`'s filter-bar row didn't wrap — together these pushed the whole admin page wider than the viewport, dragging the new drawer's close button off-screen. Fixed with `min-w-0`/`flex-wrap`.
+
+### Notes
+- 1 new backend test; suite grew to 196/196 (67 unit + 129 integration).
+- Verified end-to-end via headless browser across desktop and mobile: 6 order statuses in the Order Summary, all 4 call-result outcomes in the Confirmation Summary, and the mobile overflow fix confirmed with `document.documentElement.scrollWidth` exactly matching the 390px viewport.
+- Still on `dev`, not merged to `main`.
+
 ## [2026-09-14] (on `dev` branch) (18)
 
 ### Changed

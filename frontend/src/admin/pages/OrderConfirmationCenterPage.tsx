@@ -1,10 +1,12 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Clock, PhoneOff, Phone, ChevronRight, Inbox } from 'lucide-react';
 
 import { ordersApi } from '../../lib/api/orders';
 import type { OrderStatus, OrderSummaryDto, PagedResult } from '../../lib/api/types';
 import { formatPrice } from '../../lib/format/price';
+import { Drawer } from '../components/Drawer';
+import { ConfirmationSummaryPanel } from '../components/ConfirmationSummaryPanel';
 
 const PAGE_SIZE = 50;
 
@@ -16,6 +18,7 @@ function OrderQueue({
   data,
   isLoading,
   isError,
+  onSelect,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -24,6 +27,7 @@ function OrderQueue({
   data: PagedResult<OrderSummaryDto> | undefined;
   isLoading: boolean;
   isError: boolean;
+  onSelect: (orderId: string) => void;
 }) {
   return (
     <div className="rounded-lg border border-black/10 bg-white">
@@ -59,12 +63,14 @@ function OrderQueue({
       {data && data.items.length > 0 && (
         <div className="divide-y divide-black/5">
           {data.items.map((order) => (
-            <div key={order.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 hover:bg-luna-cream/40">
+            <div
+              key={order.id}
+              onClick={() => onSelect(order.id)}
+              className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 hover:bg-luna-cream/40"
+            >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2">
-                  <Link to={`/admin/orders/${order.id}`} className="font-mono text-xs font-medium underline">
-                    {order.orderNumber}
-                  </Link>
+                  <span className="font-mono text-xs font-medium underline">{order.orderNumber}</span>
                   <span className="text-xs text-luna-charcoal/50">{new Date(order.createdAtUtc).toLocaleString('fr-FR')}</span>
                 </div>
                 <p className="mt-0.5 truncate text-sm text-luna-black">
@@ -74,17 +80,18 @@ function OrderQueue({
               <span className="shrink-0 text-sm font-medium text-luna-black">{formatPrice(order.total)}</span>
               <a
                 href={`tel:${order.phone}`}
+                onClick={(e) => e.stopPropagation()}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-luna-black px-3 py-1.5 text-xs text-luna-black"
               >
                 <Phone className="h-3.5 w-3.5" /> {order.phone}
               </a>
-              <Link
-                to={`/admin/orders/${order.id}`}
+              <button
+                type="button"
                 aria-label="Voir la commande"
                 className="shrink-0 rounded-full p-1.5 text-luna-charcoal/50 hover:bg-luna-cream hover:text-luna-black"
               >
                 <ChevronRight className="h-4 w-4" />
-              </Link>
+              </button>
             </div>
           ))}
         </div>
@@ -103,6 +110,7 @@ function useQueueQuery(status: OrderStatus) {
 export function OrderConfirmationCenterPage() {
   const pending = useQueueQuery('PendingConfirmation');
   const unreachable = useQueueQuery('CustomerUnreachable');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   return (
     <div>
@@ -135,6 +143,7 @@ export function OrderConfirmationCenterPage() {
           data={pending.data}
           isLoading={pending.isLoading}
           isError={pending.isError}
+          onSelect={setSelectedOrderId}
         />
         <OrderQueue
           title="Injoignables"
@@ -144,8 +153,13 @@ export function OrderConfirmationCenterPage() {
           data={unreachable.data}
           isLoading={unreachable.isLoading}
           isError={unreachable.isError}
+          onSelect={setSelectedOrderId}
         />
       </div>
+
+      <Drawer open={!!selectedOrderId} onClose={() => setSelectedOrderId(null)} title="Confirmation de commande">
+        {selectedOrderId && <ConfirmationSummaryPanel orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />}
+      </Drawer>
     </div>
   );
 }
