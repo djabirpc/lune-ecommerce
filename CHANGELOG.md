@@ -1,5 +1,63 @@
 # Changelog
 
+## [2026-09-21] (on `dev` branch) (23)
+
+### Added
+- **Real 48h Express label printing wired into the real order workflow** — `GET /api/shipments/{id}/label/pdf`, new `IProvidesShippingLabel` capability implemented by `Ecotrack48hShippingProvider`. `OrderDetailPage` downloads a real PDF for Ecotrack48h shipments instead of the old text-only placeholder.
+- **Carrier reference-rates page**, `/admin/shipping` — admin can now manually note each carrier's real rates per wilaya. New `CarrierShippingRate` entity/migration, full CRUD API (`/api/carrier-shipping-rates`). Purely informational — confirmed with the user it must never affect real checkout pricing (still driven solely by the existing `ShippingRate` table).
+
+### Notes
+- Investigated whether 48h Express rates could be fetched automatically — re-checked their full real API documentation, confirmed no rates/tariffs endpoint exists. Built the manual reference page instead, per the user's explicit choice.
+- Verified label printing against a REAL order/shipment on the merchant's live Ecotrack account. That test shipment could not be deleted afterward (Ecotrack only allows deleting non-validated orders) — user will clear it manually from their dashboard.
+- 4 new backend tests; suite grew to 203/203. `tsc`/`oxlint` clean. Still on `dev`, not merged to `main`.
+
+## [2026-09-20] (on `dev` branch) (22)
+
+### Fixed
+- **Admin mobile navigation was completely broken** — the sidebar had no fallback below the `sm` breakpoint, leaving phone users with no way to navigate the admin panel at all. Added a hamburger menu (mobile nav drawer, slides from the left, pure-slide motion with no fade on the panel itself — only the backdrop dims).
+- Dashboard's "Meilleures ventes"/"Alertes stock faible"/"Commandes récentes" now show 5 items instead of 10/15/6.
+
+### Added
+- **Real 48h Express label PDF download**, in the read-only Ecotrack preview page ("Vue client" tab) — `GET /api/ecotrack-preview/orders/{tracking}/label`, using Ecotrack's real, documented `GET /get/order/label` endpoint. Verified against the real account (real 43KB PDF downloaded).
+- `apiClient` gained a `getBlob` method for binary responses.
+
+### Notes
+- Investigated whether 48h Express's shipping rates could be fetched automatically — **confirmed, by re-checking their real API documentation, that no rates/tariffs/quote endpoint exists**. Not built; told the user honestly rather than guessing or approximating.
+- Suite still 199/199. Still on `dev`, not merged to `main`.
+
+## [2026-09-20] (on `dev` branch) (21)
+
+### Added
+- **Real admin "Vue Générale" dashboard** (`/admin/dashboard`), replacing the old placeholder. Period filter (10 presets + custom range), 6 KPI cards with period-over-period comparison, a revenue chart, an orders-by-status chart, a conversion funnel, top products, a clickable "À faire" action queue, low-stock alerts, delivery/returns/marketing breakdowns, and the existing recent-orders list. Everything is backend-aggregated and real — no fake ROAS/no invented comparison data/no client-side filtering of thousands of records.
+- New `GET /api/dashboard/overview?from=&to=` endpoint, `IDashboardService`/`DashboardService`, ~15 new DTOs.
+- `OrdersPage` gained `?status=` URL-param initial-filter support, so the dashboard's action queue can deep-link into a pre-filtered orders list.
+- 3 new backend tests (`DashboardTests.cs`).
+
+### Database
+- Migration `FixLegacyPreparingOrderStatus` — data-only, rewrites leftover `'Preparing'` string rows (from the enum member removed in part 18) to `'ReadyToShip'` in `OrderStatusHistories`/`Orders`. A real pre-existing bug: any query reading `OrderStatusHistories.NewStatus` broadly would have thrown `InvalidOperationException`; nothing had queried broadly enough to hit it until this dashboard's status-date lookup did.
+
+### Notes
+- Suite grew to 199/199 (67 unit + 132 integration). Verified by hitting the real endpoint directly at multiple period widths (hourly/daily/monthly granularity, future-dated period) against the live dev database — numbers are real and correctly computed.
+- **No live browser/mobile-viewport verification was possible this round — no Playwright (or other browser-automation) MCP server is configured in this environment.** Flagged explicitly rather than claimed; recommend opening `/admin/dashboard` locally to confirm layout before treating this as fully done.
+- Still on `dev`, not merged to `main`.
+
+## [2026-09-20] (on `dev` branch) (20)
+
+### Added
+- **48h Express / Ecotrack read-only preview dashboard** (`/admin/ecotrack-preview`) — visualizes the merchant's real, existing Ecotrack account (packages, statuses, activity history) before any real integration is wired into checkout/shipping. Never creates/updates/deletes anything on Ecotrack or in Luna's own database; not linked from any customer-facing route.
+- "Tableau de bord" tab: stat cards, a real interactive SVG map of Algeria's 58 wilayas (color-coded by package count, clickable), a "wilayas les plus livrées" ranked list, and a filterable/paginated table (statut, wilaya, période, montant à récupérer min/max, recherche libre).
+- "Vue client" tab: pick a tracking number, see a real customer-style activity timeline.
+- New backend: `IEcotrack48hPreviewService`/`Ecotrack48hPreviewService` (GET-only against Ecotrack, `Authorization: Bearer` header), `Ecotrack48hPreviewController`, in-memory caching (3 min) of the full account snapshot so filtering/pagination/aggregation never re-hits Ecotrack's rate limit.
+- Real Algeria wilaya boundaries (`algeriaWilayaShapes.ts`), derived from public GeoJSON data, simplified and projected to SVG.
+
+### Fixed
+- Diagnosed and fixed a local dev-machine issue where the backend was unreachable from the host despite reporting healthy — an unrelated app was also bound to port 5000. Moved Luna's local backend port to 5050 (`.env` only, not the project default).
+
+### Notes
+- Verified end-to-end against the real Ecotrack account via headless browser: map, all filters, tracking lookup, reset, no console errors, no mobile overflow.
+- Not committed yet — built as a pre-integration visualization exercise per direct request.
+- Still on `dev`.
+
 ## [2026-09-14] (on `dev` branch) (19)
 
 ### Added

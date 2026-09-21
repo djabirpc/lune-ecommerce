@@ -355,6 +355,69 @@ export interface ShippingCarrierAvailabilityDto {
   unavailableReason: string | null;
 }
 
+// Read-only preview of the merchant's real 48h Express (Ecotrack) account — see
+// Ecotrack48hPreviewController on the backend. Not part of the real order/shipping data model.
+export interface Ecotrack48hPreviewOrderDto {
+  tracking: string;
+  reference: string | null;
+  client: string;
+  phone: string;
+  address: string | null;
+  wilayaId: number | null;
+  wilayaName: string | null;
+  amount: number | null;
+  deliveryFee: number | null;
+  products: string | null;
+  status: string;
+  globalStatus: string;
+  stopDesk: boolean;
+  createdAtUtc: string | null;
+  lastUpdatedAtUtc: string | null;
+  driverName: string | null;
+}
+
+export interface Ecotrack48hPreviewWilayaStatDto {
+  wilayaId: number;
+  wilayaName: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface Ecotrack48hPreviewStatusStatDto {
+  status: string;
+  count: number;
+}
+
+export interface Ecotrack48hPreviewDashboardDto {
+  totalOrders: number;
+  totalAmount: number;
+  deliveredCount: number;
+  inProcessCount: number;
+  returnCount: number;
+  byWilaya: Ecotrack48hPreviewWilayaStatDto[];
+  byStatus: Ecotrack48hPreviewStatusStatDto[];
+}
+
+export interface Ecotrack48hPreviewOrdersPageDto {
+  items: Ecotrack48hPreviewOrderDto[];
+  currentPage: number;
+  lastPage: number;
+  total: number;
+}
+
+export interface Ecotrack48hPreviewTrackingEventDto {
+  status: string | null;
+  station: string | null;
+  occurredAtUtc: string | null;
+}
+
+export interface Ecotrack48hPreviewTrackingDto {
+  tracking: string;
+  recipientName: string | null;
+  currentStation: string | null;
+  activity: Ecotrack48hPreviewTrackingEventDto[];
+}
+
 export interface ShippingRateDto {
   wilaya: string;
   homeDeliveryPrice: number;
@@ -366,6 +429,23 @@ export interface UpdateShippingRateRequest {
   homeDeliveryPrice: number;
   stopDeskPrice: number;
   isActive: boolean;
+}
+
+export interface CarrierShippingRateDto {
+  id: string;
+  carrier: ShippingCarrier;
+  wilaya: string;
+  homeDeliveryPrice: number | null;
+  stopDeskPrice: number | null;
+  notes: string | null;
+}
+
+export interface SaveCarrierShippingRateRequest {
+  carrier: ShippingCarrier;
+  wilaya: string;
+  homeDeliveryPrice: number | null;
+  stopDeskPrice: number | null;
+  notes: string | null;
 }
 
 export interface ShippingQuoteDto {
@@ -569,6 +649,117 @@ export interface PromotionDetailDto {
   categoryIds: string[];
   minQuantity: number | null;
   bundleTiers: BundleTierDto[];
+}
+
+// --- Dashboard ---
+
+export interface DashboardPeriodDto {
+  from: string;
+  to: string;
+}
+
+export interface DashboardKpiDto {
+  value: number;
+  previousValue: number | null;
+  changePercent: number | null;
+}
+
+export interface DashboardKpisDto {
+  revenue: DashboardKpiDto;
+  ordersCreated: DashboardKpiDto;
+  confirmed: DashboardKpiDto;
+  delivered: DashboardKpiDto;
+  returned: DashboardKpiDto;
+  cancelled: DashboardKpiDto;
+}
+
+export interface DashboardRevenuePointDto {
+  date: string;
+  revenue: number;
+}
+
+export interface DashboardStatusCountDto {
+  status: OrderStatus;
+  count: number;
+}
+
+export interface DashboardFunnelStageDto {
+  key: string;
+  label: string;
+  count: number;
+  conversionPercent: number | null;
+}
+
+export interface DashboardTopProductDto {
+  productId: string;
+  productName: string;
+  imageUrl: string | null;
+  unitsSold: number;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface DashboardCarrierStatDto {
+  carrier: ShippingCarrier;
+  delivered: number;
+  returned: number;
+  failed: number;
+}
+
+export interface DashboardDeliveryDto {
+  delivered: number;
+  outForDelivery: number;
+  refused: number;
+  returned: number;
+  byCarrier: DashboardCarrierStatDto[];
+}
+
+export interface DashboardReturnReasonStatDto {
+  reason: OrderReturnReason;
+  count: number;
+}
+
+export interface DashboardReturnsDto {
+  totalReturned: number;
+  byReason: DashboardReturnReasonStatDto[];
+}
+
+export interface DashboardMarketingSourceStatDto {
+  source: string;
+  orderCount: number;
+  revenue: number;
+}
+
+export interface DashboardStockAlertDto {
+  productVariantId: string;
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
+  availableQuantity: number;
+}
+
+export interface DashboardActionQueueItemDto {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface DashboardOverviewDto {
+  period: DashboardPeriodDto;
+  comparisonPeriod: DashboardPeriodDto;
+  hasComparisonData: boolean;
+  kpis: DashboardKpisDto;
+  revenue: DashboardRevenuePointDto[];
+  revenueGranularity: 'hourly' | 'daily' | 'monthly';
+  ordersByStatus: DashboardStatusCountDto[];
+  funnel: DashboardFunnelStageDto[];
+  topProducts: DashboardTopProductDto[];
+  delivery: DashboardDeliveryDto;
+  returns: DashboardReturnsDto;
+  marketing: DashboardMarketingSourceStatDto[];
+  actionQueue: DashboardActionQueueItemDto[];
+  lowStock: DashboardStockAlertDto[];
 }
 
 export interface SavePromotionRequest {

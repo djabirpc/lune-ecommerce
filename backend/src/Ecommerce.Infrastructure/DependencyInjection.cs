@@ -1,6 +1,8 @@
+using System.Net.Http.Headers;
 using Ecommerce.Application.Auth;
 using Ecommerce.Application.Catalog;
 using Ecommerce.Application.Common;
+using Ecommerce.Application.Dashboard;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Marketing;
 using Ecommerce.Application.Orders;
@@ -9,6 +11,7 @@ using Ecommerce.Application.Shipping;
 using Ecommerce.Application.Suppliers;
 using Ecommerce.Application.Users;
 using Ecommerce.Infrastructure.Catalog;
+using Ecommerce.Infrastructure.Dashboard;
 using Ecommerce.Infrastructure.Identity;
 using Ecommerce.Infrastructure.Inventory;
 using Ecommerce.Infrastructure.Marketing;
@@ -29,6 +32,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddMemoryCache();
+
         services.AddDbContext<AppDbContext>((serviceProvider, options) =>
         {
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
@@ -60,6 +65,7 @@ public static class DependencyInjection
         services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<IMarketingService, MarketingService>();
         services.AddScoped<IHomeBannerService, HomeBannerService>();
+        services.AddScoped<IDashboardService, DashboardService>();
 
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
@@ -82,8 +88,25 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddScoped<IShippingProvider>(sp => sp.GetRequiredService<Ecotrack48hShippingProvider>());
+
+        // Read-only admin preview of the merchant's real Ecotrack account (see
+        // Ecotrack48hPreviewService's doc comment) — a separate typed HttpClient using the
+        // Authorization: Bearer header, kept independent from Ecotrack48hShippingProvider above
+        // (which the real order/shipping flow actually calls) on purpose.
+        services.AddHttpClient<IEcotrack48hPreviewService, Ecotrack48hPreviewService>((sp, client) =>
+        {
+            var ecotrackOptions = sp.GetRequiredService<IOptions<Ecotrack48hOptions>>().Value;
+            if (ecotrackOptions.IsConfigured)
+            {
+                client.BaseAddress = new Uri(ecotrackOptions.BaseUrl.TrimEnd('/') + '/');
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ecotrackOptions.ApiToken);
+            }
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         services.AddScoped<IShippingService, ShippingService>();
         services.AddScoped<IShippingRateService, ShippingRateService>();
+        services.AddScoped<ICarrierShippingRateService, CarrierShippingRateService>();
         services.AddHostedService<ShippingSyncBackgroundService>();
 
         return services;

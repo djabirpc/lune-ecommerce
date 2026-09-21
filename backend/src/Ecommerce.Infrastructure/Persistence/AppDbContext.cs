@@ -38,6 +38,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
     public DbSet<ShippingRate> ShippingRates => Set<ShippingRate>();
+    public DbSet<CarrierShippingRate> CarrierShippingRates => Set<CarrierShippingRate>();
 
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
 
@@ -324,6 +325,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany(s => s.TrackingEvents)
                 .HasForeignKey(e => e.ShipmentId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CarrierShippingRate>(entity =>
+        {
+            entity.ToTable("CarrierShippingRates");
+            entity.Property(r => r.Carrier).HasConversion<string>().HasMaxLength(20);
+            entity.Property(r => r.Wilaya).IsRequired().HasMaxLength(100);
+            entity.Property(r => r.HomeDeliveryPrice).HasPrecision(10, 2);
+            entity.Property(r => r.StopDeskPrice).HasPrecision(10, 2);
+            entity.Property(r => r.Notes).HasMaxLength(500);
+            entity.HasIndex(r => new { r.Carrier, r.Wilaya }).IsUnique();
         });
 
         builder.Entity<ShippingRate>(entity =>

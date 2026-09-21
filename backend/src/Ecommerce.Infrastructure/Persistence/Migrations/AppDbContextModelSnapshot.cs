@@ -817,6 +817,48 @@ namespace Ecommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("PromotionProducts", (string)null);
                 });
 
+            modelBuilder.Entity("Ecommerce.Domain.Shipping.CarrierShippingRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Carrier")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("HomeDeliveryPrice")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal?>("StopDeskPrice")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Wilaya")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Carrier", "Wilaya")
+                        .IsUnique();
+
+                    b.ToTable("CarrierShippingRates", (string)null);
+                });
+
             modelBuilder.Entity("Ecommerce.Domain.Shipping.Shipment", b =>
                 {
                     b.Property<Guid>("Id")
