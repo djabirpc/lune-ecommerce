@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { ordersApi } from '../../lib/api/orders';
@@ -25,7 +25,11 @@ const ALL_STATUSES: OrderStatus[] = [
 ];
 
 export function OrdersPage() {
-  const [status, setStatus] = useState<OrderStatus | ''>('');
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status');
+  const [status, setStatus] = useState<OrderStatus | ''>(
+    initialStatus && ALL_STATUSES.includes(initialStatus as OrderStatus) ? (initialStatus as OrderStatus) : '',
+  );
   const [page, setPage] = useState(1);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
