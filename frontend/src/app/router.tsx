@@ -30,6 +30,7 @@ import { SuppliersPage } from '../admin/pages/SuppliersPage';
 import { PromotionsPage as AdminPromotionsPage } from '../admin/pages/PromotionsPage';
 import { CustomersPage } from '../admin/pages/CustomersPage';
 import { ShippingPage } from '../admin/pages/ShippingPage';
+import { Ecotrack48hPreviewPage } from '../admin/pages/Ecotrack48hPreviewPage';
 import { MarketingPage } from '../admin/pages/MarketingPage';
 import { HomeBannersPage } from '../admin/pages/HomeBannersPage';
 import { UsersPage } from '../admin/pages/UsersPage';
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
           { path: 'promotions', element: <AdminPromotionsPage /> },
           { path: 'customers', element: <CustomersPage /> },
           { path: 'shipping', element: <ShippingPage /> },
+          { path: 'ecotrack-preview', element: <Ecotrack48hPreviewPage /> },
           { path: 'marketing', element: <MarketingPage /> },
           { path: 'homepage', element: <HomeBannersPage /> },
           { path: 'users', element: <UsersPage /> },

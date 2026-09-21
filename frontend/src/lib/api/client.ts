@@ -47,7 +47,7 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
-async function request<T>(path: string, init?: RequestInit, allowRetry = true, asText = false): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, allowRetry = true, mode: 'json' | 'text' | 'blob' = 'json'): Promise<T> {
   const auth = loadAuth();
   const isFormData = init?.body instanceof FormData;
   const headers: Record<string, string> = {
@@ -64,7 +64,7 @@ async function request<T>(path: string, init?: RequestInit, allowRetry = true, a
   if (response.status === 401 && allowRetry && auth) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      return request<T>(path, init, false, asText);
+      return request<T>(path, init, false, mode);
     }
   }
 
@@ -81,12 +81,15 @@ async function request<T>(path: string, init?: RequestInit, allowRetry = true, a
     return undefined as T;
   }
 
-  return (asText ? response.text() : response.json()) as Promise<T>;
+  if (mode === 'text') return response.text() as Promise<T>;
+  if (mode === 'blob') return response.blob() as Promise<T>;
+  return response.json() as Promise<T>;
 }
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
-  getText: (path: string) => request<string>(path, { method: 'GET' }, true, true),
+  getText: (path: string) => request<string>(path, { method: 'GET' }, true, 'text'),
+  getBlob: (path: string) => request<Blob>(path, { method: 'GET' }, true, 'blob'),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   postForm: <T>(path: string, formData: FormData) => request<T>(path, { method: 'POST', body: formData }),
