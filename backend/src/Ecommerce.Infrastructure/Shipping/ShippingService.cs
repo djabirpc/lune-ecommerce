@@ -152,6 +152,20 @@ public class ShippingService(
             """;
     }
 
+    public async Task<byte[]> GetLabelPdfAsync(Guid shipmentId, CancellationToken cancellationToken = default)
+    {
+        var shipment = await dbContext.Shipments.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken)
+            ?? throw new NotFoundAppException("Expédition introuvable.");
+
+        if (!_providers.TryGetValue(shipment.Carrier, out var provider) || provider is not IProvidesShippingLabel labelProvider)
+        {
+            throw new NotConfiguredAppException("Le téléchargement d'étiquette PDF n'est pas disponible pour ce transporteur.");
+        }
+
+        return await labelProvider.GetLabelPdfAsync(shipment.ProviderShipmentId, cancellationToken);
+    }
+
     public IReadOnlyList<ShippingCarrierAvailabilityDto> GetCarrierAvailability() =>
         Enum.GetValues<ShippingCarrier>()
             .Select(carrier => _providers.TryGetValue(carrier, out var provider)

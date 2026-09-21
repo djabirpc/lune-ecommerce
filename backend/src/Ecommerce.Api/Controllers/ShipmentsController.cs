@@ -24,4 +24,11 @@ public class ShipmentsController(IShippingService shippingService) : ControllerB
         var label = await shippingService.GetLabelAsync(id, cancellationToken);
         return Content(label, "text/plain");
     }
+
+    [HttpGet("{id:guid}/label/pdf")]
+    public async Task<ActionResult> GetLabelPdf(Guid id, CancellationToken cancellationToken)
+    {
+        var pdf = await shippingService.GetLabelPdfAsync(id, cancellationToken);
+        return File(pdf, "application/pdf", "etiquette.pdf");
+    }
 }

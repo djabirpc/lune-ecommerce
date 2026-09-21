@@ -20,6 +20,7 @@ export function OrderDetailPage() {
   const [shipmentCarrier, setShipmentCarrier] = useState<ShippingCarrier>('Fake');
   const [shipmentError, setShipmentError] = useState<string | null>(null);
   const [label, setLabel] = useState<string | null>(null);
+  const [labelPdfState, setLabelPdfState] = useState<'idle' | 'loading'>('idle');
 
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [notesError, setNotesError] = useState<string | null>(null);
@@ -82,6 +83,24 @@ export function OrderDetailPage() {
     onSuccess: (text) => setLabel(text),
     onError: (err) => setShipmentError(err instanceof ApiError ? err.message : 'Une erreur est survenue.'),
   });
+
+  async function handleDownloadLabelPdf(shipmentId: string) {
+    setLabelPdfState('loading');
+    try {
+      const blob = await shippingApi.getLabelPdf(shipmentId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'etiquette.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+      setShipmentError(null);
+    } catch (err) {
+      setShipmentError(err instanceof ApiError ? err.message : "Impossible de télécharger l'étiquette.");
+    } finally {
+      setLabelPdfState('idle');
+    }
+  }
 
   const updateNotes = useMutation({
     mutationFn: (notes: string | null) => ordersApi.updateNotes(id!, { notes }),
@@ -455,14 +474,25 @@ export function OrderDetailPage() {
               >
                 {syncShipment.isPending ? 'Actualisation...' : 'Actualiser le suivi'}
               </button>
-              <button
-                type="button"
-                disabled={viewLabel.isPending}
-                onClick={() => viewLabel.mutate(order.shipment!.id)}
-                className="rounded-full border border-luna-black px-4 py-2 text-xs disabled:opacity-40"
-              >
-                Voir l'étiquette
-              </button>
+              {order.shipment.carrier === 'Ecotrack48h' ? (
+                <button
+                  type="button"
+                  disabled={labelPdfState === 'loading'}
+                  onClick={() => handleDownloadLabelPdf(order.shipment!.id)}
+                  className="rounded-full border border-luna-black px-4 py-2 text-xs disabled:opacity-40"
+                >
+                  {labelPdfState === 'loading' ? 'Téléchargement...' : "Télécharger l'étiquette (PDF)"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={viewLabel.isPending}
+                  onClick={() => viewLabel.mutate(order.shipment!.id)}
+                  className="rounded-full border border-luna-black px-4 py-2 text-xs disabled:opacity-40"
+                >
+                  Voir l'étiquette
+                </button>
+              )}
             </div>
 
             {label && <pre className="whitespace-pre-wrap rounded border border-black/10 bg-luna-cream p-3 text-xs">{label}</pre>}

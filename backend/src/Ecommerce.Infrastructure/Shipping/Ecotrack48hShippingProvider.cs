@@ -29,7 +29,7 @@ namespace Ecommerce.Infrastructure.Shipping;
 /// `GET /get/tracking/info` — the latter's success shape also isn't documented (only its error
 /// example is shown), while `/get/orders/status` has a full, real sample response to parse against.
 /// </summary>
-public class Ecotrack48hShippingProvider(HttpClient httpClient, IOptions<Ecotrack48hOptions> options) : IShippingProvider
+public class Ecotrack48hShippingProvider(HttpClient httpClient, IOptions<Ecotrack48hOptions> options) : IShippingProvider, IProvidesShippingLabel
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -157,6 +157,51 @@ public class Ecotrack48hShippingProvider(HttpClient httpClient, IOptions<Ecotrac
             : null;
 
         return new ShippingTrackingResult(order.Status ?? "unknown", normalized, string.IsNullOrWhiteSpace(description) ? null : description);
+    }
+
+    // GET /get/order/label — confirmed real endpoint (Postman collection), returns a raw PDF binary.
+    // Same api_token-query-param auth as every other call in this class (create/valid/track).
+    public async Task<byte[]> GetLabelPdfAsync(string providerShipmentId, CancellationToken cancellationToken = default)
+    {
+        EnsureConfigured();
+
+        var query = BuildQuery(new Dictionary<string, string?>
+        {
+            ["api_token"] = options.Value.ApiToken,
+            ["tracking"] = providerShipmentId,
+        });
+
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/get/order/label?{query}", cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            throw new ExternalServiceAppException("48h Express : trop de requêtes envoyées (limite de 50/minute dépassée).");
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            throw new ExternalServiceAppException("48h Express a rejeté le token d'authentification.");
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            throw new NotFoundAppException($"Aucune étiquette 48h Express trouvée pour le colis {providerShipmentId}.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new ExternalServiceAppException($"48h Express n'a pas pu générer l'étiquette pour {providerShipmentId} (HTTP {(int)response.StatusCode}).");
+        }
+
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+        if (contentType is not null && !contentType.Contains("pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ExternalServiceAppException($"48h Express a renvoyé une réponse inattendue pour l'étiquette de {providerShipmentId} (type : {contentType}).");
+        }
+
+        return bytes;
     }
 
     private void EnsureConfigured()

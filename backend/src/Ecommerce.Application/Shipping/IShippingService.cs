@@ -10,5 +10,9 @@ public interface IShippingService
 
     Task<string> GetLabelAsync(Guid shipmentId, CancellationToken cancellationToken = default);
 
+    /// <summary>Real PDF label — only works for carriers implementing IProvidesShippingLabel
+    /// (currently Ecotrack48h). 501 NOT_CONFIGURED otherwise.</summary>
+    Task<byte[]> GetLabelPdfAsync(Guid shipmentId, CancellationToken cancellationToken = default);
+
     IReadOnlyList<ShippingCarrierAvailabilityDto> GetCarrierAvailability();
 }
