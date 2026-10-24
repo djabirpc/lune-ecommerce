@@ -24,8 +24,10 @@ import { OrderDetailPage } from '../admin/pages/OrderDetailPage';
 import { CreateOrderPage } from '../admin/pages/CreateOrderPage';
 import { OrderConfirmationCenterPage } from '../admin/pages/OrderConfirmationCenterPage';
 import { ProductsPage } from '../admin/pages/ProductsPage';
+import { ProductsCatalogTestPage } from '../admin/pages/ProductsCatalogTestPage';
 import { CategoriesPage as AdminCategoriesPage } from '../admin/pages/CategoriesPage';
 import { InventoryPage } from '../admin/pages/InventoryPage';
+import { InventoryProductDetailPage } from '../admin/pages/InventoryProductDetailPage';
 import { SuppliersPage } from '../admin/pages/SuppliersPage';
 import { PromotionsPage as AdminPromotionsPage } from '../admin/pages/PromotionsPage';
 import { CustomersPage } from '../admin/pages/CustomersPage';
@@ -74,8 +76,10 @@ export const router = createBrowserRouter([
           { path: 'orders/confirmation', element: <OrderConfirmationCenterPage /> },
           { path: 'orders/:id', element: <OrderDetailPage /> },
           { path: 'products', element: <ProductsPage /> },
+          { path: 'products-test', element: <ProductsCatalogTestPage /> },
           { path: 'categories', element: <AdminCategoriesPage /> },
           { path: 'inventory', element: <InventoryPage /> },
+          { path: 'inventory/:productId', element: <InventoryProductDetailPage /> },
           { path: 'suppliers', element: <SuppliersPage /> },
           { path: 'promotions', element: <AdminPromotionsPage /> },
           { path: 'customers', element: <CustomersPage /> },

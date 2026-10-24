@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { to: '/admin/orders/confirmation', label: 'Confirmation' },
   { to: '/admin/categories', label: 'Catégories' },
   { to: '/admin/products', label: 'Produits' },
+  { to: '/admin/products-test', label: 'Catalogue (test)' },
   { to: '/admin/inventory', label: 'Stock' },
   { to: '/admin/suppliers', label: 'Fournisseurs' },
   { to: '/admin/promotions', label: 'Promotions' },

@@ -1,3 +1,4 @@
+using Ecommerce.Application.Common;
 using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Inventory;
 using Ecommerce.Application.Inventory.Dtos;
@@ -13,6 +14,156 @@ public class InventoryService(
     IValidator<RestockRequest> restockValidator,
     IValidator<AdjustInventoryRequest> adjustValidator) : IInventoryService
 {
+    // Matches DashboardService's own LowStockThreshold (part 21) — kept as a separate constant here
+    // since there's no shared constants module in this codebase, but the two must stay in sync if
+    // the business ever wants a different "low stock" cutoff.
+    private const int LowStockThreshold = 5;
+
+    // Shared variant-row shape for both GetOverviewAsync and GetByProductIdAsync — a flat .Select()
+    // projection straight into a record constructor translates fine in EF Core (the established
+    // GroupBy-into-record gotcha in this codebase only applies to GroupBy aggregates, not plain
+    // per-row projections like this one).
+    private record VariantRow(
+        Guid ProductVariantId, Guid ProductId, string ProductName, string ProductSlug, Guid CategoryId, string CategoryName,
+        string Color, string Size, string Sku, decimal? CostPrice, decimal Price,
+        int AvailableQuantity, int ReservedQuantity, int SoldQuantity, int ReturnedQuantity, int DamagedQuantity);
+
+    private static IQueryable<VariantRow> ProjectVariantRows(IQueryable<InventoryRecord> source) =>
+        source.Select(i => new VariantRow(
+            i.ProductVariantId,
+            i.ProductVariant.ProductId,
+            i.ProductVariant.Product.Name,
+            i.ProductVariant.Product.Slug,
+            i.ProductVariant.Product.CategoryId,
+            i.ProductVariant.Product.Category.Name,
+            i.ProductVariant.Color,
+            i.ProductVariant.Size,
+            i.ProductVariant.Sku,
+            i.ProductVariant.CostPrice,
+            i.ProductVariant.PriceOverride ?? i.ProductVariant.Product.Price,
+            i.AvailableQuantity,
+            i.ReservedQuantity,
+            i.SoldQuantity,
+            i.ReturnedQuantity,
+            i.DamagedQuantity));
+
+    private static InventoryVariantOverviewDto ToVariantDto(VariantRow v) =>
+        new(v.ProductVariantId, v.Color, v.Size, v.Sku, v.CostPrice, v.Price, v.AvailableQuantity, v.ReservedQuantity, v.SoldQuantity, v.ReturnedQuantity, v.DamagedQuantity);
+
+    public async Task<InventoryProductOverviewDto> GetByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var variants = await ProjectVariantRows(
+                dbContext.Inventory.AsNoTracking().Where(i => i.ProductVariant.IsActive && i.ProductVariant.ProductId == productId))
+            .ToListAsync(cancellationToken);
+
+        if (variants.Count == 0)
+        {
+            throw new NotFoundAppException("Produit introuvable ou sans variante active.");
+        }
+
+        var imageUrl = await dbContext.Products.AsNoTracking()
+            .Where(p => p.Id == productId)
+            .Select(p => p.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault()
+                ?? p.Images.OrderBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault())
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var first = variants[0];
+        return new InventoryProductOverviewDto(
+            productId, first.ProductName, first.ProductSlug, first.CategoryId, first.CategoryName, imageUrl,
+            variants.Select(ToVariantDto).ToList());
+    }
+
+    public async Task<PagedResult<InventoryProductOverviewDto>> GetOverviewAsync(
+        InventoryOverviewFilter filter, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize is < 1 or > 100 ? 20 : pageSize;
+
+        // Step 1: find which PRODUCTS have at least one variant matching the filters (search/category/
+        // stockStatus), and the lowest AvailableQuantity among those matching variants — used purely to
+        // rank products "most needing attention first", the same ordering the earlier flat-variant
+        // version used. Materialized into an anonymous type first (the established EF GroupBy-into-
+        // record translation gotcha in this codebase) before mapping/sorting client-side.
+        var variantQuery = dbContext.Inventory.AsNoTracking()
+            .Where(i => i.ProductVariant.IsActive && i.ProductVariant.Product.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var term = filter.Search.Trim();
+            variantQuery = variantQuery.Where(i => i.ProductVariant.Product.Name.Contains(term) || i.ProductVariant.Sku.Contains(term));
+        }
+
+        if (filter.CategoryId.HasValue)
+        {
+            variantQuery = variantQuery.Where(i => i.ProductVariant.Product.CategoryId == filter.CategoryId.Value);
+        }
+
+        variantQuery = filter.StockStatus switch
+        {
+            InventoryStockStatus.Low => variantQuery.Where(i => i.AvailableQuantity > 0 && i.AvailableQuantity <= LowStockThreshold),
+            InventoryStockStatus.Out => variantQuery.Where(i => i.AvailableQuantity <= 0),
+            _ => variantQuery,
+        };
+
+        var matchingProducts = await variantQuery
+            .GroupBy(i => i.ProductVariant.ProductId)
+            .Select(g => new { ProductId = g.Key, MinAvailable = g.Min(i => i.AvailableQuantity) })
+            .ToListAsync(cancellationToken);
+
+        var orderedProductIds = matchingProducts
+            .OrderBy(p => p.MinAvailable)
+            .Select(p => p.ProductId)
+            .ToList();
+
+        var totalCount = orderedProductIds.Count;
+        var pageProductIds = orderedProductIds.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        if (pageProductIds.Count == 0)
+        {
+            return new PagedResult<InventoryProductOverviewDto>([], page, pageSize, totalCount);
+        }
+
+        // Step 2: once a product matches, show ALL of its active variants (not just the one that
+        // matched the filter) — an admin opening a product needs the full picture.
+        var rawVariants = await ProjectVariantRows(
+                dbContext.Inventory.AsNoTracking().Where(i => i.ProductVariant.IsActive && pageProductIds.Contains(i.ProductVariant.ProductId)))
+            .ToListAsync(cancellationToken);
+
+        var images = await dbContext.Products.AsNoTracking()
+            .Where(p => pageProductIds.Contains(p.Id))
+            .Select(p => new
+            {
+                p.Id,
+                ImageUrl = p.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault()
+                    ?? p.Images.OrderBy(i => i.DisplayOrder).Select(i => i.Url).FirstOrDefault(),
+            })
+            .ToListAsync(cancellationToken);
+        var imageByProductId = images.ToDictionary(x => x.Id, x => x.ImageUrl);
+
+        var variantsByProductId = rawVariants
+            .GroupBy(v => v.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var items = pageProductIds
+            .Where(variantsByProductId.ContainsKey)
+            .Select(productId =>
+            {
+                var variants = variantsByProductId[productId];
+                var first = variants[0];
+                return new InventoryProductOverviewDto(
+                    productId,
+                    first.ProductName,
+                    first.ProductSlug,
+                    first.CategoryId,
+                    first.CategoryName,
+                    imageByProductId.GetValueOrDefault(productId),
+                    variants.Select(ToVariantDto).ToList());
+            })
+            .ToList();
+
+        return new PagedResult<InventoryProductOverviewDto>(items, page, pageSize, totalCount);
+    }
+
     public async Task<InventoryDto> GetByVariantIdAsync(Guid variantId, CancellationToken cancellationToken = default) =>
         await GetDtoAsync(variantId, cancellationToken);
 

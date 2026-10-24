@@ -7,10 +7,11 @@ import { CreateProductForm } from '../components/CreateProductForm';
 import { EditProductForm } from '../components/EditProductForm';
 import { ProductImagesPanel } from '../components/ProductImagesPanel';
 import { ProductVariantsPanel } from '../components/ProductVariantsPanel';
+import { ProductOrderHistoryPanel } from '../components/ProductOrderHistoryPanel';
 
 const PAGE_SIZE = 20;
 
-type PanelMode = 'variants' | 'edit' | 'images';
+type PanelMode = 'variants' | 'edit' | 'images' | 'orders';
 type ExpandedPanel = { slug: string; mode: PanelMode } | null;
 
 export function ProductsPage() {
@@ -92,6 +93,13 @@ export function ProductsPage() {
                             >
                               {expanded?.slug === product.slug && expanded.mode === 'variants' ? 'Fermer' : 'Variantes / Stock'}
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => togglePanel(product.slug, 'orders')}
+                              className="text-xs underline"
+                            >
+                              {expanded?.slug === product.slug && expanded.mode === 'orders' ? 'Fermer' : 'Commandes'}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -113,6 +121,13 @@ export function ProductsPage() {
                         <tr>
                           <td colSpan={5} className="p-0">
                             <ProductVariantsPanel slug={product.slug} />
+                          </td>
+                        </tr>
+                      )}
+                      {expanded?.slug === product.slug && expanded.mode === 'orders' && (
+                        <tr>
+                          <td colSpan={5} className="p-0">
+                            <ProductOrderHistoryPanel productId={product.id} />
                           </td>
                         </tr>
                       )}
