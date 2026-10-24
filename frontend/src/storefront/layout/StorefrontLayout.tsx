@@ -8,19 +8,23 @@ import { useFavorites } from '../../lib/favorites/FavoritesContext';
 import { captureAttributionOnLoad } from '../../lib/marketing/attribution';
 import { initPixels, trackEvent } from '../../lib/marketing/pixels';
 import { catalogApi } from '../../lib/api/catalog';
+import { storeSettingsApi } from '../../lib/api/storeSettings';
 import { useQuery } from '@tanstack/react-query';
 import { MobileTabBar } from './MobileTabBar';
 import { LanguageSwitcher } from '../../lib/i18n/LanguageSwitcher';
 
 const NAV_LINKS_HIDDEN_BAR = [/^\/product\//, /^\/cart$/, /^\/checkout$/];
 
-const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL as string | undefined;
-const TIKTOK_URL = import.meta.env.VITE_TIKTOK_URL as string | undefined;
-const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL as string | undefined;
-const PHONE_NUMBER = import.meta.env.VITE_STORE_PHONE as string | undefined;
+// Fallback only — admin-configurable via /admin/settings (storeSettingsApi) takes priority so a
+// link/phone/announcement change doesn't need a redeploy. These env vars just cover the moment
+// before anyone has filled that page in yet.
+const ENV_INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL as string | undefined;
+const ENV_TIKTOK_URL = import.meta.env.VITE_TIKTOK_URL as string | undefined;
+const ENV_FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL as string | undefined;
+const ENV_PHONE_NUMBER = import.meta.env.VITE_STORE_PHONE as string | undefined;
 
 export function StorefrontLayout() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { itemCount } = useCart();
   const { favorites } = useFavorites();
   const location = useLocation();
@@ -30,6 +34,20 @@ export function StorefrontLayout() {
     queryKey: ['nav-categories'],
     queryFn: () => catalogApi.getCategories(),
   });
+
+  const { data: storeSettings } = useQuery({
+    queryKey: ['store-settings'],
+    queryFn: () => storeSettingsApi.get(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const INSTAGRAM_URL = storeSettings?.instagramUrl ?? ENV_INSTAGRAM_URL;
+  const TIKTOK_URL = storeSettings?.tikTokUrl ?? ENV_TIKTOK_URL;
+  const FACEBOOK_URL = storeSettings?.facebookUrl ?? ENV_FACEBOOK_URL;
+  const PHONE_NUMBER = storeSettings?.contactPhone ?? ENV_PHONE_NUMBER;
+  const announcementText =
+    (i18n.language === 'ar' ? storeSettings?.announcementTextAr : storeSettings?.announcementTextFr) ||
+    t('layout.announcementBar');
 
   useEffect(() => {
     captureAttributionOnLoad();
@@ -57,7 +75,7 @@ export function StorefrontLayout() {
     <div className="flex min-h-screen flex-col bg-luna-cream">
       <header className="sticky top-0 z-40 border-b border-black/10 bg-luna-cream/90 backdrop-blur supports-[backdrop-filter]:bg-luna-cream/80">
         <div className="bg-luna-black py-2 text-center text-[11px] tracking-[0.16em] text-white uppercase">
-          {t('layout.announcementBar')}
+          {announcementText}
         </div>
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <button

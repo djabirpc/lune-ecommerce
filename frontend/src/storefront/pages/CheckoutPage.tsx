@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { ordersApi } from '../../lib/api/orders';
 import { shippingRatesApi } from '../../lib/api/shipping';
 import { promotionsApi } from '../../lib/api/promotions';
+import { marketingApi } from '../../lib/api/marketing';
 import { ApiError } from '../../lib/api/client';
 import { useCart } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
@@ -86,6 +87,16 @@ export function CheckoutPage() {
     queryKey: ['active-promotions'],
     queryFn: () => promotionsApi.getActive(),
   });
+
+  // Configurable in /admin/settings: by default the "Purchase" pixel event fires right here, client-side,
+  // the instant the order is created. If an admin switches it to "fire at confirmation" instead, it's
+  // sent server-side later (OrderService.MaybeSendPurchaseConversionEventAsync) — so this page must skip
+  // firing it itself to avoid double-counting the same sale.
+  const { data: purchaseTrigger } = useQuery({
+    queryKey: ['purchase-trigger'],
+    queryFn: () => marketingApi.getPurchaseTrigger(),
+    staleTime: 5 * 60 * 1000,
+  });
   const discount = estimateCartDiscount(items, activePromotions ?? []);
   const freeShippingActive = estimateFreeShipping(items, activePromotions ?? []);
   const effectiveShippingCost = freeShippingActive ? 0 : shippingCost;
@@ -146,7 +157,9 @@ export function CheckoutPage() {
         couponCode: couponCode.trim() || null,
         marketingAttribution: getStoredAttribution(),
       });
-      trackEvent('ORDER_CREATED', { value: order.total, currency: 'DZD', order_id: order.orderNumber });
+      if ((purchaseTrigger?.trigger ?? 'OrderCreated') === 'OrderCreated') {
+        trackEvent('ORDER_CREATED', { value: order.total, currency: 'DZD', order_id: order.orderNumber });
+      }
       saveCustomerInfo({
         firstName: values.firstName,
         lastName: values.lastName,

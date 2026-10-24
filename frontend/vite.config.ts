@@ -8,5 +8,12 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // Docker Desktop on Windows doesn't forward native filesystem change events through the
+    // bind-mounted volume, so chokidar's default watcher never sees edits made on the host.
+    // Polling works regardless of how the volume is mounted.
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
   },
 })
