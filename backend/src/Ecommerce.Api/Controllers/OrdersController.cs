@@ -53,9 +53,10 @@ public class OrdersController(
         [FromQuery] OrderStatus? status,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? phone = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await orderService.GetPagedAsync(status, page, pageSize, cancellationToken);
+        var result = await orderService.GetPagedAsync(status, page, pageSize, phone, cancellationToken);
         return Ok(result);
     }
 
@@ -73,6 +74,26 @@ public class OrdersController(
     {
         var summary = await orderService.GetReturnReasonSummaryAsync(cancellationToken);
         return Ok(summary);
+    }
+
+    [HttpGet("by-product/{productId:guid}")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<PagedResult<ProductOrderHistoryItemDto>>> GetByProduct(
+        Guid productId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await orderService.GetProductOrderHistoryAsync(productId, page, pageSize, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("by-product/{productId:guid}/stats")]
+    [Authorize(Roles = Roles.OrderManagers)]
+    public async Task<ActionResult<ProductStatsDto>> GetProductStats(Guid productId, CancellationToken cancellationToken)
+    {
+        var result = await orderService.GetProductStatsAsync(productId, cancellationToken);
+        return Ok(result);
     }
 
     [HttpPost("{id:guid}/status")]

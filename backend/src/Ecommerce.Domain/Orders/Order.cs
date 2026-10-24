@@ -62,6 +62,12 @@ public class Order : Entity
     public string? Referrer { get; set; }
     public string? LandingPage { get; set; }
 
+    /// <summary>Set once a "Purchase" conversion event has been sent/attempted for this order under the
+    /// OrderConfirmed trigger (see MarketingSettings.PurchaseEventTrigger) — prevents double-sending if
+    /// a status transition is ever retried. Stays null under the OrderCreated trigger (fired client-side
+    /// instead, see CheckoutPage) and null for orders placed before this feature existed.</summary>
+    public DateTime? PurchaseEventSentAtUtc { get; set; }
+
     public ICollection<OrderItem> Items { get; set; } = [];
     public ICollection<OrderStatusHistory> StatusHistory { get; set; } = [];
     public ICollection<OrderCallAttempt> CallAttempts { get; set; } = [];

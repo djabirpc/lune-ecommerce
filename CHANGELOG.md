@@ -1,5 +1,145 @@
 # Changelog
 
+## [2026-10-24] (on `dev` branch) (31)
+
+### Added
+- **Real product photos** on all 20 catalog products — sourced from Pexels (free license, no attribution required; chosen over scraping arbitrary Google Images results, which are typically copyrighted retailer photos). Each photo was previewed before use to confirm it matched Luna's "premium, feminine, modern, minimal, elegant" brand direction (CLAUDE.md section 7) — several initial candidates were rejected for being too revealing for a modest fashion catalog. One representative photo per rough style (dress, two-piece set, jeans, blouse, black blazer, beige blazer) is reused across same-category products — **these are generic stock photos for demo/testing purposes, not real photos of Luna's actual inventory**; real product photography must replace them before going live, via the existing `/admin/products` image upload.
+- **Rich test dataset** for exploring the admin: 15 realistic Algerian customers across 8 wilayas, 20 orders spanning every order-workflow status (PendingConfirmation, CustomerUnreachable, Cancelled, Confirmed→ReadyToShip→Shipped→OutForDelivery→Delivered, Refused, and one Returned with a reason), including one repeat customer (3 orders, mixed outcomes) to exercise the Customers page's detail view and risk-badge logic. 3 real promotions: a 20% category discount (Robes), a 10% storewide coupon (`BIENVENUE10`, verified to actually discount a real order), and a 30% flash sale on one product. All created through existing, already-tested endpoints — no new backend/frontend code.
+
+### Notes
+- Verified visually via live Playwright screenshots of the real dashboard (17 orders, 23 880 DA CA, populated charts/funnel/best-sellers), the Customers list (15 real profiles, correct aggregates), and Promotions (all 3 showing with correct type/dates/priority).
+
+## [2026-10-17] (on `dev` branch) (30)
+
+### Database
+- **Full dev database reset, per explicit request** (after an explicit warning + confirmation that this would erase everything: admin account, Marketing/Vitrine settings, shipping rates, promotions, and all 37 accumulated test orders). `docker compose down -v` removed both named volumes (`postgres_data`, `uploads_data`); `docker compose up -d` recreated them from scratch — migrations auto-applied (`ApplyMigrationsOnStartup=true`), `InitialAdmin` re-seeded (same `admin@luna.local` / `.env` password), and the migration-level `ShippingRate` seed data (58 wilayas, 600 DA home / 400 DA stop desk) came back automatically since it's baked into the `AddShippingRates` migration itself, not a separate runtime seeder.
+- **Order numbers restart from scratch** — the dev DB currently has zero orders. Don't assume any previously-referenced order number (e.g. from earlier changelog entries) still exists.
+
+### Added
+- **Fresh, realistic product catalog** (no real photos available yet — admin can add them per product from `/admin/products`): 5 real categories (Robes, Ensembles, Pantalons & Jeans, Chemises & Tops, Vestes & Blazers) and 20 products with plausible French fashion names/prices/descriptions and real color×size variants (133 variants total), created via the existing, already-tested `POST /api/categories`/`POST /api/products` endpoints — no new backend code.
+
+## [2026-10-17] (on `dev` branch) (29)
+
+### Added
+- **Real `/admin/customers` page**, replacing the placeholder. No `Customer` entity exists (guest checkout, CLAUDE.md section 11) — profiles are reconstructed by grouping `Orders` by `Phone` (already indexed). List view: phone, name, wilaya, order count, delivered count, cancelled/refused count, unreachable count, total spent (sum of `Delivered` orders' `Total`, i.e. the real COD amount collected), last order date — with an "À risque" badge once at least half a customer's orders ended up cancelled/refused/unreachable. Clicking a row opens a detail view with that phone's full order history (reuses `GET /api/orders`, now phone-filterable).
+- New `ICustomerService`/`CustomerService`, `GET /api/customers` (`OrderManagers` role). `GET /api/orders` gained an optional `phone` query filter for the drill-down.
+
+### Notes
+- 4 new backend tests; suite grew to 238/238 (67 unit + 171 integration).
+- Verified against the real dev database: 19 real customers correctly aggregated (e.g. a repeat phone number with 9 orders across every status, correct risk badge on phones with ≥50% cancelled/unreachable).
+- `tsc`/`oxlint` clean.
+
+## [2026-10-17] (on `dev` branch) (28)
+
+### Added
+- **"Vitrine" section on `/admin/settings`** — social network links (Instagram/TikTok/Facebook), a contact phone number, and the announcement bar text (separate FR/AR fields, CLAUDE.md section 45) are now editable without a redeploy. Previously these were build-time env vars (`VITE_INSTAGRAM_URL`/`VITE_TIKTOK_URL`/`VITE_FACEBOOK_URL`/`VITE_STORE_PHONE`) or a hardcoded i18n string.
+- New single-row `StoreSettings` table (migration `AddStoreSettings`) + `IStoreSettingsService`. Nothing here is secret (unlike `MarketingSettings`), so `GET /api/store-settings` is fully public/unauthenticated — the storefront itself reads it on every load; `PUT /api/store-settings` is `Admin`/`SuperAdmin`-only (`Roles.UserManagers`), a deliberate split from the Marketing-specific pixel settings' `MarketingManager` role.
+- `StorefrontLayout.tsx` now fetches `/api/store-settings` and uses it for the announcement bar (picking the FR or AR text by the active language, falling back to the existing i18n default string when unset) and the footer's social links/phone (falling back to the env vars, so nothing breaks the moment this ships before anyone's filled the admin form in).
+
+### Database
+- Migration `AddStoreSettings`: new `StoreSettings` table (`InstagramUrl`, `TikTokUrl`, `FacebookUrl`, `ContactPhone`, `AnnouncementTextFr`, `AnnouncementTextAr`, all nullable).
+
+### Notes
+- 4 new backend tests; suite grew to 234/234 (67 unit + 167 integration).
+- Verified against the real running dev stack: PUT as admin, confirmed the public GET reflected it immediately, then reset back to defaults.
+- `tsc`/`oxlint` clean.
+
+## [2026-10-17] (on `dev` branch) (27)
+
+### Added
+- **Configurable "Purchase" marketing conversion event timing** (CLAUDE.md section 21/22) — a COD order isn't a real sale the instant it's placed (many are never confirmed), so the admin can now choose, from a real `/admin/settings` page, whether Meta/TikTok should be told about a "Purchase" at order creation (current default, fired client-side as before) or at phone confirmation (fired server-side, since the customer's browser is long gone by then).
+- New DB-backed `MarketingSettings` (single-row table): `PurchaseEventTrigger` (`OrderCreated`/`OrderConfirmed`), plus optional Meta Pixel ID/Conversions API access token and TikTok Pixel Code/Events API access token. Migration: `AddMarketingSettingsAndPurchaseEventTracking` (also adds `Order.PurchaseEventSentAtUtc`, nullable, idempotency/audit marker).
+- New endpoints on `MarketingController`: `GET`/`PUT /api/marketing/settings` (`MarketingManagers` role; access tokens are write-only — GET only ever returns `isXAccessTokenConfigured` booleans, never the token itself), and a public `GET /api/marketing/purchase-trigger` (no auth) that `CheckoutPage` calls to decide whether to fire the pixel itself.
+- New `IMetaConversionsApiClient`/`MetaConversionsApiClient` (real, documented Meta Graph API `/{pixel-id}/events` endpoint, `action_source: "phone_call"` since that's literally what a COD confirmation is) and `ITikTokEventsApiClient`/`TikTokEventsApiClient` (TikTok's public Events API v1.3 contract, reconstructed from public docs rather than a merchant-supplied collection — flagged in a code comment to verify field names before trusting it against real ad spend, same caution CLAUDE.md already asks for ZR Express). Both hash the customer's phone (SHA-256 of the E.164-normalized number) rather than sending it in the clear — no email exists for COD guest checkout.
+- `IPurchaseConversionEventSender`/`PurchaseConversionEventSender` fans a confirmed order out to whichever provider(s) have real credentials saved; with neither configured it logs "not sent, not configured" and returns cleanly — **no fake success** (CLAUDE.md section 42). Every provider failure is caught and logged — a marketing pixel being down must never block an order confirmation.
+- `OrderService` hooks the sender in at both places an order can become Confirmed: the normal `PendingConfirmation → Confirmed` status transition, and admin-created phone orders (which are born already Confirmed — the call itself was the confirmation, so there's no later transition to hook).
+- Frontend: real `/admin/settings` page (was a placeholder) — trigger radio, Meta/TikTok credential fields with a masked "configured" badge and an explicit "Supprimer" to clear a token (omitting the field on save always means "keep the current one", never silently clears it). `CheckoutPage` now fetches the public trigger before firing `ORDER_CREATED` client-side, skipping it when the setting is `OrderConfirmed` (defaults to firing, same as before, if the fetch hasn't resolved yet — never silently drops a conversion).
+
+### Database
+- Migration `AddMarketingSettingsAndPurchaseEventTracking`: new `MarketingSettings` table; `Order.PurchaseEventSentAtUtc` (nullable timestamptz).
+
+### Notes
+- 8 new backend tests (settings CRUD/masking/clear-token round-trip, plus the order-confirmation and admin-order-creation trigger-firing behavior under both settings); suite grew to 230/230 (67 unit + 163 integration).
+- Verified against the real running dev stack: created a real product/order, switched the trigger to `OrderConfirmed` via a real PUT, confirmed the order via the real admin API, and confirmed in the backend logs + database that the hook fired and stamped `PurchaseEventSentAtUtc` (honestly logging "not sent: neither Meta nor TikTok is configured" since no real credentials exist yet) — then reset the setting back to default and cancelled the test order.
+- `tsc`/`oxlint` clean.
+- **Not yet verified against a real Meta/TikTok account** (no credentials available) — the HTTP clients are real, documented contracts, but have never actually been exercised against graph.facebook.com/business-api.tiktok.com. Verify the exact Meta Conversions API version/TikTok Events API field names once real credentials are added, per the warning in `TikTokEventsApiClient`'s doc comment.
+
+## [2026-09-21] (on `dev` branch) (26)
+
+### Added
+- **Test/preview page for a redesigned admin catalog workflow** (`/admin/products-test`) — list view, separate "new article" and "edit article" views, and a color/size/stock-matrix builder, inspired by the Lovable prototype. `/admin/products` is untouched; no new backend code — reuses the exact same existing, already-tested endpoints.
+
+### Notes
+- Explicitly a trial, not adopted yet — user will review and decide whether to keep, port over the real page, or discard.
+- One real limitation flagged in the UI itself: no variant-delete endpoint exists, so removing a color/size in the editor doesn't delete already-existing variants.
+- Verified against the real backend: created a real 4-variant product via the matrix, then edited it (one stock adjustment, one new variant added) and confirmed the result matched exactly. No new backend tests needed (no new backend code). `tsc`/`oxlint` clean.
+
+### Changed (same-day refinement)
+- Test page's list view now groups products by category instead of one flat list.
+- The stock matrix now shows an editable SKU per cell (auto-generated default, editable; real SKU shown when editing an existing variant).
+- Added the optional Facebook/TikTok Pixel ID fields (already supported by the backend, just not wired up on this new page yet).
+
+### Added (second same-day follow-up)
+- Clicking a product now opens a real **detail view** (image/price/category/description/colors/sizes/stock, "Modifier" button) before the editor, plus a **"Statistiques"** section: total orders/units ordered/amount, broken down by color and by size.
+- New `GET /api/orders/by-product/{productId}/stats` endpoint — real aggregates, labeled "units ordered" (not "sold," since it counts every order regardless of status, same honesty rule as the rest of this feature).
+
+### Notes
+- 4 new backend tests; suite grew to 222/222.
+- Verified against the real backend: a product with 23 real seeded orders correctly returns 23 orders / 23 units / 69 000 DA.
+- `tsc`/`oxlint` clean. Still on `dev`, not merged to `main`. Not committed yet.
+
+### Fixed (third same-day follow-up)
+- Test page's color picker (`ColorSizeStockEditor`): the swatch preview relied solely on `colorToHex()`, a client-only French-name lookup table with a generic fallback — typing an unrecognized name (e.g. an English word like "blue") silently rendered a wrong, unrelated swatch with no way to correct it. Added a native `<input type="color">` next to the name field (Lovable-style), defaulting to the lookup's best guess but freely overridable; the chosen hex is kept in a local `colorHexes` map and used for every swatch (chip list + stock matrix). Frontend-only, not persisted — `ProductVariant.Color` on the backend remains a plain string, no hex field exists or was invented; reopening/editing an existing product still falls back to the name-based guess for its already-saved colors.
+- `tsc`/`oxlint` clean. No backend changes, no new tests needed.
+
+### Fixed (fourth same-day follow-up)
+- The color swatch + name "Ajouter" row was too subtle (no labels, small picker) — the user missed it entirely. Gave it an explicit bordered group with "Teinte"/"Nom" labels and a bigger (40px) swatch.
+- Bigger issue: the whole test page (`/admin/products-test`) kept its list/detail/create/edit view in local `useState`, not the URL — the browser's back button couldn't step out of a product's detail/edit view. Switched to `useSearchParams` (`?view=detail&slug=...`, `?view=edit&slug=...`, `?view=create`); every navigation (`onView`/`onEdit`/`onCreate`/`onBack`/`onDone`) now goes through `setSearchParams`, so back/forward works like any other page, including out of "Nouvel article."
+- `tsc`/`oxlint` clean. No backend changes.
+
+### Fixed (dev environment — root cause of "my changes don't show up")
+- The user still reported seeing none of the above (old plain color input, URL never changing). Root cause found: `vite.config.ts` is baked into the frontend image at build time (`COPY . .` in `Dockerfile.dev`) but is **not** one of the bind-mounted paths in `docker-compose.yml` (only `./frontend/src` is mounted) — so editing it on the host had zero effect on the running container, and a plain `docker compose restart` just re-ran the same stale image. On top of that, Docker Desktop on Windows doesn't forward native filesystem events through the bind mount, so Vite's watcher never saw `src/` edits either, past the dev server's one-time startup read.
+- Fixed by adding `watch: { usePolling: true, interval: 300 }` to `vite.config.ts`'s `server` block, then rebuilding the frontend image (`docker compose up -d --build frontend`) so the new config actually loads. Verified live: edited a line, confirmed via a direct `curl` to the Vite dev server that the new content was served within ~3s, no rebuild needed for `src/` changes going forward — only `vite.config.ts`/`package.json`/`Dockerfile.dev` changes still need `--build`.
+
+## [2026-09-21] (on `dev` branch) (25)
+
+### Added
+- **Real `/admin/inventory` ("Stock") page**, replacing the placeholder — a global, filterable (search/category/stock status) view across the whole catalog, with inline restock/adjust per row. Reverses the earlier "no separate inventory page" decision now that a cross-catalog "what needs attention" view has real value (see the Dashboard's low-stock alerts). The existing per-product panel on `/admin/products` is kept, unchanged — this is complementary, not a replacement.
+- New `GET /api/inventory` endpoint (paginated, search/category/stock-status filters).
+- New shared `RestockAdjustControls` component, extracted from `ProductVariantsPanel`, now used by both the per-product panel and the new global page.
+
+### Changed
+- Same-day follow-up, before committing: reworked the Stock page from a flat one-row-per-variant table into a **product/category-organized view** — one row per product (with photo thumbnail + aggregate stock badge), grouped by category, expanding to show all of that product's variants. Backend response shape changed accordingly (`InventoryProductOverviewDto`, paginated at the product level instead of the variant level).
+
+### Notes
+- 7 backend tests (1 added for the multi-variant-per-product shape); suite grew to 211/211.
+- Verified against the real running dev stack: 36 real products across all categories, 4-16 variants each, confirmed via direct API calls.
+- `tsc`/`oxlint` clean. Still on `dev`, not merged to `main`. Not committed yet.
+
+### Added (same-day follow-up)
+- Clicking a product on `/admin/inventory` now opens a real dedicated stock detail page (`/admin/inventory/:productId`) instead of expanding inline — new `GET /api/inventory/by-product/{productId}`.
+- `/admin/products` gained a "Commandes" panel showing a product's real order history (every order containing it, newest first) — new `GET /api/orders/by-product/{productId}`, matched by product slug so it survives variant/product deletion.
+
+### Notes
+- 8 more backend tests; suite grew to 218/218.
+- Verified against the real running dev stack: a real product's stock detail page loads correctly, and a product with real seeded test orders correctly shows 23 orders across every status with correct quantities/totals.
+- `tsc`/`oxlint` clean. Still on `dev`, not merged to `main`. Not committed yet.
+
+## [2026-09-21] (on `dev` branch) (24)
+
+### Added
+- **Per-article color/size choice within a "N for X DA" bundle offer** on `ProductPage` — picking a bundle tier now shows one color/size picker per article in the bundle (ported from a Lovable prototype design, `github.com/djabirpc/belle-mode`), instead of forcing every unit to be the same variant.
+
+### Changed
+- `OrderService.CalculatePromotionsAsync` now groups order items by product (not just variant/line) when evaluating `BundlePrice` promotions, so a bundle can be fulfilled across several differently colored/sized lines of the same product. Every other promotion type keeps its existing per-line behavior. Behavior-preserving for the normal single-variant case (confirmed by the full existing promotion test suite passing unchanged).
+- `estimate.ts`'s `estimateCartDiscount` (frontend checkout preview) got the same grouping, so the pre-checkout preview matches the backend exactly.
+
+### Notes
+- Flagged to the user as a real pricing-engine change before implementing, since it touches tested checkout math (CLAUDE.md section 41) — confirmed before proceeding.
+- 1 new backend test; suite grew to 204/204. Verified against the real running dev stack with 3 real variants and a real order (not just the test suite).
+- Could not visually verify the new picker in a browser (no Playwright MCP available this session) — recommend checking `/product/:slug` locally.
+- Still on `dev`, not merged to `main`. Not committed yet.
+
 ## [2026-09-21] (on `dev` branch) (23)
 
 ### Added

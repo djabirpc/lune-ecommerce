@@ -176,6 +176,32 @@ export interface InventoryTransactionDto {
   createdAtUtc: string;
 }
 
+export type InventoryStockStatus = 'All' | 'Low' | 'Out';
+
+export interface InventoryVariantOverviewDto {
+  productVariantId: string;
+  color: string;
+  size: string;
+  sku: string;
+  costPrice: number | null;
+  price: number;
+  availableQuantity: number;
+  reservedQuantity: number;
+  soldQuantity: number;
+  returnedQuantity: number;
+  damagedQuantity: number;
+}
+
+export interface InventoryProductOverviewDto {
+  productId: string;
+  productName: string;
+  productSlug: string;
+  categoryId: string;
+  categoryName: string;
+  imageUrl: string | null;
+  variants: InventoryVariantOverviewDto[];
+}
+
 // --- Suppliers ---
 
 export interface SupplierDto {
@@ -518,6 +544,48 @@ export interface MarketingSourceSummaryDto {
   totalRevenue: number;
 }
 
+export type PurchaseEventTrigger = 'OrderCreated' | 'OrderConfirmed';
+
+export interface MarketingSettingsDto {
+  purchaseEventTrigger: PurchaseEventTrigger;
+  metaPixelId: string | null;
+  isMetaAccessTokenConfigured: boolean;
+  tikTokPixelCode: string | null;
+  isTikTokAccessTokenConfigured: boolean;
+}
+
+export interface UpdateMarketingSettingsRequest {
+  purchaseEventTrigger: PurchaseEventTrigger;
+  metaPixelId: string | null;
+  metaAccessToken: string | null;
+  clearMetaAccessToken: boolean;
+  tikTokPixelCode: string | null;
+  tikTokAccessToken: string | null;
+  clearTikTokAccessToken: boolean;
+}
+
+export interface PurchaseTriggerDto {
+  trigger: PurchaseEventTrigger;
+}
+
+export interface StoreSettingsDto {
+  instagramUrl: string | null;
+  tikTokUrl: string | null;
+  facebookUrl: string | null;
+  contactPhone: string | null;
+  announcementTextFr: string | null;
+  announcementTextAr: string | null;
+}
+
+export interface UpdateStoreSettingsRequest {
+  instagramUrl: string | null;
+  tikTokUrl: string | null;
+  facebookUrl: string | null;
+  contactPhone: string | null;
+  announcementTextFr: string | null;
+  announcementTextAr: string | null;
+}
+
 // --- Home banners (hero carousel) ---
 
 export interface HomeBannerDto {
@@ -545,6 +613,19 @@ export interface OrderSummaryDto {
   createdAtUtc: string;
 }
 
+export interface CustomerSummaryDto {
+  phone: string;
+  fullName: string;
+  wilaya: string;
+  totalOrders: number;
+  deliveredOrders: number;
+  cancelledOrRefusedOrders: number;
+  unreachableCount: number;
+  totalSpent: number;
+  firstOrderAtUtc: string;
+  lastOrderAtUtc: string;
+}
+
 export type OrderReturnReason = 'Damaged' | 'WrongSize' | 'WrongItem' | 'CustomerChangedMind' | 'Other';
 
 export interface ChangeOrderStatusRequest {
@@ -556,6 +637,30 @@ export interface ChangeOrderStatusRequest {
 export interface ReturnReasonSummaryDto {
   reason: OrderReturnReason;
   count: number;
+}
+
+export interface ProductOrderHistoryItemDto {
+  orderId: string;
+  orderNumber: string;
+  createdAtUtc: string;
+  customerFullName: string;
+  status: OrderStatus;
+  quantity: number;
+  lineTotal: number;
+}
+
+export interface ProductVariantStatDto {
+  value: string;
+  unitsOrdered: number;
+  amount: number;
+}
+
+export interface ProductStatsDto {
+  totalOrders: number;
+  totalUnitsOrdered: number;
+  totalAmount: number;
+  byColor: ProductVariantStatDto[];
+  bySize: ProductVariantStatDto[];
 }
 
 // --- Auth ---

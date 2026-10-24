@@ -42,6 +42,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<HomeBanner> HomeBanners => Set<HomeBanner>();
 
+    public DbSet<MarketingSettings> MarketingSettings => Set<MarketingSettings>();
+    public DbSet<StoreSettings> StoreSettings => Set<StoreSettings>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -119,6 +122,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.ToTable("HomeBanners");
             entity.Property(b => b.ImageUrl).IsRequired().HasMaxLength(2000);
             entity.Property(b => b.LinkUrl).HasMaxLength(500);
+        });
+
+        builder.Entity<MarketingSettings>(entity =>
+        {
+            entity.ToTable("MarketingSettings");
+            entity.Property(s => s.PurchaseEventTrigger).HasConversion<string>().HasMaxLength(20);
+            entity.Property(s => s.MetaPixelId).HasMaxLength(50);
+            entity.Property(s => s.MetaAccessToken).HasMaxLength(1000);
+            entity.Property(s => s.TikTokPixelCode).HasMaxLength(50);
+            entity.Property(s => s.TikTokAccessToken).HasMaxLength(1000);
+        });
+
+        builder.Entity<StoreSettings>(entity =>
+        {
+            entity.ToTable("StoreSettings");
+            entity.Property(s => s.InstagramUrl).HasMaxLength(500);
+            entity.Property(s => s.TikTokUrl).HasMaxLength(500);
+            entity.Property(s => s.FacebookUrl).HasMaxLength(500);
+            entity.Property(s => s.ContactPhone).HasMaxLength(20);
+            entity.Property(s => s.AnnouncementTextFr).HasMaxLength(200);
+            entity.Property(s => s.AnnouncementTextAr).HasMaxLength(200);
         });
 
         builder.Entity<InventoryRecord>(entity =>

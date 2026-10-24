@@ -2,17 +2,21 @@ using System.Security.Cryptography;
 using Ecommerce.Application.Common;
 using Ecommerce.Application.Common.Exceptions;
 using Ecommerce.Application.Inventory;
+using Ecommerce.Application.Marketing;
+using Ecommerce.Application.Marketing.Dtos;
 using Ecommerce.Application.Orders;
 using Ecommerce.Application.Orders.Dtos;
 using Ecommerce.Application.Shipping;
 using Ecommerce.Application.Shipping.Dtos;
 using Ecommerce.Domain.Catalog;
+using Ecommerce.Domain.Marketing;
 using Ecommerce.Domain.Orders;
 using Ecommerce.Domain.Promotions;
 using Ecommerce.Domain.Shipping;
 using Ecommerce.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Ecommerce.Infrastructure.Orders;
 
@@ -20,6 +24,9 @@ public class OrderService(
     AppDbContext dbContext,
     IInventoryService inventoryService,
     IShippingRateService shippingRateService,
+    IMarketingSettingsService marketingSettingsService,
+    IPurchaseConversionEventSender purchaseConversionEventSender,
+    ILogger<OrderService> logger,
     IValidator<CreateOrderRequest> createValidator,
     IValidator<CreateAdminOrderRequest> createAdminValidator,
     IValidator<ChangeOrderStatusRequest> changeStatusValidator,
@@ -169,6 +176,13 @@ public class OrderService(
         }
 
         await transaction.CommitAsync(cancellationToken);
+
+        if (order.Status == OrderStatus.Confirmed)
+        {
+            // Admin phone-order flow: the order is born Confirmed (the call itself was the
+            // confirmation), so there's no later ChangeStatusAsync transition to hook — fire here instead.
+            await MaybeSendPurchaseConversionEventAsync(order, cancellationToken);
+        }
 
         return ToDetailDto(order);
     }
@@ -461,6 +475,7 @@ public class OrderService(
         OrderStatus? status,
         int page,
         int pageSize,
+        string? phone = null,
         CancellationToken cancellationToken = default)
     {
         page = page < 1 ? 1 : page;
@@ -471,6 +486,11 @@ public class OrderService(
         if (status.HasValue)
         {
             query = query.Where(o => o.Status == status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            query = query.Where(o => o.Phone == phone);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -587,9 +607,44 @@ public class OrderService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
+        if (request.NewStatus == OrderStatus.Confirmed)
+        {
+            await MaybeSendPurchaseConversionEventAsync(order, cancellationToken);
+        }
+
         var userNames = await ResolveUserNamesAsync(HistoryActorIds(order), cancellationToken);
 
         return ToDetailDto(order, includeHistory: true, userNames);
+    }
+
+    /// <summary>
+    /// Fires the "Purchase" marketing conversion event for an order that just became Confirmed — either
+    /// via a status transition (ChangeStatusAsync) or because it was created already-Confirmed (the
+    /// admin phone-order flow, see CreateOrderCoreAsync). Only does anything under the OrderConfirmed
+    /// trigger (CLAUDE.md section 21 + the admin Settings page); under the default OrderCreated trigger
+    /// the event already fired client-side at checkout, so this is a deliberate no-op. Never throws —
+    /// a marketing pixel failure must never block an order confirmation.
+    /// </summary>
+    private async Task MaybeSendPurchaseConversionEventAsync(Order order, CancellationToken cancellationToken)
+    {
+        if (order.PurchaseEventSentAtUtc is not null) return;
+
+        var trigger = await marketingSettingsService.GetPurchaseEventTriggerAsync(cancellationToken);
+        if (trigger != PurchaseEventTrigger.OrderConfirmed) return;
+
+        try
+        {
+            await purchaseConversionEventSender.SendAsync(
+                new PurchaseEventData(order.Id, order.OrderNumber, order.Total, order.Phone, DateTime.UtcNow),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Purchase conversion event dispatch failed for order {OrderId}.", order.Id);
+        }
+
+        order.PurchaseEventSentAtUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<ReturnReasonSummaryDto>> GetReturnReasonSummaryAsync(CancellationToken cancellationToken = default)
@@ -607,6 +662,86 @@ public class OrderService(
             .OrderByDescending(g => g.Count)
             .Select(g => new ReturnReasonSummaryDto(g.Reason, g.Count))
             .ToList();
+    }
+
+    public async Task<PagedResult<ProductOrderHistoryItemDto>> GetProductOrderHistoryAsync(
+        Guid productId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var product = await dbContext.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId, cancellationToken)
+            ?? throw new NotFoundAppException("Produit introuvable.");
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize is < 1 or > 100 ? 20 : pageSize;
+
+        // Matched by the snapshotted ProductSlug, not a live FK join — survives variant/product
+        // deletion (Important Decision #22). Aggregated per order first (a single order can contain
+        // several of this product's variants as separate lines) via GroupBy materialized into an
+        // anonymous type (the established EF translation gotcha), then joined to Orders in C#.
+        var aggregates = await dbContext.OrderItems.AsNoTracking()
+            .Where(i => i.ProductSlug == product.Slug)
+            .GroupBy(i => i.OrderId)
+            .Select(g => new { OrderId = g.Key, Quantity = g.Sum(i => i.Quantity), LineTotal = g.Sum(i => i.LineTotal) })
+            .ToListAsync(cancellationToken);
+
+        var totalCount = aggregates.Count;
+        var aggregateByOrderId = aggregates.ToDictionary(a => a.OrderId, a => a);
+        var matchingOrderIds = aggregates.Select(a => a.OrderId).ToList();
+
+        var orders = await dbContext.Orders.AsNoTracking()
+            .Where(o => matchingOrderIds.Contains(o.Id))
+            .OrderByDescending(o => o.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(o => new { o.Id, o.OrderNumber, o.CreatedAtUtc, o.FirstName, o.LastName, o.Status })
+            .ToListAsync(cancellationToken);
+
+        var items = orders
+            .Select(o => new ProductOrderHistoryItemDto(
+                o.Id,
+                o.OrderNumber,
+                o.CreatedAtUtc,
+                $"{o.FirstName} {o.LastName}",
+                o.Status,
+                aggregateByOrderId[o.Id].Quantity,
+                aggregateByOrderId[o.Id].LineTotal))
+            .ToList();
+
+        return new PagedResult<ProductOrderHistoryItemDto>(items, page, pageSize, totalCount);
+    }
+
+    public async Task<ProductStatsDto> GetProductStatsAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var product = await dbContext.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId, cancellationToken)
+            ?? throw new NotFoundAppException("Produit introuvable.");
+
+        // Same ProductSlug matching as GetProductOrderHistoryAsync. Three separate GroupBy queries
+        // (overall/by-color/by-size) rather than one combined one — each materializes into its own
+        // anonymous type first (the established EF GroupBy-into-record translation gotcha), and
+        // keeping them separate avoids a 3-way composite grouping key that would be harder to reason
+        // about for no real benefit here.
+        var matchingItems = dbContext.OrderItems.AsNoTracking().Where(i => i.ProductSlug == product.Slug);
+
+        var overall = await matchingItems
+            .GroupBy(i => 1)
+            .Select(g => new { OrderCount = g.Select(i => i.OrderId).Distinct().Count(), Quantity = g.Sum(i => i.Quantity), LineTotal = g.Sum(i => i.LineTotal) })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var byColorRaw = await matchingItems
+            .GroupBy(i => i.Color)
+            .Select(g => new { Value = g.Key, Quantity = g.Sum(i => i.Quantity), LineTotal = g.Sum(i => i.LineTotal) })
+            .ToListAsync(cancellationToken);
+
+        var bySizeRaw = await matchingItems
+            .GroupBy(i => i.Size)
+            .Select(g => new { Value = g.Key, Quantity = g.Sum(i => i.Quantity), LineTotal = g.Sum(i => i.LineTotal) })
+            .ToListAsync(cancellationToken);
+
+        return new ProductStatsDto(
+            overall?.OrderCount ?? 0,
+            overall?.Quantity ?? 0,
+            overall?.LineTotal ?? 0m,
+            byColorRaw.OrderByDescending(x => x.Quantity).Select(x => new ProductVariantStatDto(x.Value, x.Quantity, x.LineTotal)).ToList(),
+            bySizeRaw.OrderByDescending(x => x.Quantity).Select(x => new ProductVariantStatDto(x.Value, x.Quantity, x.LineTotal)).ToList());
     }
 
     private async Task<string> GenerateUniqueOrderNumberAsync(CancellationToken cancellationToken)
@@ -648,18 +783,28 @@ public class OrderService(
         var discountTotal = 0m;
         Promotion? bundleFreeShippingPromotion = null;
 
-        foreach (var item in items)
+        // Grouped by PRODUCT (not variant/line) so a BundlePrice tier counts quantity across every
+        // color/size of the same product in the cart — e.g. "3 for 4000 DA" picking a different
+        // color per unit is 3 separate OrderItems (one per variant), and must still reach the tier
+        // together. Every other promotion type keeps its existing per-line semantics (summed across
+        // the group purely for a fair apples-to-apples comparison against the group-level BundlePrice
+        // discount) — this is a behavior-preserving generalization: a product with only one line
+        // (the overwhelmingly common case) computes identically to before.
+        foreach (var group in items.GroupBy(i => variantsById[i.ProductVariantId].ProductId))
         {
-            var variant = variantsById[item.ProductVariantId];
+            var representativeVariant = variantsById[group.First().ProductVariantId];
             var scoped = candidates
                 .Where(p => p.Type != PromotionType.FreeShipping)
-                .Where(p => IsScopedTo(p, variant.ProductId, variant.Product.CategoryId))
+                .Where(p => IsScopedTo(p, representativeVariant.ProductId, representativeVariant.Product.CategoryId))
                 .ToList();
 
             if (scoped.Count == 0)
             {
                 continue;
             }
+
+            var groupQuantity = group.Sum(i => i.Quantity);
+            var groupLineTotal = group.Sum(i => i.LineTotal);
 
             // Best discount for the actual quantity — not simply highest Priority — so multiple
             // promotions, and multiple BundlePrice tiers within one promotion (e.g. "2 for 1500" and
@@ -673,8 +818,8 @@ public class OrderService(
             foreach (var promotion in scoped)
             {
                 var (discount, tier) = promotion.Type == PromotionType.BundlePrice
-                    ? ComputeBestBundleTierDiscount(promotion, item)
-                    : (ComputeItemDiscount(promotion, item), null);
+                    ? ComputeBestBundleTierDiscount(promotion, groupQuantity, groupLineTotal)
+                    : (group.Sum(i => ComputeItemDiscount(promotion, i)), null);
 
                 if (discount <= 0)
                 {
@@ -829,16 +974,22 @@ public class OrderService(
     /// Best tier (by discount for the actual quantity) among a BundlePrice promotion's tiers — lets
     /// several tiers on one promotion coexist (e.g. "2 for 1500" and "4 for 3000"); the customer
     /// automatically gets whichever tier is most advantageous for their real quantity, and the
-    /// returned tier is what CalculatePromotionsAsync checks for IncludesFreeShipping.
+    /// returned tier is what CalculatePromotionsAsync checks for IncludesFreeShipping. Operates on a
+    /// whole product-group's combined quantity/line total (see CalculatePromotionsAsync), not a
+    /// single OrderItem — this is what lets a bundle be fulfilled across several differently
+    /// colored/sized lines of the same product, not just repeated units of one exact variant.
     /// </summary>
-    private static (decimal Discount, PromotionBundleTier? Tier) ComputeBestBundleTierDiscount(Promotion promotion, OrderItem item)
+    private static (decimal Discount, PromotionBundleTier? Tier) ComputeBestBundleTierDiscount(Promotion promotion, int groupQuantity, decimal groupLineTotal)
     {
         PromotionBundleTier? bestTier = null;
         var bestDiscount = 0m;
+        // Lines of the same product can carry different unit prices (e.g. a variant PriceOverride) —
+        // an average spreads the bundle discount proportionally rather than assuming one flat price.
+        var averageUnitPrice = groupQuantity > 0 ? groupLineTotal / groupQuantity : 0m;
 
         foreach (var tier in promotion.BundleTiers)
         {
-            var discount = ComputeBundleTierDiscount(tier, item);
+            var discount = ComputeBundleTierDiscount(tier, groupQuantity, averageUnitPrice);
             if (discount > bestDiscount)
             {
                 bestDiscount = discount;
@@ -851,26 +1002,28 @@ public class OrderService(
 
     /// <summary>
     /// "N for a fixed total price" (e.g. "2 for 1500 DA" on a 1000 DA item). Every complete bundle of
-    /// BundleQuantity matching units in this line is charged BundleTotalPrice instead of
-    /// BundleQuantity * UnitPrice; any remainder units (an incomplete bundle) stay at full price.
-    /// Same per-line-only evaluation as BuyXGetY (see ComputeBuyXGetYDiscount) — e.g. "2 for 1500"
-    /// needs 2+ units of the SAME variant in one line. Floors at 0 so a misconfigured bundle price
-    /// higher than the regular price can never produce a negative "discount".
+    /// BundleQuantity matching units across the product's lines is charged BundleTotalPrice instead
+    /// of BundleQuantity * averageUnitPrice; any remainder units (an incomplete bundle) stay at full
+    /// price. Unlike BuyXGetY (see ComputeBuyXGetYDiscount, still per-line-only — not asked for here
+    /// and left alone), this counts quantity across every line of the same product, so "3 for X DA"
+    /// can be fulfilled with 3 different colors/sizes, not just 3 units of one exact variant. Floors
+    /// at 0 so a misconfigured bundle price higher than the regular price can never produce a
+    /// negative "discount".
     /// </summary>
-    private static decimal ComputeBundleTierDiscount(PromotionBundleTier tier, OrderItem item)
+    private static decimal ComputeBundleTierDiscount(PromotionBundleTier tier, int quantity, decimal averageUnitPrice)
     {
         if (tier.BundleQuantity < 2 || tier.BundleTotalPrice <= 0)
         {
             return 0m;
         }
 
-        var completeBundles = item.Quantity / tier.BundleQuantity;
+        var completeBundles = quantity / tier.BundleQuantity;
         if (completeBundles == 0)
         {
             return 0m;
         }
 
-        var regularPriceForBundledUnits = completeBundles * tier.BundleQuantity * item.UnitPrice;
+        var regularPriceForBundledUnits = completeBundles * tier.BundleQuantity * averageUnitPrice;
         var bundlePriceForBundledUnits = completeBundles * tier.BundleTotalPrice;
 
         return Math.Max(regularPriceForBundledUnits - bundlePriceForBundledUnits, 0m);

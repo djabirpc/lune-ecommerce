@@ -23,6 +23,7 @@ public interface IOrderService
         OrderStatus? status,
         int page,
         int pageSize,
+        string? phone = null,
         CancellationToken cancellationToken = default);
 
     Task<OrderDetailDto> ChangeStatusAsync(
@@ -33,6 +34,17 @@ public interface IOrderService
 
     /// <summary>Counts of Returned orders grouped by their structured ReturnReason, most common first (admin dashboard).</summary>
     Task<IReadOnlyList<ReturnReasonSummaryDto>> GetReturnReasonSummaryAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Every order containing a given product (matched by the product's current Slug against
+    /// each OrderItem's snapshotted ProductSlug), newest first — backs the "order history" section on
+    /// a product's admin page.</summary>
+    Task<PagedResult<ProductOrderHistoryItemDto>> GetProductOrderHistoryAsync(
+        Guid productId, int page, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>Real per-color/per-size order statistics for a product (units ordered + amount,
+    /// matched the same way as GetProductOrderHistoryAsync) — backs the catalog detail view's
+    /// "statistiques" section.</summary>
+    Task<ProductStatsDto> GetProductStatsAsync(Guid productId, CancellationToken cancellationToken = default);
 
     /// <summary>Adds a variant to the order (merging into an existing line if already present),
     /// reserves its stock, and recalculates totals. Only while the order hasn't shipped yet.</summary>
