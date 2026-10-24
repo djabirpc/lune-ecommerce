@@ -125,7 +125,12 @@
     "addWithPrice": "أضف — {{price}}",
     "chooseColorSize": "اختاري اللون والمقاس",
     "bundleOffer": "عرض: شراء {{quantity}} قطع = {{price}}",
-    "bundleOfferWithFreeShipping": "عرض: شراء {{quantity}} قطع = {{price}} + توصيل مجاني"
+    "bundleOfferWithFreeShipping": "عرض: شراء {{quantity}} قطع = {{price}} + توصيل مجاني",
+    "bundleSectionTitle": "اختاري {{quantity}} قطع",
+    "bundleSectionHint": "يمكنك اختيار لون ومقاس مختلفين لكل قطعة.",
+    "bundleArticleLabel": "القطعة {{index}} — {{color}}",
+    "bundleChooseSizeError": "اختاري مقاس القطعة {{index}}",
+    "bundleOutOfStockError": "القطعة {{index}}: هذا المقاس غير متوفر بهذا اللون"
   },
   "cart": {
     "empty": {

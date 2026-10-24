@@ -45,6 +45,12 @@ export function ProductPage() {
   // Tracks a bundle-offer quantity chosen before (or independently of) color/size, so picking a
   // variant afterward doesn't silently reset it back to 1 — only a manual +/- click clears it.
   const [offerQuantity, setOfferQuantity] = useState<number | null>(null);
+  // One color/size pick per unit of the active bundle offer — lets "3 for X DA" be fulfilled with a
+  // different color/size per article instead of forcing 3 identical units (mirrors the per-article
+  // picker prototyped in Lovable; the backend now sums quantity across every line of the same
+  // product for BundlePrice tiers specifically, so this is priced correctly at checkout).
+  const [bundleLines, setBundleLines] = useState<{ color: string; size: string | null }[]>([]);
+  const [bundleError, setBundleError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
@@ -113,34 +119,54 @@ export function ProductPage() {
       ? freeShippingThreshold.minQuantity
       : null;
   const unitPrice = estimate ? estimate.discountedPrice : basePrice;
+  // Once every bundle line has a resolved variant, preview using the REAL per-article variants
+  // (mirrors exactly what gets added to the cart) instead of the single selectedVariant/quantity —
+  // otherwise fall back to the normal single-variant preview below.
+  const bundleResolvedVariants = offerQuantity
+    ? bundleLines.map((line) => (line.size ? activeVariants.find((v) => v.color === line.color && v.size === line.size) ?? null : null))
+    : [];
+  const bundleFullyResolved = offerQuantity ? bundleResolvedVariants.length > 0 && bundleResolvedVariants.every((v) => v !== null) : false;
+  const previewLineItems = bundleFullyResolved
+    ? bundleResolvedVariants.map((v) => ({
+        variantId: v!.id,
+        productId: product.id,
+        categoryId: product.categoryId,
+        productSlug: product.slug,
+        productName: product.name,
+        color: v!.color,
+        size: v!.size,
+        sku: v!.sku,
+        unitPrice: v!.price,
+        quantity: 1,
+        imageUrl: null,
+        availableQuantity: v!.availableQuantity,
+      }))
+    : [
+        {
+          variantId: selectedVariant?.id ?? '',
+          productId: product.id,
+          categoryId: product.categoryId,
+          productSlug: product.slug,
+          productName: product.name,
+          color: selectedVariant?.color ?? '',
+          size: selectedVariant?.size ?? '',
+          sku: selectedVariant?.sku ?? '',
+          unitPrice: basePrice,
+          quantity,
+          imageUrl: null,
+          availableQuantity: selectedVariant?.availableQuantity ?? 0,
+        },
+      ];
+  const previewSubtotal = bundleFullyResolved ? bundleResolvedVariants.reduce((sum, v) => sum + v!.price, 0) : basePrice * quantity;
   // Best discount for the selected quantity across EVERY applicable promotion type (percentage/
   // fixed/BuyXGetY/BundlePrice), reusing estimateCartDiscount's dispatch — mirrors the backend's
-  // per-line best-discount-for-the-quantity selection (OrderService.CalculatePromotionsAsync) exactly.
+  // per-product best-discount-for-the-quantity selection (OrderService.CalculatePromotionsAsync)
+  // exactly, including grouping a bundle's several lines of the same product together.
   // Deliberately NOT unitPrice * quantity - bundleDiscount: unitPrice may already have a percentage
-  // discount baked in (via `estimate` above), and only one promotion ever applies per line at
+  // discount baked in (via `estimate` above), and only one promotion ever applies per product at
   // checkout — subtracting a separate bundle discount on top of that would double-count.
-  const bestLineDiscount = activePromotions
-    ? estimateCartDiscount(
-        [
-          {
-            variantId: selectedVariant?.id ?? '',
-            productId: product.id,
-            categoryId: product.categoryId,
-            productSlug: product.slug,
-            productName: product.name,
-            color: selectedVariant?.color ?? '',
-            size: selectedVariant?.size ?? '',
-            sku: selectedVariant?.sku ?? '',
-            unitPrice: basePrice,
-            quantity,
-            imageUrl: null,
-            availableQuantity: selectedVariant?.availableQuantity ?? 0,
-          },
-        ],
-        activePromotions,
-      ).discountTotal
-    : 0;
-  const displayTotal = basePrice * quantity - bestLineDiscount;
+  const bestLineDiscount = activePromotions ? estimateCartDiscount(previewLineItems, activePromotions).discountTotal : 0;
+  const displayTotal = previewSubtotal - bestLineDiscount;
   const fav = isFavorite(product.id);
   const related = (relatedProducts?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
@@ -184,20 +210,74 @@ export function ProductPage() {
     if (quantity === bundleQuantity) {
       setOfferQuantity(null);
       setQuantity(1);
+      setBundleLines([]);
+      setBundleError(null);
       setJustAdded(false);
       return;
     }
     setOfferQuantity(bundleQuantity);
     setQuantity(selectedVariant ? Math.min(bundleQuantity, selectedVariant.availableQuantity) : bundleQuantity);
+    setBundleLines(Array.from({ length: bundleQuantity }, (_, i) => ({ color: colors[i % colors.length] ?? '', size: null })));
+    setBundleError(null);
     setJustAdded(false);
+  }
+
+  function updateBundleLine(index: number, patch: Partial<{ color: string; size: string | null }>) {
+    setBundleLines((lines) => lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+    setBundleError(null);
   }
 
   function adjustQuantity(next: number) {
     setOfferQuantity(null);
+    setBundleLines([]);
     setQuantity(next);
   }
 
   function handleAddToCart() {
+    if (offerQuantity && bundleLines.length > 0) {
+      for (let i = 0; i < bundleLines.length; i++) {
+        if (!bundleLines[i].size) {
+          setBundleError(t('product.bundleChooseSizeError', { index: i + 1 }));
+          return;
+        }
+      }
+
+      const resolved = bundleLines.map((line) => activeVariants.find((v) => v.color === line.color && v.size === line.size) ?? null);
+      for (let i = 0; i < resolved.length; i++) {
+        if (!resolved[i] || resolved[i]!.availableQuantity < 1) {
+          setBundleError(t('product.bundleOutOfStockError', { index: i + 1 }));
+          return;
+        }
+      }
+
+      resolved.forEach((v) =>
+        addItem(
+          {
+            variantId: v!.id,
+            productId: product!.id,
+            categoryId: product!.categoryId,
+            productSlug: product!.slug,
+            productName: product!.name,
+            color: v!.color,
+            size: v!.size,
+            sku: v!.sku,
+            unitPrice: v!.price,
+            imageUrl: primaryImage?.url ?? null,
+            availableQuantity: v!.availableQuantity,
+          },
+          1,
+        ),
+      );
+      trackEvent('ADD_TO_CART', {
+        content_name: product!.name,
+        content_ids: resolved.map((v) => v!.sku),
+        value: resolved.reduce((sum, v) => sum + v!.price, 0),
+        currency: 'DZD',
+      });
+      setJustAdded(true);
+      return;
+    }
+
     if (!selectedVariant || selectedVariant.availableQuantity < 1) return;
 
     addItem(
@@ -225,7 +305,7 @@ export function ProductPage() {
     setJustAdded(true);
   }
 
-  const canAddToCart = Boolean(selectedVariant && selectedVariant.availableQuantity > 0);
+  const canAddToCart = offerQuantity ? bundleLines.length > 0 : Boolean(selectedVariant && selectedVariant.availableQuantity > 0);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-28 sm:px-6 sm:pb-12 lg:px-8">
@@ -350,6 +430,58 @@ export function ProductPage() {
             </button>
           )}
 
+          {offerQuantity && bundleLines.length > 0 && (
+            <div className="mt-4 rounded-sm border border-black/10 bg-luna-cream-dark/40 p-3">
+              <p className="text-xs font-medium text-luna-black">{t('product.bundleSectionTitle', { quantity: offerQuantity })}</p>
+              <p className="mt-0.5 text-xs text-luna-charcoal/60">{t('product.bundleSectionHint')}</p>
+              <div className="mt-3 space-y-3">
+                {bundleLines.map((line, lineIndex) => (
+                  <div key={lineIndex} className="rounded-sm bg-white p-3">
+                    <p className="mb-2 text-xs font-medium text-luna-black">
+                      {t('product.bundleArticleLabel', { index: lineIndex + 1, color: line.color })}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {colors.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          title={color}
+                          onClick={() => updateBundleLine(lineIndex, { color, size: null })}
+                          className={`h-8 w-8 rounded-full border-2 ${line.color === color ? 'border-luna-black' : 'border-black/15'}`}
+                          style={{ backgroundColor: colorToHex(color) }}
+                        />
+                      ))}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {sizes.map((size) => {
+                        const v = activeVariants.find((candidate) => candidate.color === line.color && candidate.size === size);
+                        const out = !v || v.availableQuantity <= 0;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            disabled={out}
+                            onClick={() => updateBundleLine(lineIndex, { size })}
+                            className={`h-9 min-w-11 rounded-sm border text-xs transition-colors ${
+                              line.size === size
+                                ? 'border-luna-black bg-luna-black text-white'
+                                : out
+                                  ? 'cursor-not-allowed border-black/10 text-luna-charcoal/30 line-through'
+                                  : 'border-black/15 bg-white hover:bg-luna-cream-dark'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {bundleError && <p className="mt-2 text-xs text-red-600">{bundleError}</p>}
+            </div>
+          )}
+
           {product.description && <p className="mt-4 text-sm leading-relaxed text-luna-charcoal/70">{product.description}</p>}
 
           <div className="mt-6">
@@ -408,30 +540,46 @@ export function ProductPage() {
             </div>
           )}
 
-          {selectedVariant && selectedVariant.availableQuantity > 0 && (
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex items-center rounded-sm border border-black/15">
-                <button className="p-3" aria-label={t('product.decrease')} onClick={() => adjustQuantity(Math.max(1, quantity - 1))}>
-                  <Minus className="h-3.5 w-3.5" />
-                </button>
-                <span className="w-8 text-center text-sm">{quantity}</span>
-                <button
-                  className="p-3"
-                  aria-label={t('product.increase')}
-                  onClick={() => adjustQuantity(Math.min(selectedVariant.availableQuantity, quantity + 1))}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
+          {offerQuantity ? (
+            // No quantity stepper in bundle mode — quantity is fixed to the offer's size, and each
+            // unit's variant is picked individually above, not via +/-.
+            <div className="mt-6">
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={!canAddToCart}
-                className="h-12 flex-1 rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
+                className="h-12 w-full rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
               >
                 {t('product.addToCart')}
               </button>
             </div>
+          ) : (
+            selectedVariant &&
+            selectedVariant.availableQuantity > 0 && (
+              <div className="mt-6 flex items-center gap-3">
+                <div className="flex items-center rounded-sm border border-black/15">
+                  <button className="p-3" aria-label={t('product.decrease')} onClick={() => adjustQuantity(Math.max(1, quantity - 1))}>
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="w-8 text-center text-sm">{quantity}</span>
+                  <button
+                    className="p-3"
+                    aria-label={t('product.increase')}
+                    onClick={() => adjustQuantity(Math.min(selectedVariant.availableQuantity, quantity + 1))}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={!canAddToCart}
+                  className="h-12 flex-1 rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
+                >
+                  {t('product.addToCart')}
+                </button>
+              </div>
+            )
           )}
 
           {justAdded && (
@@ -494,7 +642,7 @@ export function ProductPage() {
             disabled={!canAddToCart}
             className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
           >
-            {selectedVariant ? t('product.addWithPrice', { price: formatPrice(displayTotal) }) : t('product.chooseColorSize')}
+            {selectedVariant || bundleFullyResolved ? t('product.addWithPrice', { price: formatPrice(displayTotal) }) : t('product.chooseColorSize')}
           </button>
         )}
       </div>

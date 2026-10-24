@@ -222,10 +222,37 @@ export function estimateCartDiscount(items: CartItem[], activePromotions: Promot
   let discountTotal = 0;
   const promotionNames = new Set<string>();
 
+  // Grouped by product (not line) — mirrors OrderService.CalculatePromotionsAsync exactly, so a
+  // BundlePrice tier counts quantity across every color/size of the same product (e.g. "3 for
+  // 4000 DA" picked as 3 different variants), not just repeated units of one exact variant. Every
+  // other promotion type keeps its per-line math, summed across the group purely so it's comparable
+  // to the group-level BundlePrice discount.
+  const groups = new Map<string, CartItem[]>();
   for (const item of items) {
+    const group = groups.get(item.productId);
+    if (group) group.push(item);
+    else groups.set(item.productId, [item]);
+  }
+
+  for (const group of groups.values()) {
+    const representative = group[0];
+    const groupQuantity = group.reduce((sum, i) => sum + i.quantity, 0);
+    const groupLineTotal = group.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+    const averageUnitPrice = groupQuantity > 0 ? groupLineTotal / groupQuantity : 0;
+
     const best = candidates
-      .filter((p) => isScopedTo(p, item.productId, item.categoryId))
-      .map((p) => ({ promotion: p, discount: computeLineDiscount(p, item) }))
+      .filter((p) => isScopedTo(p, representative.productId, representative.categoryId))
+      .map((p) => ({
+        promotion: p,
+        discount:
+          p.type === 'BundlePrice'
+            ? p.bundleTiers.reduce(
+                (bestTier, tier) =>
+                  Math.max(bestTier, computeBundlePriceDiscount(tier.bundleQuantity, tier.bundleTotalPrice, averageUnitPrice, groupQuantity)),
+                0,
+              )
+            : group.reduce((sum, item) => sum + computeLineDiscount(p, item), 0),
+      }))
       .filter((x) => x.discount > 0)
       .sort((a, b) => b.discount - a.discount || b.promotion.priority - a.promotion.priority)[0];
 

@@ -121,7 +121,12 @@
     "addWithPrice": "Ajouter — {{price}}",
     "chooseColorSize": "Choisissez une couleur et une taille",
     "bundleOffer": "Offre : {{quantity}} articles achetés = {{price}}",
-    "bundleOfferWithFreeShipping": "Offre : {{quantity}} articles achetés = {{price}} + livraison gratuite"
+    "bundleOfferWithFreeShipping": "Offre : {{quantity}} articles achetés = {{price}} + livraison gratuite",
+    "bundleSectionTitle": "Choisissez vos {{quantity}} articles",
+    "bundleSectionHint": "Vous pouvez choisir une couleur et une taille différentes pour chaque article.",
+    "bundleArticleLabel": "Article {{index}} — {{color}}",
+    "bundleChooseSizeError": "Choisissez la taille de l'article {{index}}",
+    "bundleOutOfStockError": "Article {{index}} : cette taille est épuisée dans cette couleur"
   },
   "cart": {
     "empty": {

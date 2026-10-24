@@ -432,6 +432,51 @@ public class PromotionCheckoutTests(AuthWebApplicationFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task BundlePrice_AcrossDifferentVariantsOfSameProduct_StillChargesBundlePrice()
+    {
+        // "3 for 4000 DA" — mirrors the Lovable prototype's PackPicker: each unit of the bundle can be
+        // a different color/size, as long as all 3 are the same product. Buying 1 of each of 3
+        // variants (3 separate OrderItems) must reach the tier exactly like 3 units of one variant.
+        var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1500m);
+        var guestClient = factory.CreateClient();
+
+        var secondVariantResponse = await adminClient.PostAsJsonAsync(
+            $"/api/products/{productId}/variants",
+            new CreateProductVariantRequest("Rouge", "L", $"SKU-{Guid.NewGuid():N}"[..12], null, 10),
+            JsonOptions);
+        secondVariantResponse.EnsureSuccessStatusCode();
+        var secondVariantId = (await secondVariantResponse.Content.ReadFromJsonAsync<ProductVariantDto>(JsonOptions))!.Id;
+
+        var thirdVariantResponse = await adminClient.PostAsJsonAsync(
+            $"/api/products/{productId}/variants",
+            new CreateProductVariantRequest("Bleu", "S", $"SKU-{Guid.NewGuid():N}"[..12], null, 10),
+            JsonOptions);
+        thirdVariantResponse.EnsureSuccessStatusCode();
+        var thirdVariantId = (await thirdVariantResponse.Content.ReadFromJsonAsync<ProductVariantDto>(JsonOptions))!.Id;
+
+        await CreateBundlePricePromotionAsync(adminClient, productId, bundleQuantity: 3, bundleTotalPrice: 4000m);
+
+        var request = new CreateOrderRequest(
+            "Amina", "Benali", "0551234567", "Alger", "Bab Ezzouar", "12 rue des Frères",
+            DeliveryType.HomeDelivery, null,
+            [
+                new OrderItemRequest(variantId, 1),
+                new OrderItemRequest(secondVariantId, 1),
+                new OrderItemRequest(thirdVariantId, 1),
+            ]);
+
+        var response = await guestClient.PostAsJsonAsync("/api/orders", request, JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<OrderDetailDto>(JsonOptions);
+
+        Assert.Equal(4500m, order!.Subtotal); // 3 x 1500
+        Assert.Equal(500m, order.DiscountTotal); // 4500 -> 4000
+        Assert.Equal(4600m, order.Total); // 4500 - 500 + 600
+        Assert.Single(order.AppliedPromotions);
+        Assert.Equal(3, order.Items.Count);
+    }
+
+    [Fact]
     public async Task FreeShippingPromotion_ZeroesOutShippingCost()
     {
         var (variantId, productId, _, adminClient) = await CreateProductWithStockAsync(10, price: 1000m);
