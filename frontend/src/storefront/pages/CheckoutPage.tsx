@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +12,7 @@ import { shippingRatesApi } from '../../lib/api/shipping';
 import { promotionsApi } from '../../lib/api/promotions';
 import { marketingApi } from '../../lib/api/marketing';
 import { ApiError } from '../../lib/api/client';
-import { useCart } from '../../lib/cart/CartContext';
+import { useCart, type CartItem } from '../../lib/cart/CartContext';
 import { formatPrice } from '../../lib/format/price';
 import { useDeliveryTypeLabels } from '../../lib/format/orderLabels';
 import { estimateCartDiscount, estimateFreeShipping } from '../../lib/promotions/estimate';
@@ -42,8 +42,18 @@ const inputClass = 'h-12 w-full rounded-sm border border-black/15 px-3.5 text-sm
 export function CheckoutPage() {
   const { t } = useTranslation();
   const deliveryTypeLabels = useDeliveryTypeLabels();
-  const { items, subtotal, clear } = useCart();
+  const cart = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // "Acheter maintenant" on the product page skips the shared cart entirely (so unrelated items
+  // already sitting in it don't silently tag along) and hands this page its own item list via
+  // navigation state instead — same mechanism OrderConfirmationPage already uses for `order`. Lost on
+  // a hard refresh, same documented tradeoff as that page (Important Decision #24).
+  const directItems = (location.state as { directItems?: CartItem[] } | null)?.directItems;
+  const isDirectPurchase = Boolean(directItems && directItems.length > 0);
+  const items = isDirectPurchase ? directItems! : cart.items;
+  const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0), [items]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [staleCartItems, setStaleCartItems] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -169,7 +179,9 @@ export function CheckoutPage() {
         address: values.address || null,
       });
       rememberOrder(order.orderNumber, values.phone);
-      clear();
+      // A direct purchase never touched the shared cart, so there's nothing of its to clear — doing
+      // so anyway would wipe unrelated items the customer still wants.
+      if (!isDirectPurchase) cart.clear();
       navigate(`/order-confirmation/${order.orderNumber}`, { state: { order } });
     } catch (error) {
       setSubmitError(error instanceof ApiError ? error.message : t('common.error'));
@@ -183,7 +195,7 @@ export function CheckoutPage() {
   }
 
   function handleClearStaleCart() {
-    clear();
+    if (!isDirectPurchase) cart.clear();
     navigate('/categories');
   }
 

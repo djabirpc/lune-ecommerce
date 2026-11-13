@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026-11-13] (on `dev` branch) (32)
+
+### Added
+- **"Acheter maintenant" (buy-now) button on the product page**, per direct request — some customers were asking to skip the cart entirely. Clicking it resolves the current selection (single variant or a fully-picked bundle, same validation as "Ajouter au panier") and sends it straight to `/checkout` via React Router navigation `state` (same mechanism `OrderConfirmationPage` already uses for `order`) — the shared cart is never read or written, so items already sitting in it are untouched and don't silently tag along into the order. Added next to "Ajouter au panier" in both the normal and bundle-offer layouts, and as a second button in the mobile sticky CTA bar.
+
+### Changed
+- `CheckoutPage` now accepts an optional `directItems` list via navigation state; when present, it's used instead of the shared cart for the item list, discount/shipping calculation, and order submission — all already generic over the item list, so no other logic changed. The shared cart's `clear()` is skipped for a direct purchase (there was nothing of its in the order to clear).
+
+### Notes
+- No backend changes — `POST /api/orders` already accepts any item list regardless of how the frontend assembled it.
+- Verified against the real running dev stack: added an unrelated product to the cart, then used "Acheter maintenant" on a different product — checkout showed only the direct item, the order was created with only that item (confirmed via the admin API), and the unrelated cart item survived untouched after submission. Test order cancelled afterward.
+- `tsc`/`oxlint` clean.
+
 ## [2026-10-24] (on `dev` branch) (31)
 
 ### Added

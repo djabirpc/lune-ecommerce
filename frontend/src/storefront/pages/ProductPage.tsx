@@ -8,7 +8,7 @@ import { catalogApi } from '../../lib/api/catalog';
 import { promotionsApi } from '../../lib/api/promotions';
 import { estimatePrice, findBundleTierOptions, findFreeShippingThreshold, computeBundlePriceDiscount, estimateCartDiscount } from '../../lib/promotions/estimate';
 import { colorToHex } from '../../lib/format/colorSwatch';
-import { useCart } from '../../lib/cart/CartContext';
+import { useCart, type CartItem } from '../../lib/cart/CartContext';
 import { useFavorites } from '../../lib/favorites/FavoritesContext';
 import { formatPrice } from '../../lib/format/price';
 import { initProductPixels, trackEvent } from '../../lib/marketing/pixels';
@@ -305,6 +305,76 @@ export function ProductPage() {
     setJustAdded(true);
   }
 
+  // Resolves the exact same selection as handleAddToCart (single variant or a fully-picked bundle),
+  // but never touches the shared cart — sent straight to checkout via navigation state instead, so a
+  // customer who already has unrelated items in their cart isn't surprised by them at checkout. See
+  // CheckoutPage's `directItems` handling.
+  function resolveLineItems(): CartItem[] | null {
+    if (offerQuantity && bundleLines.length > 0) {
+      for (let i = 0; i < bundleLines.length; i++) {
+        if (!bundleLines[i].size) {
+          setBundleError(t('product.bundleChooseSizeError', { index: i + 1 }));
+          return null;
+        }
+      }
+
+      const resolved = bundleLines.map((line) => activeVariants.find((v) => v.color === line.color && v.size === line.size) ?? null);
+      for (let i = 0; i < resolved.length; i++) {
+        if (!resolved[i] || resolved[i]!.availableQuantity < 1) {
+          setBundleError(t('product.bundleOutOfStockError', { index: i + 1 }));
+          return null;
+        }
+      }
+
+      return resolved.map((v) => ({
+        variantId: v!.id,
+        productId: product!.id,
+        categoryId: product!.categoryId,
+        productSlug: product!.slug,
+        productName: product!.name,
+        color: v!.color,
+        size: v!.size,
+        sku: v!.sku,
+        unitPrice: v!.price,
+        quantity: 1,
+        imageUrl: primaryImage?.url ?? null,
+        availableQuantity: v!.availableQuantity,
+      }));
+    }
+
+    if (!selectedVariant || selectedVariant.availableQuantity < 1) return null;
+
+    return [
+      {
+        variantId: selectedVariant.id,
+        productId: product!.id,
+        categoryId: product!.categoryId,
+        productSlug: product!.slug,
+        productName: product!.name,
+        color: selectedVariant.color,
+        size: selectedVariant.size,
+        sku: selectedVariant.sku,
+        unitPrice: selectedVariant.price,
+        quantity,
+        imageUrl: primaryImage?.url ?? null,
+        availableQuantity: selectedVariant.availableQuantity,
+      },
+    ];
+  }
+
+  function handleBuyNow() {
+    const lineItems = resolveLineItems();
+    if (!lineItems) return;
+
+    trackEvent('ADD_TO_CART', {
+      content_name: product!.name,
+      content_ids: lineItems.map((i) => i.sku),
+      value: lineItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),
+      currency: 'DZD',
+    });
+    navigate('/checkout', { state: { directItems: lineItems } });
+  }
+
   const canAddToCart = offerQuantity ? bundleLines.length > 0 : Boolean(selectedVariant && selectedVariant.availableQuantity > 0);
 
   return (
@@ -543,7 +613,7 @@ export function ProductPage() {
           {offerQuantity ? (
             // No quantity stepper in bundle mode — quantity is fixed to the offer's size, and each
             // unit's variant is picked individually above, not via +/-.
-            <div className="mt-6">
+            <div className="mt-6 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={handleAddToCart}
@@ -552,31 +622,49 @@ export function ProductPage() {
               >
                 {t('product.addToCart')}
               </button>
+              <button
+                type="button"
+                onClick={handleBuyNow}
+                disabled={!canAddToCart}
+                className="h-12 w-full rounded-sm bg-luna-accent text-sm font-medium text-white transition hover:bg-luna-accent-dark disabled:opacity-40"
+              >
+                {t('product.buyNow')}
+              </button>
             </div>
           ) : (
             selectedVariant &&
             selectedVariant.availableQuantity > 0 && (
-              <div className="mt-6 flex items-center gap-3">
-                <div className="flex items-center rounded-sm border border-black/15">
-                  <button className="p-3" aria-label={t('product.decrease')} onClick={() => adjustQuantity(Math.max(1, quantity - 1))}>
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="w-8 text-center text-sm">{quantity}</span>
+              <div className="mt-6 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center rounded-sm border border-black/15">
+                    <button className="p-3" aria-label={t('product.decrease')} onClick={() => adjustQuantity(Math.max(1, quantity - 1))}>
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="w-8 text-center text-sm">{quantity}</span>
+                    <button
+                      className="p-3"
+                      aria-label={t('product.increase')}
+                      onClick={() => adjustQuantity(Math.min(selectedVariant.availableQuantity, quantity + 1))}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <button
-                    className="p-3"
-                    aria-label={t('product.increase')}
-                    onClick={() => adjustQuantity(Math.min(selectedVariant.availableQuantity, quantity + 1))}
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={!canAddToCart}
+                    className="h-12 flex-1 rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    {t('product.addToCart')}
                   </button>
                 </div>
                 <button
                   type="button"
-                  onClick={handleAddToCart}
+                  onClick={handleBuyNow}
                   disabled={!canAddToCart}
-                  className="h-12 flex-1 rounded-sm border border-luna-black text-sm text-luna-black transition hover:bg-luna-black hover:text-white disabled:opacity-40"
+                  className="h-12 w-full rounded-sm bg-luna-accent text-sm font-medium text-white transition hover:bg-luna-accent-dark disabled:opacity-40"
                 >
-                  {t('product.addToCart')}
+                  {t('product.buyNow')}
                 </button>
               </div>
             )
@@ -625,7 +713,7 @@ export function ProductPage() {
         </section>
       )}
 
-      {/* Sticky mobile CTA bar — keeps the primary action reachable without scrolling back up */}
+      {/* Sticky mobile CTA bar — keeps the primary actions reachable without scrolling back up */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 p-3 backdrop-blur sm:hidden">
         {justAdded ? (
           <button
@@ -636,14 +724,24 @@ export function ProductPage() {
             {t('product.addedBuyNow')}
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={!canAddToCart}
-            className="w-full rounded-sm bg-luna-black px-6 py-3.5 text-sm font-medium text-white disabled:opacity-40"
-          >
-            {selectedVariant || bundleFullyResolved ? t('product.addWithPrice', { price: formatPrice(displayTotal) }) : t('product.chooseColorSize')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!canAddToCart}
+              className="flex-1 rounded-sm border border-luna-black px-4 py-3.5 text-sm font-medium text-luna-black disabled:opacity-40"
+            >
+              {selectedVariant || bundleFullyResolved ? t('product.addWithPrice', { price: formatPrice(displayTotal) }) : t('product.chooseColorSize')}
+            </button>
+            <button
+              type="button"
+              onClick={handleBuyNow}
+              disabled={!canAddToCart}
+              className="flex-1 rounded-sm bg-luna-accent px-4 py-3.5 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {t('product.buyNow')}
+            </button>
+          </div>
         )}
       </div>
     </div>
